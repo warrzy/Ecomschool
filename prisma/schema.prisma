@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SchoolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AcademicYearStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum AcademicPeriodType {
+  TRIMESTER
+  SEMESTER
+  OTHER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+model School {
+  id        String       @id @default(cuid())
+  name      String
+  code      String       @unique
+  slug      String       @unique
+  address   String?
+  city      String?
+  country   String       @default("BF")
+  phone     String?
+  email     String?
+  website   String?
+  currency  String       @default("XOF")
+  timezone  String       @default("Africa/Ouagadougou")
+  locale    String       @default("fr")
+  status    SchoolStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  users         User[]
+  academicYears AcademicYear[]
+
+  @@index([status])
+}
+
+model User {
+  id           String     @id @default(cuid())
+  schoolId     String
+  school       School     @relation(fields: [schoolId], references: [id])
+
+  email        String
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  status       UserStatus @default(ACTIVE)
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  userRoles    UserRole[]
+
+  @@unique([schoolId, email])
+  @@index([schoolId])
+  @@index([email])
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([name])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id])
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, roleId])
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model AcademicYear {
+  id        String             @id @default(cuid())
+  schoolId  String
+  school    School             @relation(fields: [schoolId], references: [id])
+
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isCurrent Boolean            @default(false)
+  status    AcademicYearStatus @default(DRAFT)
+
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  periods   AcademicPeriod[]
+
+  @@unique([schoolId, name])
+  @@index([schoolId])
+  @@index([schoolId, isCurrent])
+}
+
+model AcademicPeriod {
+  id             String              @id @default(cuid())
+  academicYearId String
+  academicYear   AcademicYear        @relation(fields: [academicYearId], references: [id])
+
+  name           String
+  number         Int
+  startDate      DateTime
+  endDate        DateTime
+  type           AcademicPeriodType
+  isLocked       Boolean             @default(false)
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([academicYearId, number])
+  @@index([academicYearId])
+  @@index([academicYearId, isLocked])
+}
