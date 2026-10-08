@@ -5,6 +5,7 @@ export type NavItem = {
 
 export const appNav: NavItem[] = [
   { label: "Tableau de bord", href: "/app" },
+  { label: "Années scolaires", href: "/app/academic-years" },
   { label: "Élèves", href: "/app/students" },
   { label: "Parents", href: "/app/guardians" },
   { label: "Enseignants", href: "/app/teachers" },
