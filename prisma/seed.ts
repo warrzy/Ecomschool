@@ -108,7 +108,10 @@ async function main() {
         email: "admin@ecom-school.local",
       },
     },
-    update: {},
+    update: {
+      passwordHash: adminPasswordHash,
+      status: "ACTIVE",
+    },
     create: {
       schoolId: school.id,
       email: "admin@ecom-school.local",
