@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { getSession } from "@/lib/auth/session";
 
+export const instant = false;
+
 export default async function DashboardPage() {
   const session = await getSession();
   const schoolId = session?.user.schoolId;
