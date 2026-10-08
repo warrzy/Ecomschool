@@ -26,6 +26,9 @@ export default async function AppLayout({
             <a className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100" href="/app">
               Tableau de bord
             </a>
+            <a className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100" href="/app/schools">
+              Établissements
+            </a>
           </nav>
         </aside>
 
