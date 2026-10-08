@@ -14,21 +14,30 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
     setLoading(true);
     setError(null);
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      callbackUrl,
-      redirect: false,
-    });
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        callbackUrl,
+        redirect: false,
+      });
 
-    setLoading(false);
+      if (!res) {
+        setError("Erreur de connexion");
+        return;
+      }
 
-    if (!res || res.error) {
-      setError("Identifiants invalides");
-      return;
+      if (res.error) {
+        setError(res.error === "CredentialsSignin" ? "Identifiants invalides" : res.error);
+        return;
+      }
+
+      window.location.href = res.url ?? callbackUrl;
+    } catch {
+      setError("Erreur de connexion");
+    } finally {
+      setLoading(false);
     }
-
-    window.location.href = res.url ?? callbackUrl;
   }
 
   return (
