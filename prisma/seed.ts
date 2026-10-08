@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { prisma } from "@/lib/db/prisma";
+import { hashPassword } from "@/lib/auth/password";
 
 async function main() {
   const school = await prisma.school.upsert({
@@ -91,12 +92,14 @@ async function main() {
   });
 
   await prisma.rolePermission.createMany({
-    data: allPermissions.map((p) => ({
+    data: allPermissions.map((p: { id: string }) => ({
       roleId: superAdminRole.id,
       permissionId: p.id,
     })),
     skipDuplicates: true,
   });
+
+  const adminPasswordHash = await hashPassword("admin12345");
 
   const adminUser = await prisma.user.upsert({
     where: {
@@ -109,7 +112,7 @@ async function main() {
     create: {
       schoolId: school.id,
       email: "admin@ecom-school.local",
-      passwordHash: "CHANGE_ME",
+      passwordHash: adminPasswordHash,
       firstName: "Admin",
       lastName: "ECOM-SCHOOL",
       status: "ACTIVE",
