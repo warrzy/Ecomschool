@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { appNav } from "@/app/app/ui/nav";
+import { userIsSuperAdmin } from "@/lib/permissions/rbac";
 
 export const instant = false;
 
@@ -14,7 +15,7 @@ export default async function AppLayout({
   if (!session) redirect("/login");
 
   const schoolId = session.user.schoolId;
-  const [school, academicYear] = await Promise.all([
+  const [school, academicYear, isSuperAdmin] = await Promise.all([
     prisma.school.findUnique({
       where: { id: schoolId },
       select: { name: true },
@@ -23,6 +24,7 @@ export default async function AppLayout({
       where: { schoolId, isCurrent: true },
       select: { name: true },
     }),
+    userIsSuperAdmin(session.user.id),
   ]);
 
   return (
@@ -48,6 +50,14 @@ export default async function AppLayout({
                 {item.label}
               </a>
             ))}
+            {isSuperAdmin ? (
+              <a
+                className="mt-2 block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
+                href="/app/onboarding"
+              >
+                Onboarding établissement
+              </a>
+            ) : null}
           </nav>
         </aside>
 
