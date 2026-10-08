@@ -4,9 +4,10 @@ import { requirePermission } from "@/lib/permissions/guard";
 export const instant = false;
 
 export default async function SchoolsPage() {
-  await requirePermission("school.read");
+  const tenant = await requirePermission("school.read");
 
   const schools = await prisma.school.findMany({
+    where: tenant.isSuperAdmin ? undefined : { id: tenant.schoolId },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

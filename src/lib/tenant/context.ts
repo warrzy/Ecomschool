@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth/session";
+import { userIsSuperAdmin } from "@/lib/permissions/rbac";
 
 export async function requireTenant() {
   const session = await getSession();
@@ -11,8 +12,11 @@ export async function requireTenant() {
     return null;
   }
 
+  const isSuperAdmin = await userIsSuperAdmin(session.user.id);
+
   return {
     userId: session.user.id,
     schoolId,
+    isSuperAdmin,
   };
 }
