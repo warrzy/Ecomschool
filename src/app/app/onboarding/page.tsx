@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
-import { requireTenant } from "@/lib/tenant/context";
+import { getSession } from "@/lib/auth/session";
 
 export const instant = false;
 
 export default async function OnboardingIndex() {
-  const tenant = await requireTenant();
-  if (!tenant) redirect("/login");
+  const session = await getSession();
+  if (!session) redirect("/login");
 
   redirect("/app/onboarding/school");
 }

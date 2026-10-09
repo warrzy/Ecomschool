@@ -119,6 +119,16 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
       select: { id: true },
     });
 
+    await tx.schoolMembership.create({
+      data: {
+        schoolId: school.id,
+        userId: adminUser.id,
+        roleId: adminRole.id,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+
     return { schoolId: school.id, adminUserId: adminUser.id };
   });
 

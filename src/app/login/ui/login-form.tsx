@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 
 export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [email, setEmail] = useState("admin@ecom-school.local");
-  const [password, setPassword] = useState("admin12345");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,9 +95,6 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             {loading ? "Connexion..." : "Se connecter"}
           </button>
 
-          <div className="text-xs text-zinc-500">
-            Identifiants démo : admin@ecom-school.local / admin12345
-          </div>
         </form>
       </div>
     </div>

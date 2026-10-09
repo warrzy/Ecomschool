@@ -11,5 +11,5 @@ export default async function LoginPage({
   const raw = sp.callbackUrl;
   const callbackUrl = Array.isArray(raw) ? raw[0] : raw;
 
-  return <LoginForm callbackUrl={callbackUrl ?? "/app"} />;
+  return <LoginForm callbackUrl={callbackUrl ?? "/"} />;
 }

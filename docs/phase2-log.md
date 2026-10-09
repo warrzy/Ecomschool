@@ -24,3 +24,11 @@
 - Backup: `scripts/phase2/backup.ts` → `backups/backup_20261009_144254.dump`
 - Data script: `scripts/phase2/backfill-academicperiod-schoolid.ts` → updatedRows=3, nullSchoolIdCount=0
 - Checks: `npm run typecheck` OK, `npm run lint` OK, `npm run build` OK
+
+## 2026-10-09 — Tenant access control (step 18 groundwork)
+
+- Enforced active `SchoolMembership` for non-platform access (`requireTenant()` redirects to `/app/onboarding` if missing)
+- Onboarding pages now require session only (no membership required)
+- Onboarding school creation now creates an ACTIVE `SchoolMembership` for the admin user
+- Login default `callbackUrl` is `/` to rely on root redirect logic (platform vs school)
+- Removed hardcoded demo password from login UI
