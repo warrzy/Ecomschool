@@ -108,7 +108,17 @@ async function main() {
     throw new Error("SEED_TEST_PASSWORD is not set (required for login-test)");
   }
 
-  const port = Number(process.env.LOGIN_TEST_PORT ?? "3000");
+  const authUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://localhost:3000";
+  const inferredPort = (() => {
+    try {
+      const u = new URL(authUrl);
+      return u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80;
+    } catch {
+      return 3000;
+    }
+  })();
+
+  const port = Number(process.env.LOGIN_TEST_PORT ?? String(inferredPort));
   const baseUrl = `http://localhost:${port}`;
 
   const child = spawn(
