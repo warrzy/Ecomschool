@@ -54,10 +54,10 @@ model School {
 
 model User {
   id           String     @id @default(cuid())
-  schoolId     String
-  school       School     @relation(fields: [schoolId], references: [id])
+  schoolId     String?
+  school       School?    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
-  email        String
+  email        String     @unique
   passwordHash String
   firstName    String?
   lastName     String?
@@ -68,7 +68,6 @@ model User {
 
   userRoles    UserRole[]
 
-  @@unique([schoolId, email])
   @@index([schoolId])
   @@index([email])
 }

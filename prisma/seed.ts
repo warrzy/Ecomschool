@@ -102,12 +102,7 @@ async function main() {
   const adminPasswordHash = await hashPassword("admin12345");
 
   const adminUser = await prisma.user.upsert({
-    where: {
-      schoolId_email: {
-        schoolId: school.id,
-        email: "admin@ecom-school.local",
-      },
-    },
+    where: { email: "admin@ecom-school.local" },
     update: {
       passwordHash: adminPasswordHash,
       status: "ACTIVE",

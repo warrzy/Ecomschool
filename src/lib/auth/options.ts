@@ -48,6 +48,9 @@ export const authOptions: NextAuthOptions = {
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
 
+        // TEMPORAIRE phase 2 — remplacé par getTenantContext() à l'étape 18 ; doit être retiré avant l'étape 19
+        if (!user.schoolId) return null;
+
         const authUser: AuthUser = {
           id: user.id,
           email: user.email,
