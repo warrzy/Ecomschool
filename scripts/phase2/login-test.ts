@@ -108,7 +108,7 @@ async function main() {
     throw new Error("SEED_TEST_PASSWORD is not set (required for login-test)");
   }
 
-  const port = Number(process.env.LOGIN_TEST_PORT ?? "3005");
+  const port = Number(process.env.LOGIN_TEST_PORT ?? "3000");
   const baseUrl = `http://localhost:${port}`;
 
   const child = spawn(
