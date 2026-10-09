@@ -32,3 +32,8 @@
 - Onboarding school creation now creates an ACTIVE `SchoolMembership` for the admin user
 - Login default `callbackUrl` is `/` to rely on root redirect logic (platform vs school)
 - Removed hardcoded demo password from login UI
+
+## 2026-10-09 — Bootstrap reference data
+
+- Backup: `scripts/phase2/backup.ts` → `backups/backup_20261009_150902.dump`
+- Data script: `scripts/phase2/bootstrap-reference-data.ts` → createdPermissions=5, ensuredRoles=1, createdRolePermissions=13

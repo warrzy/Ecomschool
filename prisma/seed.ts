@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 
 async function main() {
+  const seedPassword = process.env.SEED_TEST_PASSWORD;
+  if (!seedPassword) {
+    throw new Error("SEED_TEST_PASSWORD is required to run the seed in phase 2");
+  }
+
   const school = await prisma.school.upsert({
     where: { code: "WEND-PANGA" },
     update: {},
@@ -45,6 +50,7 @@ async function main() {
             startDate: new Date("2026-10-01T00:00:00.000Z"),
             endDate: new Date("2026-12-31T23:59:59.000Z"),
             type: "TRIMESTER",
+            schoolId: school.id,
           },
           {
             name: "Trimestre 2",
@@ -52,6 +58,7 @@ async function main() {
             startDate: new Date("2027-01-01T00:00:00.000Z"),
             endDate: new Date("2027-03-31T23:59:59.000Z"),
             type: "TRIMESTER",
+            schoolId: school.id,
           },
           {
             name: "Trimestre 3",
@@ -59,6 +66,7 @@ async function main() {
             startDate: new Date("2027-04-01T00:00:00.000Z"),
             endDate: new Date("2027-07-31T23:59:59.000Z"),
             type: "TRIMESTER",
+            schoolId: school.id,
           },
         ],
       },
@@ -100,6 +108,78 @@ async function main() {
     select: { id: true },
   });
 
+  const existingAdminSchoolRole = await prisma.role.findFirst({
+    where: {
+      name: "ADMIN_SCHOOL",
+      scope: "SCHOOL",
+      schoolId: school.id,
+    },
+    select: { id: true },
+  });
+
+  const adminSchoolRole =
+    existingAdminSchoolRole ??
+    (await prisma.role.create({
+      data: {
+        name: "ADMIN_SCHOOL",
+        scope: "SCHOOL",
+        schoolId: school.id,
+        description: "Administrateur établissement",
+      },
+      select: { id: true },
+    }));
+
+  await prisma.rolePermission.createMany({
+    data: allPermissions.map((p: { id: string }) => ({
+      roleId: adminSchoolRole.id,
+      permissionId: p.id,
+    })),
+    skipDuplicates: true,
+  });
+
+  const schoolAdminPasswordHash = await hashPassword(seedPassword);
+
+  const schoolAdminUser = await prisma.user.upsert({
+    where: { email: "school-admin@ecom-school.local" },
+    update: {
+      passwordHash: schoolAdminPasswordHash,
+      status: "ACTIVE",
+      schoolId: school.id,
+    },
+    create: {
+      schoolId: school.id,
+      email: "school-admin@ecom-school.local",
+      passwordHash: schoolAdminPasswordHash,
+      firstName: "School",
+      lastName: "Admin",
+      status: "ACTIVE",
+      userRoles: {
+        create: [{ roleId: adminSchoolRole.id }],
+      },
+    },
+    select: { id: true },
+  });
+
+  await prisma.schoolMembership.upsert({
+    where: {
+      schoolId_userId: {
+        schoolId: school.id,
+        userId: schoolAdminUser.id,
+      },
+    },
+    update: {
+      roleId: adminSchoolRole.id,
+      status: "ACTIVE",
+    },
+    create: {
+      schoolId: school.id,
+      userId: schoolAdminUser.id,
+      roleId: adminSchoolRole.id,
+      status: "ACTIVE",
+    },
+    select: { id: true },
+  });
+
   await prisma.rolePermission.createMany({
     data: allPermissions.map((p: { id: string }) => ({
       roleId: superAdminRole.id,
@@ -108,7 +188,7 @@ async function main() {
     skipDuplicates: true,
   });
 
-  const adminPasswordHash = await hashPassword("admin12345");
+  const adminPasswordHash = await hashPassword(seedPassword);
 
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@ecom-school.local" },
@@ -133,6 +213,7 @@ async function main() {
   console.log("Seed completed", {
     schoolId: school.id,
     adminUserId: adminUser.id,
+    schoolAdminUserId: schoolAdminUser.id,
   });
 }
 
