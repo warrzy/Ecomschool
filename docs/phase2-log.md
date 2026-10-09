@@ -6,3 +6,8 @@
 - Migration: `20261009102810_phase2_m3_school_membership` (add `roleId` + FK + index)
 - Checks: `npm run typecheck` OK, `npm run lint` OK, `npm run build` OK
 - Commit: `phase2(M3): school membership with role` (`4190483`)
+
+## 2026-10-09 — Rename platform role
+
+- Data script: `scripts/phase2/rename-platform-owner.ts` (SUPER_ADMIN → PLATFORM_OWNER)
+- Checks: `npm run typecheck` OK, `npm run lint` OK, `npm run build` OK

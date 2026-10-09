@@ -5,7 +5,7 @@ export async function userIsSuperAdmin(userId: string) {
     where: {
       userId,
       role: {
-        name: "SUPER_ADMIN",
+        name: "PLATFORM_OWNER",
       },
     },
   });

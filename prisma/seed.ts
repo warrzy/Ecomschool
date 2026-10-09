@@ -79,7 +79,7 @@ async function main() {
 
   const existingSuperAdminRole = await prisma.role.findFirst({
     where: {
-      name: "SUPER_ADMIN",
+      name: "PLATFORM_OWNER",
       scope: "PLATFORM",
       schoolId: null,
     },
@@ -89,9 +89,9 @@ async function main() {
     existingSuperAdminRole ??
     (await prisma.role.create({
       data: {
-        name: "SUPER_ADMIN",
+        name: "PLATFORM_OWNER",
         scope: "PLATFORM",
-        description: "Super admin plateforme ECOM-SCHOOL",
+        description: "Platform owner ECOM-SCHOOL",
       },
     }));
 
