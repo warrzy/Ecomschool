@@ -21,3 +21,12 @@ Workflow for future migrations:
 - Review `migration.sql`.
 - Remove any `DROP INDEX` that targets `Role_scope_name_system_key` or `Role_scope_schoolId_name_key`.
 - Apply with `npx prisma migrate deploy`.
+
+## Membership → Role constraints (enforced in code)
+
+Rule: a `SchoolMembership` must reference a `Role` with `scope = SCHOOL`, and the role must be either:
+
+- a system role (`Role.schoolId IS NULL`), or
+- a school role belonging to the same school as the membership (`Role.schoolId = SchoolMembership.schoolId`).
+
+This rule is enforced in application code (step 18 and data backfill), not by a database constraint.
