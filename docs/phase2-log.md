@@ -17,3 +17,10 @@
 - Backup: `scripts/phase2/backup.ts` → `backups/backup_20261009_142756.dump`
 - Data script: `scripts/phase2/backfill-memberships.ts`
 - Result: createdRoles=1, createdMemberships=0, skippedPlatformUsers=1
+
+## 2026-10-09 — AcademicPeriod.schoolId
+
+- Migration: `20261009143735_phase2_m4_academicperiod_schoolid` (add nullable `AcademicPeriod.schoolId` + FK + index)
+- Backup: `scripts/phase2/backup.ts` → `backups/backup_20261009_144254.dump`
+- Data script: `scripts/phase2/backfill-academicperiod-schoolid.ts` → updatedRows=3, nullSchoolIdCount=0
+- Checks: `npm run typecheck` OK, `npm run lint` OK, `npm run build` OK

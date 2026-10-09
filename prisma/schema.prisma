@@ -56,18 +56,19 @@ model School {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  users         User[]
-  roles         Role[]
-  memberships   SchoolMembership[]
-  academicYears AcademicYear[]
+  users           User[]
+  roles           Role[]
+  memberships     SchoolMembership[]
+  academicPeriods AcademicPeriod[]
+  academicYears   AcademicYear[]
 
   @@index([status])
 }
 
 model User {
-  id           String     @id @default(cuid())
-  schoolId     String?
-  school       School?    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  id       String  @id @default(cuid())
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
   email        String     @unique
   passwordHash String
@@ -75,11 +76,11 @@ model User {
   lastName     String?
   status       UserStatus @default(ACTIVE)
 
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  userRoles    UserRole[]
-  memberships  SchoolMembership[]
+  userRoles   UserRole[]
+  memberships SchoolMembership[]
 
   @@index([schoolId])
   @@index([email])
@@ -108,13 +109,13 @@ model SchoolMembership {
 // - (scope, name) unique quand schoolId IS NULL
 // - (scope, schoolId, name) unique quand schoolId IS NOT NULL
 model Role {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
 
-  scope       RoleScope @default(SCHOOL)
-  schoolId    String?
-  school      School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  scope    RoleScope @default(SCHOOL)
+  schoolId String?
+  school   School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
   rolePermissions RolePermission[]
   userRoles       UserRole[]
@@ -122,8 +123,8 @@ model Role {
 }
 
 model Permission {
-  id          String           @id @default(cuid())
-  key         String           @unique
+  id          String  @id @default(cuid())
+  key         String  @unique
   description String?
 
   rolePermissions RolePermission[]
@@ -152,9 +153,9 @@ model RolePermission {
 }
 
 model AcademicYear {
-  id        String             @id @default(cuid())
-  schoolId  String
-  school    School             @relation(fields: [schoolId], references: [id])
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id])
 
   name      String
   startDate DateTime
@@ -162,10 +163,10 @@ model AcademicYear {
   isCurrent Boolean            @default(false)
   status    AcademicYearStatus @default(DRAFT)
 
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  periods   AcademicPeriod[]
+  periods AcademicPeriod[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -173,21 +174,25 @@ model AcademicYear {
 }
 
 model AcademicPeriod {
-  id             String              @id @default(cuid())
+  id             String       @id @default(cuid())
   academicYearId String
-  academicYear   AcademicYear        @relation(fields: [academicYearId], references: [id])
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
 
-  name           String
-  number         Int
-  startDate      DateTime
-  endDate        DateTime
-  type           AcademicPeriodType
-  isLocked       Boolean             @default(false)
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  name      String
+  number    Int
+  startDate DateTime
+  endDate   DateTime
+  type      AcademicPeriodType
+  isLocked  Boolean            @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([academicYearId, number])
   @@index([academicYearId])
   @@index([academicYearId, isLocked])
+  @@index([schoolId])
 }
