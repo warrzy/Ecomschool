@@ -36,11 +36,12 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "src/prisma/**/*"
+    "src/prisma/**/*",
+    ".next/dev/types/validator.ts"
   ]
 }

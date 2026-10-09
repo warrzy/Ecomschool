@@ -1,13 +1,12 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth/session";
-import { prisma } from "@/lib/db/prisma";
-import { appNav } from "@/app/app/ui/nav";
 import { userIsSuperAdmin } from "@/lib/permissions/rbac";
+import { platformNav } from "@/app/platform/ui/nav";
 
 export const instant = false;
 
-export default async function AppLayout({
+export default async function PlatformLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -17,19 +16,7 @@ export default async function AppLayout({
   if (!session) redirect("/login" as never);
 
   const isSuperAdmin = await userIsSuperAdmin(session.user.id);
-  if (isSuperAdmin) redirect("/platform" as never);
-
-  const schoolId = session.user.schoolId;
-  const [school, academicYear] = await Promise.all([
-    prisma.school.findUnique({
-      where: { id: schoolId },
-      select: { name: true },
-    }),
-    prisma.academicYear.findFirst({
-      where: { schoolId, isCurrent: true },
-      select: { name: true },
-    }),
-  ]);
+  if (!isSuperAdmin) redirect("/app" as never);
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -45,7 +32,7 @@ export default async function AppLayout({
           </div>
 
           <nav className="space-y-1 text-sm">
-            {appNav.map((item) => (
+            {platformNav.map((item) => (
               <a
                 key={item.href}
                 className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
@@ -59,32 +46,18 @@ export default async function AppLayout({
 
         <div className="flex flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <div className="text-xs text-zinc-500">Établissement</div>
-                <div className="text-sm font-medium text-zinc-900">
-                  {school?.name ?? "-"}
-                </div>
-              </div>
-              <div className="hidden sm:block">
-                <div className="text-xs text-zinc-500">Année</div>
-                <div className="text-sm font-medium text-zinc-900">
-                  {academicYear?.name ?? "-"}
-                </div>
-              </div>
+            <div>
+              <div className="text-xs text-zinc-500">Espace</div>
+              <div className="text-sm font-medium text-zinc-900">Plateforme</div>
             </div>
 
             <div className="flex items-center gap-3">
-              <input
-                className="hidden h-9 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 md:block"
-                placeholder="Rechercher..."
-              />
-            <form action="/api/auth/signout" method="post">
-              <input type="hidden" name="callbackUrl" value="/login" />
-              <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50">
-                Déconnexion
-              </button>
-            </form>
+              <form action="/api/auth/signout" method="post">
+                <input type="hidden" name="callbackUrl" value="/login" />
+                <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50">
+                  Déconnexion
+                </button>
+              </form>
             </div>
           </header>
 
