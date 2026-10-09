@@ -28,6 +28,11 @@ enum UserStatus {
   DISABLED
 }
 
+enum RoleScope {
+  PLATFORM
+  SCHOOL
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -47,6 +52,7 @@ model School {
   updatedAt DateTime     @updatedAt
 
   users         User[]
+  roles         Role[]
   academicYears AcademicYear[]
 
   @@index([status])
@@ -72,15 +78,20 @@ model User {
   @@index([email])
 }
 
+// Unicité assurée par indexes uniques partiels SQL (ajoutés manuellement dans la migration M2):
+// - (scope, name) unique quand schoolId IS NULL
+// - (scope, schoolId, name) unique quand schoolId IS NOT NULL
 model Role {
-  id          String           @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   description String?
 
+  scope       RoleScope @default(SCHOOL)
+  schoolId    String?
+  school      School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
   rolePermissions RolePermission[]
   userRoles       UserRole[]
-
-  @@unique([name])
 }
 
 model Permission {

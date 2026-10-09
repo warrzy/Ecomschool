@@ -77,14 +77,23 @@ async function main() {
     skipDuplicates: true,
   });
 
-  const superAdminRole = await prisma.role.upsert({
-    where: { name: "SUPER_ADMIN" },
-    update: {},
-    create: {
+  const existingSuperAdminRole = await prisma.role.findFirst({
+    where: {
       name: "SUPER_ADMIN",
-      description: "Super admin plateforme ECOM-SCHOOL",
+      scope: "PLATFORM",
+      schoolId: null,
     },
   });
+
+  const superAdminRole =
+    existingSuperAdminRole ??
+    (await prisma.role.create({
+      data: {
+        name: "SUPER_ADMIN",
+        scope: "PLATFORM",
+        description: "Super admin plateforme ECOM-SCHOOL",
+      },
+    }));
 
   const allPermissions = await prisma.permission.findMany({
     where: { key: { in: permissions } },

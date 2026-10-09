@@ -83,15 +83,26 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
       })),
     });
 
-    const adminRole = await tx.role.upsert({
-      where: { name: "ADMIN_SCHOOL" },
-      update: {},
-      create: {
+    const existingAdminRole = await tx.role.findFirst({
+      where: {
         name: "ADMIN_SCHOOL",
-        description: "Administrateur établissement",
+        scope: "SCHOOL",
+        schoolId: school.id,
       },
       select: { id: true },
     });
+
+    const adminRole =
+      existingAdminRole ??
+      (await tx.role.create({
+        data: {
+          name: "ADMIN_SCHOOL",
+          scope: "SCHOOL",
+          schoolId: school.id,
+          description: "Administrateur établissement",
+        },
+        select: { id: true },
+      }));
 
     const adminUser = await tx.user.create({
       data: {
