@@ -11,3 +11,9 @@
 
 - Data script: `scripts/phase2/rename-platform-owner.ts` (SUPER_ADMIN → PLATFORM_OWNER)
 - Checks: `npm run typecheck` OK, `npm run lint` OK, `npm run build` OK
+
+## 2026-10-09 — Backfill school memberships
+
+- Backup: `scripts/phase2/backup.ts` → `backups/backup_20261009_142756.dump`
+- Data script: `scripts/phase2/backfill-memberships.ts`
+- Result: createdRoles=1, createdMemberships=0, skippedPlatformUsers=1
