@@ -30,3 +30,9 @@ Rule: a `SchoolMembership` must reference a `Role` with `scope = SCHOOL`, and th
 - a school role belonging to the same school as the membership (`Role.schoolId = SchoolMembership.schoolId`).
 
 This rule is enforced in application code (step 18 and data backfill), not by a database constraint.
+
+Enforcement points (2026-10-11):
+
+- `getSchoolAssignableRole()` / `listSchoolAssignableRoles()` in `src/lib/permissions/rbac.ts` only return `scope = SCHOOL` roles that are system roles or belong to the same school.
+- `userHasSchoolPermission()` counts only ACTIVE memberships whose role satisfies the same constraint.
+- `src/lib/services/users.ts` rejects any create/update targeting a cross-school or `scope = PLATFORM` role (`INVALID_ROLE`, `CANNOT_TARGET_PLATFORM_USER`).
