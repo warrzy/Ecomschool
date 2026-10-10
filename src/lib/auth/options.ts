@@ -7,7 +7,7 @@ type AuthUser = {
   id: string;
   email: string;
   name?: string;
-  schoolId: string;
+  schoolId: string | null;
 };
 
 export const authOptions: NextAuthOptions = {
@@ -48,8 +48,12 @@ export const authOptions: NextAuthOptions = {
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
 
-        // TEMPORAIRE phase 2 — remplacé par getTenantContext() à l'étape 18 ; doit être retiré avant l'étape 19
-        if (!user.schoolId) return null;
+        if (!user.schoolId) {
+          const hasPlatformRole = await prisma.userRole.count({
+            where: { userId: user.id, role: { scope: "PLATFORM" } },
+          });
+          if (hasPlatformRole === 0) return null;
+        }
 
         const authUser: AuthUser = {
           id: user.id,
@@ -67,7 +71,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         const u = user as unknown as AuthUser;
         token.userId = u.id;
-        token.schoolId = u.schoolId;
+        token.schoolId = u.schoolId ?? null;
       }
       return token;
     },

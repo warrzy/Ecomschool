@@ -1,13 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
-import { redirect } from "next/navigation";
-import { requireTenant } from "@/lib/tenant/context";
+import { requirePlatformPermission } from "@/lib/permissions/guard";
 
 export const instant = false;
 
 export default async function PlatformSchoolsPage() {
-  const tenant = await requireTenant();
-  if (!tenant) redirect("/login" as never);
-  if (!tenant.isSuperAdmin) redirect("/app" as never);
+  await requirePlatformPermission("platform.schools.read");
 
   const schools = await prisma.school.findMany({
     orderBy: { createdAt: "desc" },

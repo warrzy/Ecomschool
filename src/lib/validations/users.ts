@@ -6,6 +6,7 @@ export const userCreateSchema = z.object({
   firstName: z.string().trim().min(1).optional(),
   lastName: z.string().trim().min(1).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]),
+  roleId: z.string().min(1),
 });
 
 export type UserCreateInput = z.infer<typeof userCreateSchema>;
@@ -17,6 +18,7 @@ export const userUpdateSchema = z.object({
   firstName: z.string().trim().min(1).optional(),
   lastName: z.string().trim().min(1).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]),
+  roleId: z.string().min(1).optional(),
 });
 
 export type UserUpdateInput = z.infer<typeof userUpdateSchema>;

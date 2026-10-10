@@ -1,7 +1,5 @@
-import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { getSession } from "@/lib/auth/session";
-import { userIsSuperAdmin } from "@/lib/permissions/rbac";
+import { requirePlatformContext } from "@/lib/tenant/context";
 import { platformNav } from "@/app/platform/ui/nav";
 
 export const instant = false;
@@ -12,11 +10,7 @@ export default async function PlatformLayout({
   children: React.ReactNode;
 }) {
   cookies();
-  const session = await getSession();
-  if (!session) redirect("/login" as never);
-
-  const isSuperAdmin = await userIsSuperAdmin(session.user.id);
-  if (!isSuperAdmin) redirect("/app" as never);
+  await requirePlatformContext();
 
   return (
     <div className="min-h-screen bg-zinc-50">

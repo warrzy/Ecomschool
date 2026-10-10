@@ -4,7 +4,12 @@ export type NavItem = {
 };
 
 export const platformNav: NavItem[] = [
-  { label: "Dashboard plateforme", href: "/platform" },
+  { label: "Vue générale", href: "/platform" },
   { label: "Établissements", href: "/platform/schools" },
-  { label: "Onboarding établissement", href: "/platform/onboarding" },
+  { label: "Création établissement", href: "/platform/onboarding" },
+  { label: "Administrateurs", href: "/platform/administrators" },
+  { label: "Modules", href: "/platform/modules" },
+  { label: "Abonnements", href: "/platform/subscriptions" },
+  { label: "Audit", href: "/platform/audit" },
+  { label: "Assistance", href: "/platform/support" },
 ];

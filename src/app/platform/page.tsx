@@ -1,11 +1,16 @@
-import { redirect } from "next/navigation";
-import { requireTenant } from "@/lib/tenant/context";
+import { prisma } from "@/lib/db/prisma";
+import { requirePlatformContext } from "@/lib/tenant/context";
 
 export const instant = false;
 
 export default async function PlatformDashboard() {
-  const tenant = await requireTenant();
-  if (!tenant) redirect("/login");
+  await requirePlatformContext();
+
+  const [schoolCount, userCount, membershipCount] = await Promise.all([
+    prisma.school.count(),
+    prisma.user.count(),
+    prisma.schoolMembership.count({ where: { status: "ACTIVE" } }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -19,15 +24,21 @@ export default async function PlatformDashboard() {
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="text-sm text-zinc-500">Établissements</div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">-</div>
+          <div className="mt-2 text-2xl font-semibold text-zinc-900">
+            {schoolCount}
+          </div>
         </div>
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="text-sm text-zinc-500">Utilisateurs</div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">-</div>
+          <div className="mt-2 text-2xl font-semibold text-zinc-900">
+            {userCount}
+          </div>
         </div>
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <div className="text-sm text-zinc-500">Santé système</div>
-          <div className="mt-2 text-2xl font-semibold text-zinc-900">OK</div>
+          <div className="text-sm text-zinc-500">Memberships actifs</div>
+          <div className="mt-2 text-2xl font-semibold text-zinc-900">
+            {membershipCount}
+          </div>
         </div>
       </div>
     </div>

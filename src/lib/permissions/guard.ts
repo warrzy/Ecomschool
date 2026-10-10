@@ -1,19 +1,47 @@
 import { redirect } from "next/navigation";
-import { requireTenant } from "@/lib/tenant/context";
-import { userHasPermission } from "@/lib/permissions/rbac";
+import {
+  requirePlatformContext,
+  requireSchoolContext,
+  type SchoolContext,
+} from "@/lib/tenant/context";
+import {
+  userHasPlatformPermission,
+  userHasSchoolPermission,
+} from "@/lib/permissions/rbac";
 
-export async function requirePermission(permissionKey: string) {
-  const tenant = await requireTenant();
-  if (!tenant) redirect("/login");
+export async function requirePlatformPermission(permissionKey: string) {
+  const ctx = await requirePlatformContext();
 
-  const ok = await userHasPermission({
-    userId: tenant.userId,
+  const ok = await userHasPlatformPermission({
+    userId: ctx.userId,
     permissionKey,
   });
 
-  if (!ok) {
-    redirect("/app");
-  }
+  if (!ok) redirect("/platform" as never);
 
-  return tenant;
+  return ctx;
+}
+
+export async function requireSchoolPermission(permissionKey: string) {
+  const ctx = await requireSchoolContext();
+
+  const ok = await userHasSchoolPermission({
+    userId: ctx.userId,
+    schoolId: ctx.schoolId,
+    permissionKey,
+  });
+
+  if (!ok) redirect("/app" as never);
+
+  return ctx;
+}
+
+export function assertSchoolResourceAccess(
+  ctx: SchoolContext,
+  resourceSchoolId: string | null | undefined,
+) {
+  if (!resourceSchoolId || resourceSchoolId !== ctx.schoolId) {
+    return false;
+  }
+  return true;
 }

@@ -1,45 +1,67 @@
 import { getSession } from "@/lib/auth/session";
-import { userIsSuperAdmin } from "@/lib/permissions/rbac";
+import {
+  getActiveMembership,
+  getActiveUser,
+  userHasPlatformRole,
+} from "@/lib/permissions/rbac";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db/prisma";
 
-export async function requireTenant() {
+export type SessionUser = {
+  id: string;
+  schoolId: string | null;
+};
+
+export type SchoolContext = {
+  userId: string;
+  schoolId: string;
+  membershipId: string;
+  roleId: string;
+  roleName: string;
+};
+
+export type PlatformContext = {
+  userId: string;
+};
+
+export async function requireSessionUser(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) {
-    return null;
-  }
+  if (!session) redirect("/login" as never);
 
-  const isSuperAdmin = await userIsSuperAdmin(session.user.id);
-  if (isSuperAdmin) {
-    return {
-      userId: session.user.id,
-      schoolId: session.user.schoolId,
-      isSuperAdmin,
-    };
-  }
+  const user = await getActiveUser(session.user.id);
+  if (!user) redirect("/login" as never);
 
-  const schoolId = session.user.schoolId;
-  if (!schoolId) {
-    redirect("/app/onboarding" as never);
-  }
+  return { id: user.id, schoolId: user.schoolId };
+}
 
-  const membership = await prisma.schoolMembership.findFirst({
-    where: {
-      userId: session.user.id,
-      schoolId,
-      status: "ACTIVE",
-    },
-    select: { roleId: true },
+export async function requirePlatformContext(): Promise<PlatformContext> {
+  const user = await requireSessionUser();
+
+  const isPlatform = await userHasPlatformRole(user.id);
+  if (!isPlatform) redirect("/app" as never);
+
+  return { userId: user.id };
+}
+
+export async function requireSchoolContext(): Promise<SchoolContext> {
+  const user = await requireSessionUser();
+
+  const isPlatform = await userHasPlatformRole(user.id);
+  if (isPlatform) redirect("/platform" as never);
+
+  const schoolId = user.schoolId;
+  if (!schoolId) redirect("/app/onboarding" as never);
+
+  const membership = await getActiveMembership({
+    userId: user.id,
+    schoolId,
   });
-
-  if (!membership) {
-    redirect("/app/onboarding" as never);
-  }
+  if (!membership) redirect("/app/onboarding" as never);
 
   return {
-    userId: session.user.id,
+    userId: user.id,
     schoolId,
-    isSuperAdmin,
-    membershipRoleId: membership.roleId,
+    membershipId: membership.id,
+    roleId: membership.roleId,
+    roleName: membership.role.name,
   };
 }
