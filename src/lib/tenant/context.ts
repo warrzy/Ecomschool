@@ -4,6 +4,7 @@ import {
   getActiveUser,
   userHasPlatformRole,
 } from "@/lib/permissions/rbac";
+import { prisma } from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 
 export type SessionUser = {
@@ -50,6 +51,12 @@ export async function requireSchoolContext(): Promise<SchoolContext> {
 
   const schoolId = user.schoolId;
   if (!schoolId) redirect("/app/onboarding" as never);
+
+  const school = await prisma.school.findFirst({
+    where: { id: schoolId, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!school) redirect("/app/onboarding?reason=suspended" as never);
 
   const membership = await getActiveMembership({
     userId: user.id,

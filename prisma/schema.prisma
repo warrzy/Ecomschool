@@ -38,6 +38,14 @@ enum MembershipStatus {
   INACTIVE
 }
 
+enum SchoolType {
+  PRIMARY
+  MIDDLE
+  HIGH
+  MIXED
+  OTHER
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -53,14 +61,21 @@ model School {
   timezone  String       @default("Africa/Ouagadougou")
   locale    String       @default("fr")
   status    SchoolStatus @default(ACTIVE)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+
+  type         SchoolType?
+  schoolSystem AcademicPeriodType?
+  logoUrl      String?
+  settings     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   users           User[]
   roles           Role[]
   memberships     SchoolMembership[]
   academicPeriods AcademicPeriod[]
   academicYears   AcademicYear[]
+  auditLogs       AuditLog[]
 
   @@index([status])
 }
@@ -81,6 +96,7 @@ model User {
 
   userRoles   UserRole[]
   memberships SchoolMembership[]
+  auditLogs   AuditLog[]
 
   @@index([schoolId])
   @@index([email])
@@ -195,4 +211,24 @@ model AcademicPeriod {
   @@index([academicYearId])
   @@index([academicYearId, isLocked])
   @@index([schoolId])
+}
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  actorId String?
+  actor   User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  action   String
+  entity   String
+  entityId String?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, createdAt])
+  @@index([entity, entityId])
+  @@index([actorId])
 }

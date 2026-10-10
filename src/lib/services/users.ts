@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getSchoolAssignableRole } from "@/lib/permissions/rbac";
 import { hashPassword } from "@/lib/auth/password";
+import { logAudit } from "@/lib/services/audit";
 
 export type ServiceError =
   | "INVALID_INPUT"
@@ -9,6 +10,7 @@ export type ServiceError =
   | "EMAIL_TAKEN"
   | "CANNOT_TARGET_SELF"
   | "CANNOT_TARGET_PLATFORM_USER"
+  | "LAST_ACTIVE_ADMIN"
   | "INVALID_ROLE"
   | "CREATE_FAILED"
   | "UPDATE_FAILED"
@@ -35,6 +37,58 @@ async function targetHasPlatformRole(userId: string) {
     where: { userId, role: { scope: "PLATFORM" } },
   });
   return count > 0;
+}
+
+async function countActivePermissionHolders(input: {
+  schoolId: string;
+  permissionKey: string;
+  excludeUserId?: string;
+}) {
+  return prisma.schoolMembership.count({
+    where: {
+      schoolId: input.schoolId,
+      status: "ACTIVE",
+      user: {
+        status: "ACTIVE",
+        ...(input.excludeUserId ? { id: { not: input.excludeUserId } } : {}),
+      },
+      role: {
+        scope: "SCHOOL",
+        OR: [{ schoolId: null }, { schoolId: input.schoolId }],
+        rolePermissions: {
+          some: { permission: { key: input.permissionKey } },
+        },
+      },
+    },
+  });
+}
+
+async function isLastActiveAdmin(input: {
+  userId: string;
+  schoolId: string;
+  membershipId: string;
+}) {
+  const membership = await prisma.schoolMembership.findFirst({
+    where: {
+      id: input.membershipId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      role: {
+        rolePermissions: {
+          some: { permission: { key: "user.manage" } },
+        },
+      },
+    },
+    select: { id: true },
+  });
+  if (!membership) return false;
+
+  const others = await countActivePermissionHolders({
+    schoolId: input.schoolId,
+    permissionKey: "user.manage",
+    excludeUserId: input.userId,
+  });
+  return others === 0;
 }
 
 export async function listSchoolUsers(
@@ -128,6 +182,15 @@ export async function createSchoolUser(
       select: { id: true },
     });
 
+    await logAudit({
+      actorId: ctx.userId,
+      schoolId: ctx.schoolId,
+      action: "user.create",
+      entity: "User",
+      entityId: user.id,
+      metadata: { email: input.email.toLowerCase().trim(), roleId: role.id },
+    });
+
     return { ok: true, result: { id: user.id } };
   } catch {
     return { ok: false, error: "CREATE_FAILED" };
@@ -160,6 +223,10 @@ export async function updateSchoolUser(
     return { ok: false, error: "CANNOT_TARGET_PLATFORM_USER" };
   }
 
+  if (input.id === ctx.userId && input.roleId && input.roleId !== membership.roleId) {
+    return { ok: false, error: "CANNOT_TARGET_SELF" };
+  }
+
   let roleId: string | undefined;
   if (input.roleId) {
     const role = await getSchoolAssignableRole({
@@ -168,6 +235,32 @@ export async function updateSchoolUser(
     });
     if (!role) return { ok: false, error: "INVALID_ROLE" };
     roleId = role.id;
+  }
+
+  let keepsManagePermission = false;
+  if (roleId !== undefined && roleId !== membership.roleId) {
+    keepsManagePermission =
+      (await prisma.rolePermission.count({
+        where: {
+          roleId,
+          permission: { key: "user.manage" },
+        },
+      })) > 0;
+  }
+
+  const demotesOrDisables =
+    input.status === "DISABLED" ||
+    (roleId !== undefined &&
+      roleId !== membership.roleId &&
+      !keepsManagePermission);
+
+  if (demotesOrDisables) {
+    const lastAdmin = await isLastActiveAdmin({
+      userId: input.id,
+      schoolId: ctx.schoolId,
+      membershipId: membership.id,
+    });
+    if (lastAdmin) return { ok: false, error: "LAST_ACTIVE_ADMIN" };
   }
 
   try {
@@ -195,6 +288,18 @@ export async function updateSchoolUser(
       }
     });
 
+    await logAudit({
+      actorId: ctx.userId,
+      schoolId: ctx.schoolId,
+      action: "user.update",
+      entity: "User",
+      entityId: input.id,
+      metadata: {
+        status: input.status,
+        ...(roleId ? { roleId } : {}),
+      },
+    });
+
     return { ok: true, result: undefined };
   } catch {
     return { ok: false, error: "UPDATE_FAILED" };
@@ -219,6 +324,13 @@ export async function removeSchoolUser(
     return { ok: false, error: "CANNOT_TARGET_PLATFORM_USER" };
   }
 
+  const lastAdmin = await isLastActiveAdmin({
+    userId,
+    schoolId: ctx.schoolId,
+    membershipId: membership.id,
+  });
+  if (lastAdmin) return { ok: false, error: "LAST_ACTIVE_ADMIN" };
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.schoolMembership.deleteMany({
@@ -241,6 +353,14 @@ export async function removeSchoolUser(
           data: { schoolId: null },
         });
       }
+    });
+
+    await logAudit({
+      actorId: ctx.userId,
+      schoolId: ctx.schoolId,
+      action: "user.remove",
+      entity: "User",
+      entityId: userId,
     });
 
     return { ok: true, result: undefined };
