@@ -306,6 +306,27 @@ export async function updateSchoolUser(
   }
 }
 
+export async function platformListAdministrators() {
+  return prisma.userRole.findMany({
+    where: { role: { scope: "PLATFORM" } },
+    orderBy: { user: { email: "asc" } },
+    select: {
+      id: true,
+      role: { select: { name: true } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+}
+
 export async function removeSchoolUser(
   ctx: SchoolCtx,
   userId: string,
