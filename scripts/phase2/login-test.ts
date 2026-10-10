@@ -1,11 +1,9 @@
 import "dotenv/config";
 import { spawn } from "node:child_process";
+import { request } from "node:http";
+import type { IncomingHttpHeaders } from "node:http";
 
 type CookieJar = Record<string, string>;
-
-type HeadersWithSetCookie = Headers & {
-  getSetCookie?: () => string[];
-};
 
 function addSetCookies(jar: CookieJar, setCookies: string[]) {
   for (const sc of setCookies) {
@@ -30,36 +28,75 @@ async function sleep(ms: number) {
   await new Promise((r) => setTimeout(r, ms));
 }
 
-async function fetchJson(url: string, opts: RequestInit, jar: CookieJar) {
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      ...(opts.headers ?? {}),
-      cookie: cookieHeader(jar),
-    },
-  });
-
-  const setCookies = (res.headers as HeadersWithSetCookie).getSetCookie?.();
-  if (setCookies?.length) addSetCookies(jar, setCookies);
-
-  const data = await res.json();
-  return { res, data };
+async function canConnect(baseUrl: string) {
+  try {
+    const jar: CookieJar = {};
+    const r = await httpRequest(`${baseUrl}/api/auth/csrf`, { method: "GET" }, jar);
+    return r.status === 200;
+  } catch {
+    return false;
+  }
 }
 
-async function fetchManual(url: string, opts: RequestInit, jar: CookieJar) {
-  const res = await fetch(url, {
-    ...opts,
-    redirect: "manual",
-    headers: {
-      ...(opts.headers ?? {}),
-      cookie: cookieHeader(jar),
-    },
+async function httpRequest(
+  url: string,
+  opts: {
+    method: "GET" | "POST";
+    headers?: Record<string, string>;
+    body?: string;
+  },
+  jar: CookieJar,
+): Promise<{ status: number; headers: IncomingHttpHeaders; body: string }> {
+  const u = new URL(url);
+
+  return await new Promise((resolve, reject) => {
+    const req = request(
+      {
+        protocol: u.protocol,
+        hostname: u.hostname,
+        port: u.port,
+        path: `${u.pathname}${u.search}`,
+        method: opts.method,
+        headers: {
+          ...opts.headers,
+          cookie: cookieHeader(jar),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+
+        const setCookies = res.headers["set-cookie"];
+        if (Array.isArray(setCookies) && setCookies.length) {
+          addSetCookies(jar, setCookies);
+        } else if (typeof setCookies === "string" && setCookies) {
+          addSetCookies(jar, [setCookies]);
+        }
+
+        res.on("data", (c) => chunks.push(Buffer.from(c)));
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+      },
+    );
+
+    req.on("error", reject);
+    if (opts.body) req.write(opts.body);
+    req.end();
   });
+}
 
-  const setCookies = (res.headers as HeadersWithSetCookie).getSetCookie?.();
-  if (setCookies?.length) addSetCookies(jar, setCookies);
-
-  return res;
+async function getCsrf(baseUrl: string, jar: CookieJar) {
+  const r = await httpRequest(`${baseUrl}/api/auth/csrf`, { method: "GET" }, jar);
+  if (r.status !== 200) {
+    throw new Error(`CSRF request failed status=${r.status} body=${r.body}`);
+  }
+  const data = JSON.parse(r.body) as { csrfToken?: string };
+  if (!data.csrfToken) throw new Error("Missing csrfToken");
+  return data.csrfToken;
 }
 
 async function signInAndAssertRootRedirect(args: {
@@ -70,9 +107,7 @@ async function signInAndAssertRootRedirect(args: {
 }) {
   const jar: CookieJar = {};
 
-  const csrf = await fetchJson(`${args.baseUrl}/api/auth/csrf`, { method: "GET" }, jar);
-  const csrfToken = csrf.data?.csrfToken as string | undefined;
-  if (!csrfToken) throw new Error("Missing csrfToken");
+  const csrfToken = await getCsrf(args.baseUrl, jar);
 
   const form = new URLSearchParams();
   form.set("csrfToken", csrfToken);
@@ -81,7 +116,7 @@ async function signInAndAssertRootRedirect(args: {
   form.set("callbackUrl", "/");
   form.set("json", "true");
 
-  await fetchManual(
+  const cb = await httpRequest(
     `${args.baseUrl}/api/auth/callback/credentials`,
     {
       method: "POST",
@@ -91,8 +126,12 @@ async function signInAndAssertRootRedirect(args: {
     jar,
   );
 
-  const rootRes = await fetchManual(`${args.baseUrl}/`, { method: "GET" }, jar);
-  const loc = rootRes.headers.get("location");
+  if (cb.status >= 400) {
+    throw new Error(`Credentials callback failed status=${cb.status} body=${cb.body}`);
+  }
+
+  const rootRes = await httpRequest(`${args.baseUrl}/`, { method: "GET" }, jar);
+  const loc = typeof rootRes.headers.location === "string" ? rootRes.headers.location : null;
   if (!loc || !loc.startsWith(args.expectedLocationPrefix)) {
     throw new Error(
       `Unexpected root redirect. expectedPrefix=${args.expectedLocationPrefix} got=${loc ?? "<none>"}`,
@@ -121,34 +160,39 @@ async function main() {
   const port = Number(process.env.LOGIN_TEST_PORT ?? String(inferredPort));
   const baseUrl = `http://localhost:${port}`;
 
-  const child = spawn(
-    process.platform === "win32" ? "cmd" : "npm",
-    process.platform === "win32"
-      ? ["/c", `npx next dev -p ${port}`]
-      : ["run", "dev", "--", "-p", String(port)],
-    {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
-    },
-  );
+  const alreadyRunning = await canConnect(baseUrl);
+  const child = alreadyRunning
+    ? null
+    : spawn(
+        process.platform === "win32" ? "cmd" : "npm",
+        process.platform === "win32"
+          ? ["/c", `npx next dev -p ${port}`]
+          : ["run", "dev", "--", "-p", String(port)],
+        {
+          stdio: ["ignore", "pipe", "pipe"],
+          env: process.env,
+        },
+      );
 
-  let ready = false;
-  child.stdout.on("data", (buf) => {
-    const s = String(buf);
-    if (s.toLowerCase().includes("ready")) ready = true;
-    process.stdout.write(s);
-  });
-  child.stderr.on("data", (buf) => {
-    process.stderr.write(String(buf));
-  });
+  if (child) {
+    let ready = false;
+    child.stdout.on("data", (buf) => {
+      const s = String(buf);
+      if (s.toLowerCase().includes("ready")) ready = true;
+      process.stdout.write(s);
+    });
+    child.stderr.on("data", (buf) => {
+      process.stderr.write(String(buf));
+    });
 
-  const start = Date.now();
-  while (!ready) {
-    if (Date.now() - start > 60_000) {
-      child.kill();
-      throw new Error("Dev server did not become ready in time");
+    const start = Date.now();
+    while (!ready) {
+      if (Date.now() - start > 60_000) {
+        child.kill();
+        throw new Error("Dev server did not become ready in time");
+      }
+      await sleep(500);
     }
-    await sleep(500);
   }
 
   try {
@@ -168,7 +212,7 @@ async function main() {
 
     console.log(JSON.stringify({ ok: true, platform, school }, null, 2));
   } finally {
-    child.kill();
+    child?.kill();
   }
 }
 
