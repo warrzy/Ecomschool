@@ -71,6 +71,40 @@ enum EnrollmentStatus {
   COMPLETED
 }
 
+enum RoomType {
+  CLASSROOM
+  LAB
+  SCIENCE
+  SPORT
+  ADMIN
+  OTHER
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum SessionStatus {
+  PLANNED
+  DONE
+  CANCELLED
+  POSTPONED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+  UNMARKED
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -112,6 +146,10 @@ model School {
   enrollments     Enrollment[]
   levelSubjects   LevelSubject[]
   classroomSubjects ClassroomSubject[]
+  rooms           Room[]
+  courseSchedules CourseSchedule[]
+  courseSessions  CourseSession[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([status])
 }
@@ -134,6 +172,8 @@ model User {
   memberships SchoolMembership[]
   auditLogs   AuditLog[]
   teachers    Teacher[]
+  recordedAttendance AttendanceRecord[] @relation("AttendanceRecorder")
+  justifiedAttendance AttendanceRecord[] @relation("AttendanceJustifier")
 
   @@index([schoolId])
   @@index([email])
@@ -223,6 +263,8 @@ model AcademicYear {
   classrooms          Classroom[]
   teachingAssignments TeachingAssignment[]
   enrollments         Enrollment[]
+  courseSchedules     CourseSchedule[]
+  courseSessions      CourseSession[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -293,6 +335,8 @@ model Teacher {
   headOfClassrooms Classroom[]
   assignments      TeachingAssignment[]
   classroomSubjects ClassroomSubject[]
+  courseSchedules   CourseSchedule[]
+  courseSessions    CourseSession[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -314,6 +358,8 @@ model Subject {
   assignments       TeachingAssignment[]
   levelAssignments  LevelSubject[]
   classAssignments  ClassroomSubject[]
+  courseSchedules   CourseSchedule[]
+  courseSessions    CourseSession[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -371,6 +417,8 @@ model Classroom {
   assignments TeachingAssignment[]
   enrollments Enrollment[]
   subjects    ClassroomSubject[]
+  courseSchedules CourseSchedule[]
+  courseSessions  CourseSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -404,6 +452,7 @@ model Student {
 
   guardians   StudentGuardian[]
   enrollments Enrollment[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -529,6 +578,175 @@ model ClassroomSubject {
   @@index([schoolId])
   @@index([subjectId])
   @@index([teacherId])
+}
+
+model Room {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  code     String
+  name     String
+  capacity Int?
+  building String?
+  floor    String?
+  type     RoomType     @default(CLASSROOM)
+  status   RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules CourseSchedule[]
+  sessions  CourseSession[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+  @@index([schoolId, status])
+}
+
+model CourseSchedule {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  weekday Weekday
+  startMin Int // minutes depuis minuit
+  endMin   Int
+
+  validFrom  DateTime
+  validUntil DateTime?
+
+  status RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions CourseSession[]
+
+  @@index([schoolId])
+  @@index([classroomId])
+  @@index([teacherId])
+  @@index([roomId])
+  @@index([academicYearId, weekday])
+}
+
+model CourseSession {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  scheduleId String?
+  schedule   CourseSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  subjectId String?
+  subject   Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  roomId String?
+  room   Room?   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  date     DateTime // jour (00:00)
+  startMin Int
+  endMin   Int
+
+  status             SessionStatus @default(PLANNED)
+  movedToDate        DateTime?
+  movedToStartMin    Int?
+  movedToEndMin      Int?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content    CourseContent?
+  attendance AttendanceRecord[]
+
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([classroomId, date])
+  @@index([teacherId, date])
+  @@index([roomId, date])
+  @@index([scheduleId])
+}
+
+model CourseContent {
+  id        String         @id @default(cuid())
+  sessionId String         @unique
+  session   CourseSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  theme     String?
+  chapter   String?
+  objective String?
+  content   String?
+  homework  String?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AttendanceRecord {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  sessionId String?
+  session   CourseSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  date   DateTime
+  status AttendanceStatus @default(UNMARKED)
+
+  durationMin Int? // retard : minutes ; absence : durée
+  expectedMin Int? // heure prévue (retard)
+  arrivalMin  Int? // heure d'arrivée (retard)
+
+  reason        String?
+  justification String?
+  justifiedAt   DateTime?
+  justifiedById String?
+  justifiedBy   User?    @relation("AttendanceJustifier", fields: [justifiedById], references: [id], onDelete: SetNull)
+
+  recordedById String?
+  recordedBy   User?    @relation("AttendanceRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unicités partielles ajoutées manuellement dans la migration :
+  // - (sessionId, studentId) quand sessionId IS NOT NULL
+  // - (studentId, date) quand sessionId IS NULL (appel journalier)
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([sessionId])
+  @@index([schoolId, date])
+  @@index([schoolId, status])
 }
 
 model AuditLog {
