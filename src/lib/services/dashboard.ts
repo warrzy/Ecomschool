@@ -129,3 +129,142 @@ export async function getSchoolDashboard(ctx: SchoolCtx) {
     latestEnrollments,
   };
 }
+
+/** Indicateurs pédagogiques temps réel (Phase 4). */
+export async function getPedagogyDashboard(
+  ctx: SchoolCtx,
+  filters: { academicYearId?: string; date?: Date } = {},
+) {
+  const day = filters.date ?? new Date();
+  const dayStart = new Date(
+    Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()),
+  );
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  const nowMin = day.getUTCHours() * 60 + day.getUTCMinutes();
+
+  const weekday =
+    (["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const)[
+      dayStart.getUTCDay()
+    ];
+
+  const yearFilter = filters.academicYearId;
+
+  const [
+    sessionsToday,
+    schedulesToday,
+    absencesToday,
+    latesToday,
+    cancelledToday,
+    marked,
+    present,
+  ] = await Promise.all([
+    prisma.courseSession.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        ...(yearFilter ? { academicYearId: yearFilter } : {}),
+      },
+      select: {
+        status: true,
+        scheduleId: true,
+        teacherId: true,
+        classroomId: true,
+        startMin: true,
+        endMin: true,
+      },
+    }),
+    prisma.courseSchedule.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "ACTIVE",
+        weekday,
+        validFrom: { lt: dayEnd },
+        OR: [{ validUntil: null }, { validUntil: { gte: dayStart } }],
+        ...(yearFilter ? { academicYearId: yearFilter } : {}),
+      },
+      select: {
+        id: true,
+        teacherId: true,
+        classroomId: true,
+        startMin: true,
+        endMin: true,
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        status: "ABSENT",
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        status: "LATE",
+      },
+    }),
+    prisma.courseSession.count({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        status: "CANCELLED",
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        status: { not: "UNMARKED" },
+      },
+    }),
+    prisma.attendanceRecord.count({
+      where: {
+        schoolId: ctx.schoolId,
+        date: { gte: dayStart, lt: dayEnd },
+        status: { in: ["PRESENT", "LATE", "EXCUSED"] },
+      },
+    }),
+  ]);
+
+  // Séances matérialisées (sauf annulées) + créneaux du jour non matérialisés
+  const materializedScheduleIds = new Set(
+    sessionsToday.map((s) => s.scheduleId).filter(Boolean) as string[],
+  );
+  const unMaterialized = schedulesToday.filter(
+    (s) => !materializedScheduleIds.has(s.id),
+  );
+  const plannedToday =
+    sessionsToday.filter((s) => s.status !== "CANCELLED").length +
+    unMaterialized.length;
+
+  const doneToday = sessionsToday.filter((s) => s.status === "DONE").length;
+
+  const activeSessions = sessionsToday.filter(
+    (s) =>
+      s.status !== "CANCELLED" &&
+      s.startMin <= nowMin &&
+      s.endMin > nowMin,
+  );
+  const activeSlots = unMaterialized.filter(
+    (s) => s.startMin <= nowMin && s.endMin > nowMin,
+  );
+
+  return {
+    date: dayStart,
+    plannedToday,
+    doneToday,
+    teachersInClass: new Set([
+      ...activeSessions.map((s) => s.teacherId),
+      ...activeSlots.map((s) => s.teacherId),
+    ]).size,
+    classesInSession: new Set([
+      ...activeSessions.map((s) => s.classroomId),
+      ...activeSlots.map((s) => s.classroomId),
+    ]).size,
+    absencesToday,
+    latesToday,
+    cancelledToday,
+    attendanceRate: marked > 0 ? present / marked : null,
+  };
+}
