@@ -293,10 +293,23 @@ async function main() {
   record("Paiement annulé conservé (pas de suppression)", pCancelled?.status === "CANCELLED" && !!pCancelled.cancelReason);
 
   // ============ Clôture de caisse ============
-  const day = String((S % 27) + 1).padStart(2, "0");
-  const closedDay = new Date(`2026-04-${day}T00:00:00Z`);
-  const closure = await closeCashDay(ctxA, closedDay);
-  record("Clôture de caisse", closure.ok, closure.ok ? "" : (closure as { error?: string }).error);
+  // Idempotent : premier jour d'avril 2026 non encore clôturé.
+  let closedDay: Date | null = null;
+  let closure: Awaited<ReturnType<typeof closeCashDay>> | null = null;
+  for (let d = 1; d <= 28 && !closedDay; d++) {
+    const day = String(d).padStart(2, "0");
+    const cand = new Date(`2026-04-${day}T00:00:00Z`);
+    const res = await closeCashDay(ctxA, cand);
+    if (res.ok) {
+      closedDay = cand;
+      closure = res;
+    } else if (res.error !== "INVALID_INPUT") {
+      closure = res;
+      break;
+    }
+  }
+  const day = closedDay!.toISOString().slice(8, 10);
+  record("Clôture de caisse", !!closure?.ok, closure?.ok ? "" : (closure as { error?: string } | null)?.error);
   const pBlocked = await recordPayment(ctxCashier, {
     studentId: student1,
     academicYearId: yearId,
