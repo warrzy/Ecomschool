@@ -177,6 +177,8 @@ async function main() {
   );
 
   // ============ 3. Modules : droits effectifs ============
+  // Idempotence : purger les overrides laissés par un run précédent.
+  await prisma.schoolModuleOverride.deleteMany({ where: { schoolId: schoolA.id } });
   record(
     "Module souscrit actif",
     await isModuleEnabled(schoolA.id, `P8CORE-${S}`),
