@@ -222,6 +222,8 @@ model School {
   supportSessions          SupportSession[]
   subscriptionChangeRequests SubscriptionChangeRequest[]
 
+  schoolMessages    SchoolMessage[]
+
   @@index([status])
 }
 
@@ -1538,6 +1540,7 @@ model Announcement {
   audience AnnouncementAudience @default(ALL)
 
   publishedAt DateTime?
+  scheduledAt DateTime?
   createdById String?
 
   createdAt DateTime @default(now())
@@ -1907,4 +1910,210 @@ enum SupportSessionStatus {
   ACTIVE
   ENDED
   EXPIRED
+}
+
+// ===================== PHASE 9 — Communication multicanale =====================
+
+enum MessageChannel {
+  INTERNAL
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+/** TRANSACTIONAL : communications nécessaires (non désinscriptibles). */
+enum CommTopic {
+  TRANSACTIONAL
+  ACADEMIC
+  FINANCE
+  ANNOUNCEMENT
+  OPTIONAL
+}
+
+enum MessageAudience {
+  ALL_PARENTS
+  CLASS_PARENTS
+  GUARDIAN
+  STUDENTS
+  TEACHERS
+  STAFF
+}
+
+enum MessageStatus {
+  DRAFT
+  SCHEDULED
+  SENT
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED
+  BLOCKED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  DEAD
+}
+
+enum PrefAction {
+  OPT_IN
+  OPT_OUT
+}
+
+/** Message émis par un établissement vers ses utilisateurs. */
+model SchoolMessage {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  subject String
+  body    String
+
+  audience    MessageAudience
+  classroomId String?
+  guardianId  String?
+
+  channels    MessageChannel[] @default([INTERNAL])
+  topic       CommTopic        @default(OPTIONAL)
+  status      MessageStatus    @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries MessageDelivery[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, scheduledAt])
+}
+
+/** Une tentative d'envoi par destinataire et par canal. */
+model MessageDelivery {
+  id        String          @id @default(cuid())
+  schoolId  String
+  messageId String?
+  message   SchoolMessage?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId     String?
+  guardianId String?
+  channel    MessageChannel
+  address    String?
+
+  status      DeliveryStatus @default(QUEUED)
+  attempts    Int            @default(0)
+  lastError   String?
+  providerRef String?
+  costUnits   Int            @default(0)
+  sentAt      DateTime?
+
+  /** Déduplication : type métier + cible + période. */
+  dedupKey String? @unique
+
+  createdAt DateTime @default(now())
+
+  @@index([schoolId, status])
+  @@index([messageId])
+  @@index([userId])
+}
+
+/** Préférence d'un utilisateur par canal et par sujet (OPTIONAL/ACADEMIC/etc.). */
+model UserCommPreference {
+  id      String         @id @default(cuid())
+  userId  String
+  channel MessageChannel
+  topic   CommTopic
+  enabled Boolean        @default(true)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([userId, channel, topic])
+  @@index([userId])
+}
+
+/** Historique des consentements (opt-in / opt-out). */
+model CommConsentEvent {
+  id     String         @id @default(cuid())
+  userId String?
+  channel MessageChannel
+  topic   CommTopic
+  action  PrefAction
+  actorId String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** Consentement des tuteurs sans compte (SMS/WhatsApp vers le téléphone). */
+model GuardianCommConsent {
+  id         String         @id @default(cuid())
+  schoolId   String
+  guardianId String         @unique
+  smsOptIn   Boolean        @default(false)
+  whatsappOptIn Boolean     @default(false)
+  optOutAll  Boolean        @default(false)
+  updatedAt  DateTime       @updatedAt
+  createdAt  DateTime       @default(now())
+
+  @@index([schoolId])
+}
+
+/** Templates de messages transactionnels, configurables par la plateforme. */
+model MessageTemplate {
+  id       String @id @default(cuid())
+  code     String @unique
+  name     String
+  channel  MessageChannel
+  subject  String?
+  body     String
+  status   RecordStatus @default(ACTIVE)
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+/** File d'attente persistante : retries progressifs, déduplication, reprise. */
+model Job {
+  id      String @id @default(cuid())
+  type    String
+  payload Json
+  schoolId String?
+
+  runAt       DateTime @default(now())
+  status      JobStatus @default(PENDING)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(5)
+  lastError   String?
+  dedupKey    String?  @unique
+
+  createdAt  DateTime @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, runAt])
+  @@index([schoolId])
+}
+
+/** Historique d'exécution des tâches planifiées (automatisations). */
+model TaskRun {
+  id        String   @id @default(cuid())
+  task      String
+  scopeId   String?
+  status    String
+  detail    Json?
+  startedAt DateTime @default(now())
+  finishedAt DateTime?
+
+  @@index([task, startedAt])
 }

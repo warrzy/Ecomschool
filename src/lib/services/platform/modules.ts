@@ -81,6 +81,9 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "announcements.read": "COMMUNICATION",
   "announcements.manage": "COMMUNICATION",
   "notifications.read": "COMMUNICATION",
+  "messages.read": "COMMUNICATION",
+  "messages.manage": "COMMUNICATION",
+  "preferences.read": "COMMUNICATION",
 };
 
 /** Permissions toujours accordées même en suspension (lecture/restitution). */
