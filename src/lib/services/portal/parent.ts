@@ -190,3 +190,111 @@ export async function getChildAttendance(ctx: ParentCtx, studentId: string) {
     },
   });
 }
+
+/**
+ * Données financières de l'enfant — lien vérifié côté serveur.
+ * Ne renvoie que les paiements validés et les reçus émis.
+ */
+export async function getChildFinances(ctx: ParentCtx, studentId: string) {
+  if (!(await verifyChildAccess(ctx, studentId))) return null;
+
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { schoolId: ctx.schoolId, studentId, status: "ENROLLED" },
+    orderBy: { enrolledAt: "desc" },
+    select: { academicYearId: true, academicYear: { select: { name: true } } },
+  });
+  if (!enrollment) return { year: null, charges: 0, discounts: 0, due: 0, paid: 0, balance: 0, installments: [], payments: [] };
+
+  const yearId = enrollment.academicYearId;
+  const [charges, discounts, installments, payments] = await Promise.all([
+    prisma.studentFeeCharge.findMany({
+      where: { schoolId: ctx.schoolId, studentId, academicYearId: yearId, status: "ACTIVE" },
+      select: {
+        amount: true,
+        category: { select: { label: true } },
+      },
+    }),
+    prisma.feeDiscount.findMany({
+      where: { schoolId: ctx.schoolId, studentId, academicYearId: yearId, status: "ACTIVE" },
+      select: { type: true, value: true, reason: true },
+    }),
+    prisma.feeInstallment.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId,
+        academicYearId: yearId,
+        status: "ACTIVE",
+        charge: { status: "ACTIVE" },
+      },
+      select: {
+        id: true,
+        label: true,
+        dueDate: true,
+        amount: true,
+        charge: { select: { category: { select: { label: true } } } },
+        allocations: {
+          where: { payment: { status: "VALIDATED" } },
+          select: { amount: true },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.payment.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId,
+        academicYearId: yearId,
+        status: "VALIDATED",
+      },
+      select: { id: true, paidAt: true, amount: true, method: true, receiptNumber: true },
+      orderBy: { paidAt: "desc" },
+    }),
+  ]);
+
+  const total = charges.reduce((s, c) => s + c.amount, 0);
+  const disc = discounts.reduce(
+    (s, d) =>
+      s + (d.type === "PERCENT" ? Math.floor((total * d.value) / 100) : d.type === "EXEMPTION" ? total : d.value),
+    0,
+  );
+  const due = Math.max(0, total - disc);
+  const paid = payments.reduce((s, p) => s + p.amount, 0);
+  const today = new Date();
+
+  return {
+    year: enrollment.academicYear.name,
+    charges: total,
+    discounts: disc,
+    due,
+    paid,
+    balance: due - paid,
+    chargeLines: charges.map((c) => ({ label: c.category.label, amount: c.amount })),
+    discountLines: discounts.map((d) => ({
+      type: d.type,
+      value: d.value,
+      reason: d.reason,
+    })),
+    installments: installments.map((i) => {
+      const paidAmount = i.allocations.reduce((s, a) => s + a.amount, 0);
+      const remaining = Math.max(0, i.amount - paidAmount);
+      return {
+        id: i.id,
+        category: i.charge.category.label,
+        label: i.label,
+        dueDate: i.dueDate,
+        amount: i.amount,
+        paid: paidAmount,
+        remaining,
+        status:
+          paidAmount >= i.amount
+            ? ("PAID" as const)
+            : paidAmount > 0
+              ? ("PARTIAL" as const)
+              : i.dueDate < today
+                ? ("LATE" as const)
+                : ("UPCOMING" as const),
+      };
+    }),
+    payments,
+  };
+}

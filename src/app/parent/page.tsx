@@ -4,6 +4,7 @@ import {
   getChildAttendance,
   getChildGrades,
   getChildOverview,
+  getChildFinances,
   getChildReportCards,
   getChildResults,
   getChildTimetable,
@@ -32,6 +33,7 @@ const TABS = [
   ["resultats", "Résultats"],
   ["bulletins", "Bulletins"],
   ["absences", "Absences"],
+  ["finances", "Finances"],
   ["annonces", "Annonces"],
 ] as const;
 
@@ -297,6 +299,82 @@ async function ParentTab({
           <p className="text-sm text-zinc-600">Aucune absence ni retard enregistré.</p>
         )}
       </Card>
+    );
+  }
+
+  if (tab === "finances") {
+    const f = await getChildFinances(ctx, studentId);
+    if (!f) return <Card><p className="text-sm text-red-700">Accès non autorisé.</p></Card>;
+    if (!f.year) {
+      return <Card><p className="text-sm text-zinc-600">Aucune inscription active.</p></Card>;
+    }
+    const fmtN = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+    const stLabel: Record<string, string> = {
+      UPCOMING: "À venir",
+      PARTIAL: "Partiel",
+      PAID: "Payé",
+      LATE: "En retard",
+    };
+    return (
+      <div className="space-y-3">
+        <Card title={`Situation financière — ${f.year}`}>
+          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+            <div><div className="text-xs text-zinc-500">Frais</div><div className="font-medium">{fmtN(f.charges)}</div></div>
+            <div><div className="text-xs text-zinc-500">Réductions</div><div className="font-medium">{fmtN(f.discounts)}</div></div>
+            <div><div className="text-xs text-zinc-500">Payé</div><div className="font-medium text-emerald-700">{fmtN(f.paid)}</div></div>
+            <div><div className="text-xs text-zinc-500">Solde</div><div className="font-medium text-red-700">{fmtN(f.balance)}</div></div>
+          </div>
+        </Card>
+        <Card title="Échéances">
+          {f.installments.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {f.installments.map((i) => (
+                <li key={i.id} className="flex items-center justify-between">
+                  <span>
+                    {i.category}{i.label ? ` · ${i.label}` : ""}
+                    <span className="ml-2 text-xs text-zinc-500">
+                      échéance {i.dueDate.toLocaleDateString("fr-FR")}
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="font-medium">{fmtN(i.remaining)}</span>
+                    <span className={`ml-2 text-xs ${i.status === "LATE" ? "text-red-700" : i.status === "PAID" ? "text-emerald-700" : "text-zinc-500"}`}>
+                      {stLabel[i.status]}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-zinc-600">Aucune échéance.</p>
+          )}
+        </Card>
+        <Card title="Paiements & reçus">
+          {f.payments.length > 0 ? (
+            <ul className="space-y-2 text-sm">
+              {f.payments.map((p) => (
+                <li key={p.id} className="flex items-center justify-between">
+                  <span>
+                    {p.paidAt.toLocaleDateString("fr-FR")} — <span className="font-medium">{fmtN(p.amount)}</span>
+                    <span className="ml-2 font-mono text-xs text-zinc-500">{p.receiptNumber}</span>
+                  </span>
+                  {p.receiptNumber ? (
+                    <a
+                      href={`/parent/receipts/${p.id}/pdf`}
+                      target="_blank"
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-50"
+                    >
+                      Reçu PDF
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-zinc-600">Aucun paiement enregistré.</p>
+          )}
+        </Card>
+      </div>
     );
   }
 

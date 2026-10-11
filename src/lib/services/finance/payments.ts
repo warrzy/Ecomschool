@@ -93,7 +93,7 @@ export async function recordPayment(
   if (closure) return { ok: false, error: "CLOSED_DAY" };
 
   // Répartition : explicite (somme = montant) ou FIFO sur les échéances dues.
-  let allocations = input.allocations ?? [];
+  const allocations = input.allocations ?? [];
   if (allocations.length === 0) {
     const open = await prisma.feeInstallment.findMany({
       where: {
