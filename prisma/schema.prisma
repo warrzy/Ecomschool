@@ -202,6 +202,9 @@ model School {
   resultValidations   ResultValidation[]
   reportCards         ReportCard[]
   reportCardTemplates ReportCardTemplate[]
+  announcements       Announcement[]
+  notifications       Notification[]
+  accountInvites      AccountInvite[]
 
   @@index([status])
 }
@@ -231,6 +234,10 @@ model User {
   validatedResults    ResultValidation[]  @relation("ResultValidator")
   publishedResults    ResultValidation[]  @relation("ResultPublisher")
   reportCardVersions  ReportCardVersion[] @relation("ReportCardVersionCreator")
+  studentAccounts   Student[]  @relation("StudentAccount")
+  guardianAccounts  Guardian[] @relation("GuardianAccount")
+  notifications     Notification[]
+  accountInvites    AccountInvite[]
 
   @@index([schoolId])
   @@index([email])
@@ -417,9 +424,10 @@ model Subject {
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
-  name   String
-  code   String?
-  status RecordStatus @default(ACTIVE)
+  name         String
+  code         String?
+  subjectGroup String?
+  status       RecordStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -523,6 +531,9 @@ model Student {
   email      String?
   status     RecordStatus @default(ACTIVE)
 
+  userId String?
+  user   User?   @relation("StudentAccount", fields: [userId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -539,6 +550,7 @@ model Student {
   @@index([schoolId])
   @@index([schoolId, status])
   @@index([schoolId, lastName])
+  @@index([userId])
 }
 
 model Guardian {
@@ -553,6 +565,9 @@ model Guardian {
   address   String?
   status    RecordStatus @default(ACTIVE)
 
+  userId String?
+  user   User?   @relation("GuardianAccount", fields: [userId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -561,6 +576,7 @@ model Guardian {
   @@index([schoolId])
   @@index([schoolId, status])
   @@index([schoolId, lastName])
+  @@index([userId])
 }
 
 model StudentGuardian {
@@ -1052,6 +1068,13 @@ model StudentPeriodResult {
   isComplete        Boolean @default(true)
   status            ResultStatus @default(DRAFT)
 
+  headTeacherNote     String?
+  generalAppreciation String?
+  councilDecision     String?
+  directionNote       String?
+  directionSignedById String?
+  directionSignedAt   DateTime?
+
   computedAt   DateTime?
   computedById String?
 
@@ -1189,4 +1212,78 @@ model ReportCardTemplate {
 
   @@unique([schoolId, key])
   @@index([schoolId])
+}
+
+enum AnnouncementAudience {
+  ALL
+  PARENTS
+  STUDENTS
+  TEACHERS
+}
+
+enum NotificationType {
+  REPORT_CARD_PUBLISHED
+  ANNOUNCEMENT
+  ABSENCE_UNJUSTIFIED
+  LATENESS
+  ADMIN_MESSAGE
+}
+
+model Announcement {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  title    String
+  body     String
+  audience AnnouncementAudience @default(ALL)
+
+  publishedAt DateTime?
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([schoolId, publishedAt])
+}
+
+model Notification {
+  id       String  @id @default(cuid())
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type  NotificationType
+  title String
+  body  String?
+  link  String?
+
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@index([schoolId])
+}
+
+model AccountInvite {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([userId])
 }
