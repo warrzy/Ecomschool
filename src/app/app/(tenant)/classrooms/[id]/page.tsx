@@ -5,6 +5,10 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { getClassroom, listLevels } from "@/lib/services/classes";
 import { updateClassroomAction } from "@/app/app/(tenant)/classrooms/actions";
+import {
+  removeClassroomSubjectAction,
+  setClassroomSubjectAction,
+} from "@/app/app/(tenant)/subjects/actions";
 
 export const instant = false;
 
@@ -63,7 +67,7 @@ export default async function ClassroomDetailPage({
 
   const activeTab = TABS.some((t) => t.key === tab) ? tab : "general";
 
-  const [levels, teachers, enrollments] = await Promise.all([
+  const [levels, teachers, enrollments, classSubjects, classTeachers, allSubjects] = await Promise.all([
     listLevels(ctx),
     prisma.teacher.findMany({
       where: { schoolId: tenant.schoolId, status: "ACTIVE" },
@@ -87,6 +91,40 @@ export default async function ClassroomDetailPage({
               },
             },
           },
+        })
+      : Promise.resolve([]),
+    activeTab === "subjects"
+      ? prisma.classroomSubject.findMany({
+          where: { classroomId: id },
+          orderBy: { subject: { name: "asc" } },
+          select: {
+            id: true,
+            coefficient: true,
+            subject: { select: { id: true, name: true, code: true } },
+            teacher: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        })
+      : Promise.resolve([]),
+    activeTab === "teachers"
+      ? prisma.teachingAssignment.findMany({
+          where: { classroomId: id },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            teacher: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+            subject: { select: { id: true, name: true } },
+          },
+        })
+      : Promise.resolve([]),
+    activeTab === "subjects"
+      ? prisma.subject.findMany({
+          where: { schoolId: tenant.schoolId, status: "ACTIVE" },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true },
         })
       : Promise.resolve([]),
   ]);
@@ -199,6 +237,181 @@ export default async function ClassroomDetailPage({
                   <tr>
                     <td className="py-6 text-zinc-500" colSpan={6}>
                       Aucun élève inscrit dans cette classe.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "subjects" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-zinc-900">
+            Matières de la classe ({classSubjects.length})
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                  <th className="py-2 pr-4">Matière</th>
+                  <th className="py-2 pr-4">Coefficient</th>
+                  <th className="py-2 pr-4">Enseignant</th>
+                  {canManage ? <th className="py-2 pr-4"></th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {classSubjects.map((cs) => (
+                  <tr key={cs.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4 font-medium text-zinc-900">
+                      {cs.subject.name}
+                      {cs.subject.code ? (
+                        <span className="text-zinc-500">
+                          {" "}
+                          ({cs.subject.code})
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {cs.coefficient}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {cs.teacher
+                        ? `${cs.teacher.lastName} ${cs.teacher.firstName}`
+                        : "—"}
+                    </td>
+                    {canManage ? (
+                      <td className="py-2 pr-4">
+                        <form action={removeClassroomSubjectAction}>
+                          <input type="hidden" name="linkId" value={cs.id} />
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={`/app/classrooms/${id}?tab=subjects`}
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                          >
+                            Retirer
+                          </button>
+                        </form>
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+                {classSubjects.length === 0 ? (
+                  <tr>
+                    <td className="py-6 text-zinc-500" colSpan={4}>
+                      Aucune matière affectée à cette classe.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          {canManage ? (
+            <form action={setClassroomSubjectAction} className="mt-4">
+              <input type="hidden" name="classroomId" value={id} />
+              <input
+                type="hidden"
+                name="returnTo"
+                value={`/app/classrooms/${id}?tab=subjects`}
+              />
+              <div className="grid items-end gap-3 md:grid-cols-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-500">
+                    Matière
+                  </label>
+                  <select
+                    name="subjectId"
+                    required
+                    className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">Choisir…</option>
+                    {allSubjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-500">
+                    Coefficient
+                  </label>
+                  <input
+                    name="coefficient"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    required
+                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-500">
+                    Enseignant
+                  </label>
+                  <select
+                    name="teacherId"
+                    className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">—</option>
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.lastName} {t.firstName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Affecter
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-zinc-500">
+                Réaffecter une matière existante met à jour son coefficient et
+                son enseignant.
+              </p>
+            </form>
+          ) : null}
+        </div>
+      ) : activeTab === "teachers" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-zinc-900">
+            Enseignants affectés ({classTeachers.length})
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                  <th className="py-2 pr-4">Enseignant</th>
+                  <th className="py-2 pr-4">Matière</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classTeachers.map((a) => (
+                  <tr key={a.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4 text-zinc-900">
+                      <Link
+                        href={`/app/teachers/${a.teacher.id}`}
+                        className="hover:underline"
+                      >
+                        {a.teacher.lastName} {a.teacher.firstName}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {a.subject?.name ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+                {classTeachers.length === 0 ? (
+                  <tr>
+                    <td className="py-6 text-zinc-500" colSpan={2}>
+                      Aucune affectation. L&apos;affectation des enseignants se
+                      fait depuis la fiche enseignant.
                     </td>
                   </tr>
                 ) : null}
