@@ -150,7 +150,11 @@ export default async function ReportCardsPage(props: {
           <tbody>
             {cards.map((card) => (
               <tr key={card.id} className="border-b border-zinc-100">
-                <td className="py-2 pr-3 font-mono text-xs">{card.identifier}</td>
+                <td className="py-2 pr-3 font-mono text-xs">
+                  <Link href={`/app/report-cards/${card.id}`} className="hover:underline">
+                    {card.identifier}
+                  </Link>
+                </td>
                 <td className="py-2 pr-3 font-medium">
                   {card.student.lastName} {card.student.firstName}
                 </td>

@@ -41,7 +41,7 @@ export async function buildReportCardPayload(
   const [subjects, school, classSize, attendance] = await Promise.all([
     prisma.subjectPeriodResult.findMany({
       where: { schoolId: ctx.schoolId, studentId, academicPeriodId },
-      include: { subject: { select: { name: true, code: true } } },
+      include: { subject: { select: { name: true, code: true, subjectGroup: true } } },
       orderBy: { subject: { name: "asc" } },
     }),
     prisma.school.findUnique({
@@ -84,8 +84,14 @@ export async function buildReportCardPayload(
     status: result.status,
     absences,
     lates,
+    headTeacherNote: result.headTeacherNote,
+    generalAppreciation: result.generalAppreciation,
+    councilDecision: result.councilDecision,
+    directionNote: result.directionNote,
+    directionSignedAt: result.directionSignedAt,
     subjects: subjects.map((s) => ({
       name: s.subject.name,
+      group: s.subject.subjectGroup,
       average: s.average,
       coefficient: s.coefficient,
       weightedPoints: s.weightedPoints,
@@ -276,6 +282,104 @@ export async function ensureDefaultTemplates(ctx: SchoolCtx) {
     where: { schoolId: ctx.schoolId },
     include: { level: { select: { name: true } } },
   });
+}
+
+// ---------- Appréciations et décisions ----------
+
+/** Appréciation par matière (avant ou après publication — la régénération crée une nouvelle version). */
+export async function updateSubjectAppreciation(
+  ctx: SchoolCtx,
+  input: {
+    studentId: string;
+    academicPeriodId: string;
+    subjectId: string;
+    appreciation: string;
+  },
+): Promise<ReportCardsResult> {
+  const row = await prisma.subjectPeriodResult.findFirst({
+    where: {
+      schoolId: ctx.schoolId,
+      studentId: input.studentId,
+      academicPeriodId: input.academicPeriodId,
+      subjectId: input.subjectId,
+    },
+    select: { id: true },
+  });
+  if (!row) return { ok: false, error: "NOT_FOUND" };
+
+  await prisma.subjectPeriodResult.update({
+    where: { id: row.id },
+    data: { appreciation: input.appreciation.trim() || null },
+    select: { id: true },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "reportcard.subject_appreciation",
+    entity: "SubjectPeriodResult",
+    entityId: row.id,
+    metadata: { studentId: input.studentId, subjectId: input.subjectId },
+  });
+  return { ok: true, result: undefined };
+}
+
+/**
+ * Appréciations générales + décision du conseil + observation/signature direction.
+ * `sign` enregistre la validation de la direction (horodatée, non révocable en douce).
+ */
+export async function updateResultAnnotations(
+  ctx: SchoolCtx,
+  input: {
+    studentId: string;
+    academicPeriodId: string;
+    headTeacherNote?: string;
+    generalAppreciation?: string;
+    councilDecision?: string;
+    directionNote?: string;
+    sign?: boolean;
+  },
+): Promise<ReportCardsResult> {
+  const row = await prisma.studentPeriodResult.findFirst({
+    where: {
+      schoolId: ctx.schoolId,
+      studentId: input.studentId,
+      academicPeriodId: input.academicPeriodId,
+    },
+    select: { id: true, status: true },
+  });
+  if (!row) return { ok: false, error: "NOT_FOUND" };
+  if (row.status === "DRAFT") return { ok: false, error: "INVALID_STATUS" };
+
+  await prisma.studentPeriodResult.update({
+    where: { id: row.id },
+    data: {
+      ...(input.headTeacherNote !== undefined
+        ? { headTeacherNote: input.headTeacherNote.trim() || null }
+        : {}),
+      ...(input.generalAppreciation !== undefined
+        ? { generalAppreciation: input.generalAppreciation.trim() || null }
+        : {}),
+      ...(input.councilDecision !== undefined
+        ? { councilDecision: input.councilDecision.trim() || null }
+        : {}),
+      ...(input.directionNote !== undefined
+        ? { directionNote: input.directionNote.trim() || null }
+        : {}),
+      ...(input.sign
+        ? { directionSignedById: ctx.userId, directionSignedAt: new Date() }
+        : {}),
+    },
+    select: { id: true },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: input.sign ? "reportcard.direction_sign" : "reportcard.annotations",
+    entity: "StudentPeriodResult",
+    entityId: row.id,
+    metadata: { studentId: input.studentId, academicPeriodId: input.academicPeriodId },
+  });
+  return { ok: true, result: undefined };
 }
 
 /** Choisit le modèle applicable : niveau > défaut > "standard". */

@@ -6,6 +6,8 @@ import {
   generateClassReportCards,
   generateReportCard,
   rectifyReportCard,
+  updateResultAnnotations,
+  updateSubjectAppreciation,
 } from "@/lib/services/grading/reportcards";
 import { reportCardGenerateSchema } from "@/lib/validations/grading";
 
@@ -52,5 +54,40 @@ export async function rectifyReportCardAction(formData: FormData) {
   const res = await rectifyReportCard(ctx(tenant), id, reason);
   redirect(
     (res.ok ? "/app/report-cards?ok=rectified" : `/app/report-cards?error=${res.error}`) as never,
+  );
+}
+
+export async function updateSubjectAppreciationAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("results.validate");
+  const cardId = String(formData.get("cardId") ?? "");
+  const res = await updateSubjectAppreciation(ctx(tenant), {
+    studentId: String(formData.get("studentId") ?? ""),
+    academicPeriodId: String(formData.get("academicPeriodId") ?? ""),
+    subjectId: String(formData.get("subjectId") ?? ""),
+    appreciation: String(formData.get("appreciation") ?? ""),
+  });
+  redirect(
+    (res.ok
+      ? `/app/report-cards/${cardId}?ok=appreciation`
+      : `/app/report-cards/${cardId}?error=${res.error}`) as never,
+  );
+}
+
+export async function updateResultAnnotationsAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("results.validate");
+  const cardId = String(formData.get("cardId") ?? "");
+  const res = await updateResultAnnotations(ctx(tenant), {
+    studentId: String(formData.get("studentId") ?? ""),
+    academicPeriodId: String(formData.get("academicPeriodId") ?? ""),
+    headTeacherNote: String(formData.get("headTeacherNote") ?? ""),
+    generalAppreciation: String(formData.get("generalAppreciation") ?? ""),
+    councilDecision: String(formData.get("councilDecision") ?? ""),
+    directionNote: String(formData.get("directionNote") ?? ""),
+    sign: formData.get("sign") === "on",
+  });
+  redirect(
+    (res.ok
+      ? `/app/report-cards/${cardId}?ok=annotations`
+      : `/app/report-cards/${cardId}?error=${res.error}`) as never,
   );
 }
