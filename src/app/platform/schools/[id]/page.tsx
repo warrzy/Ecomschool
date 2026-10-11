@@ -1,8 +1,29 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requirePlatformPermission } from "@/lib/permissions/guard";
+import { userHasPlatformPermission } from "@/lib/permissions/rbac";
+import { prisma } from "@/lib/db/prisma";
 import { platformGetSchool } from "@/lib/services/schools";
 import { listAuditLogs } from "@/lib/services/audit";
+import {
+  getCurrentSubscription,
+  listModules,
+  getEntitlements,
+  usageSnapshot,
+} from "@/lib/services/platform/modules";
+import { listPlans } from "@/lib/services/platform/plans";
+import { listSchoolInvoices } from "@/lib/services/platform/billing";
+import {
+  assignSubscriptionAction,
+  changePlanAction,
+  extendTrialAction,
+  renewSubscriptionAction,
+  suspendSubscriptionAction,
+  reactivateSubscriptionAction,
+  cancelSubscriptionAction,
+  setModuleOverrideAction,
+  generateInvoiceAction,
+} from "@/app/platform/actions";
 import {
   createSchoolAdminAction,
   setSchoolStatusAction,
@@ -10,6 +31,25 @@ import {
 } from "@/app/platform/schools/actions";
 
 export const instant = false;
+
+const SUB_STATUS: Record<string, string> = {
+  TRIALING: "Essai",
+  ACTIVE: "Actif",
+  PAST_DUE: "Impayé",
+  GRACE: "Période de grâce",
+  SUSPENDED: "Suspendu",
+  EXPIRED: "Expiré",
+  CANCELLED: "Résilié",
+};
+
+const INV_STATUS: Record<string, string> = {
+  ISSUED: "Émise",
+  PARTIALLY_PAID: "Partielle",
+  PAID: "Payée",
+  CANCELLED: "Annulée",
+};
+
+const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 
 const TYPES = ["PRIMARY", "MIDDLE", "HIGH", "MIXED", "OTHER"] as const;
 const SYSTEMS = ["TRIMESTER", "SEMESTER", "OTHER"] as const;
@@ -39,7 +79,7 @@ export default async function PlatformSchoolDetailPage(props: {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePlatformPermission("platform.schools.read");
+  const tenant = await requirePlatformPermission("platform.schools.read");
 
   const { id } = await props.params;
   const sp = (await props.searchParams) ?? {};
@@ -49,7 +89,49 @@ export default async function PlatformSchoolDetailPage(props: {
   const school = await platformGetSchool(id);
   if (!school) redirect("/platform/schools");
 
-  const { rows: audit } = await listAuditLogs({ schoolId: id, pageSize: 10 });
+  const canSubs = await userHasPlatformPermission({
+    userId: tenant.userId,
+    permissionKey: "platform.subscriptions.manage",
+  });
+  const canModules = await userHasPlatformPermission({
+    userId: tenant.userId,
+    permissionKey: "platform.modules.manage",
+  });
+  const canInvoices = await userHasPlatformPermission({
+    userId: tenant.userId,
+    permissionKey: "platform.invoices.manage",
+  });
+
+  const [
+    { rows: audit },
+    subscription,
+    plans,
+    catalog,
+    entitlements,
+    usage,
+    invoices,
+    subEvents,
+    overrides,
+  ] = await Promise.all([
+    listAuditLogs({ schoolId: id, pageSize: 10 }),
+    getCurrentSubscription(id),
+    listPlans(),
+    listModules(),
+    getEntitlements(id),
+    usageSnapshot(id),
+    listSchoolInvoices(id),
+    prisma.subscriptionEvent.findMany({
+      where: { subscription: { schoolId: id } },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+    prisma.schoolModuleOverride.findMany({
+      where: { schoolId: id },
+      include: { module: { select: { code: true, name: true } } },
+    }),
+  ]);
+  const overrideByCode = new Map(overrides.map((o) => [o.module.code, o.enabled]));
+  const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   return (
     <div className="space-y-4">
@@ -259,6 +341,218 @@ export default async function PlatformSchoolDetailPage(props: {
           ) : null}
         </ul>
       </div>
+
+      {/* Abonnement SaaS */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm font-medium text-zinc-900">Abonnement ECOM-TOUCH</div>
+            {subscription ? (
+              <div className="mt-2 text-sm text-zinc-700">
+                <span className="font-medium">{subscription.plan.name}</span>
+                {" · "}{SUB_STATUS[subscription.status] ?? subscription.status}
+                {" · "}{subscription.cycle === "YEARLY" ? "annuel" : "mensuel"}
+                {" · échéance "}{subscription.currentPeriodEnd?.toISOString().slice(0, 10) ?? "—"}
+                {subscription.status === "TRIALING" && subscription.trialEndsAt
+                  ? ` (fin d'essai ${subscription.trialEndsAt.toISOString().slice(0, 10)})`
+                  : ""}
+                {subscription.status === "GRACE" && subscription.graceEndsAt
+                  ? ` (grâce jusqu'au ${subscription.graceEndsAt.toISOString().slice(0, 10)})`
+                  : ""}
+              </div>
+            ) : (
+              <div className="mt-2 text-sm text-zinc-500">
+                Aucun abonnement — accès complet historique.
+              </div>
+            )}
+            <div className="mt-1 text-xs text-zinc-500">
+              Usage : {usage.students} élève(s){usage.maxStudents != null ? ` / ${usage.maxStudents}` : ""}
+              {" · "}{usage.users} utilisateur(s){usage.maxUsers != null ? ` / ${usage.maxUsers}` : ""}
+            </div>
+          </div>
+          {canSubs && subscription ? (
+            <div className="flex flex-wrap gap-2">
+              {subscription.status === "TRIALING" ? (
+                <form action={extendTrialAction} className="flex gap-1">
+                  <input type="hidden" name="subscriptionId" value={subscription.id} />
+                  <input type="hidden" name="schoolId" value={school.id} />
+                  <input name="days" type="number" min="1" max="365" defaultValue="7" className={`${input} w-16`} />
+                  <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">+ jours essai</button>
+                </form>
+              ) : null}
+              {["TRIALING", "ACTIVE", "PAST_DUE", "GRACE"].includes(subscription.status) ? (
+                <>
+                  <form action={renewSubscriptionAction}>
+                    <input type="hidden" name="subscriptionId" value={subscription.id} />
+                    <input type="hidden" name="schoolId" value={school.id} />
+                    <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Renouveler</button>
+                  </form>
+                  <form action={suspendSubscriptionAction}>
+                    <input type="hidden" name="subscriptionId" value={subscription.id} />
+                    <input type="hidden" name="schoolId" value={school.id} />
+                    <button name="note" value="Suspension manuelle ECOM-TOUCH" className="rounded-lg border border-amber-300 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50">Suspendre</button>
+                  </form>
+                </>
+              ) : null}
+              {subscription.status === "SUSPENDED" ? (
+                <form action={reactivateSubscriptionAction}>
+                  <input type="hidden" name="subscriptionId" value={subscription.id} />
+                  <input type="hidden" name="schoolId" value={school.id} />
+                  <button className="rounded-lg border border-emerald-300 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-50">Réactiver</button>
+                </form>
+              ) : null}
+              {subscription.status !== "CANCELLED" && subscription.status !== "EXPIRED" ? (
+                <form action={cancelSubscriptionAction}>
+                  <input type="hidden" name="subscriptionId" value={subscription.id} />
+                  <input type="hidden" name="schoolId" value={school.id} />
+                  <button name="note" value="Résiliation ECOM-TOUCH" className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50">Résilier</button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
+        {canSubs ? (
+          <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-zinc-100 pt-4">
+            {subscription ? (
+              <form action={changePlanAction} className="flex items-end gap-2">
+                <input type="hidden" name="subscriptionId" value={subscription.id} />
+                <input type="hidden" name="schoolId" value={school.id} />
+                <select name="planId" required className={input}>
+                  {plans.filter((p) => p.id !== subscription.planId).map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
+                  ))}
+                </select>
+                <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Changer d&apos;offre</button>
+              </form>
+            ) : (
+              <form action={assignSubscriptionAction} className="flex flex-wrap items-end gap-2">
+                <input type="hidden" name="schoolId" value={school.id} />
+                <select name="planId" required className={input}>
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
+                  ))}
+                </select>
+                <select name="cycle" className={input}>
+                  <option value="MONTHLY">Mensuel</option>
+                  <option value="YEARLY">Annuel</option>
+                </select>
+                <label className="flex items-center gap-1 text-sm">
+                  <input type="checkbox" name="startTrial" defaultChecked /> Essai
+                </label>
+                <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Attribuer</button>
+              </form>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Modules effectifs */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="text-sm font-medium text-zinc-900">Modules ({catalog.length})</div>
+        <table className="mt-3 w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+              <th className="py-2">Module</th>
+              <th className="py-2">Offre</th>
+              <th className="py-2">Effectif</th>
+              <th className="py-2">Override</th>
+            </tr>
+          </thead>
+          <tbody>
+            {catalog.map((m) => {
+              const inPlan = entitlements.planModules?.has(m.code) ?? null;
+              const enabled = entitlements.isModuleEnabled(m.code);
+              const ov = overrideByCode.get(m.code);
+              return (
+                <tr key={m.id} className="border-b border-zinc-100 last:border-0">
+                  <td className="py-2">
+                    <span className="font-mono text-xs">{m.code}</span> {m.name}
+                  </td>
+                  <td className="py-2 text-xs">{inPlan === null ? "—" : inPlan ? "inclus" : "non inclus"}</td>
+                  <td className={`py-2 text-xs font-medium ${enabled ? "text-emerald-700" : "text-zinc-400"}`}>
+                    {enabled ? "activé" : "désactivé"}
+                  </td>
+                  <td className="py-2">
+                    {canModules && subscription ? (
+                      <form action={setModuleOverrideAction} className="flex gap-1">
+                        <input type="hidden" name="schoolId" value={school.id} />
+                        <input type="hidden" name="moduleCode" value={m.code} />
+                        {ov === true ? (
+                          <button name="enabled" value="0" className="text-xs text-red-700 underline">retirer override (+)</button>
+                        ) : ov === false ? (
+                          <button name="enabled" value="1" className="text-xs text-emerald-700 underline">retirer override (−)</button>
+                        ) : (
+                          <>
+                            <button name="enabled" value="1" className="text-xs text-emerald-700 underline">activer</button>
+                            <button name="enabled" value="0" className="ml-2 text-xs text-red-700 underline">bloquer</button>
+                          </>
+                        )}
+                      </form>
+                    ) : (
+                      <span className="text-xs text-zinc-400">{ov === true ? "forcé" : ov === false ? "bloqué" : "—"}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Facturation SaaS */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm font-medium text-zinc-900">Facturation SaaS ({invoices.length})</div>
+          {canInvoices ? (
+            <form action={generateInvoiceAction} className="flex items-end gap-2">
+              <input type="hidden" name="schoolId" value={school.id} />
+              {subscription ? <input type="hidden" name="subscriptionId" value={subscription.id} /> : null}
+              <select name="cycle" className={input}>
+                <option value="MONTHLY">Mensuelle</option>
+                <option value="YEARLY">Annuelle</option>
+              </select>
+              <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Générer une facture</button>
+            </form>
+          ) : null}
+        </div>
+        <table className="mt-3 w-full text-left text-sm">
+          <tbody>
+            {invoices.map((i) => (
+              <tr key={i.id} className="border-b border-zinc-100 last:border-0">
+                <td className="py-2 font-mono text-xs">
+                  <Link href={`/platform/invoices/${i.id}`} className="hover:underline">{i.invoiceNumber}</Link>
+                </td>
+                <td className="py-2 text-xs">{i.issueDate.toISOString().slice(0, 10)}</td>
+                <td className="py-2 text-right">{fmt(i.total)}</td>
+                <td className="py-2 text-right">{i.balance > 0 ? `solde ${fmt(i.balance)}` : "soldée"}</td>
+                <td className="py-2">{INV_STATUS[i.status] ?? i.status}</td>
+                <td className="py-2 text-right text-xs">
+                  <a href={`/platform/invoices/${i.id}/pdf`} className="underline">PDF</a>
+                </td>
+              </tr>
+            ))}
+            {invoices.length === 0 ? (
+              <tr><td colSpan={6} className="py-3 text-zinc-500">Aucune facture SaaS.</td></tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Historique abonnement */}
+      {subEvents.length > 0 ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">Historique d&apos;abonnement</div>
+          <ul className="mt-3 space-y-1 text-sm text-zinc-700">
+            {subEvents.map((e) => (
+              <li key={e.id}>
+                {e.createdAt.toISOString().slice(0, 16).replace("T", " ")} · {e.type}
+                {e.note ? ` — ${e.note}` : ""} · {e.actorId ? e.actorId.slice(0, 8) : "système"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm font-medium text-zinc-900">

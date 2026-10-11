@@ -24,5 +24,6 @@ export const appNav: NavItem[] = [
   { label: "Notifications", href: "/app/notifications" },
   { label: "Finances", href: "/app/fees" },
   { label: "Utilisateurs", href: "/app/users" },
+  { label: "Mon abonnement", href: "/app/subscription" },
   { label: "Paramètres", href: "/app/settings" },
 ];

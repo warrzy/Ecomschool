@@ -337,6 +337,7 @@ export async function sweepSubscriptions() {
     });
     if (stillInGrace) graceStarted++;
     else suspended++; // sera basculé ci-dessous
+    if (sub.status !== "PAST_DUE") pastDue++;
   }
 
   const staleGrace = await prisma.schoolSubscription.findMany({

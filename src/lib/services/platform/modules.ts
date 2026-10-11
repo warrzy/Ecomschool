@@ -241,19 +241,19 @@ export async function setModuleOverride(
   actorUserId: string,
   input: { schoolId: string; moduleCode: string; enabled: boolean; note?: string },
 ) {
-  const module = await prisma.platformModule.findUnique({
+  const mod = await prisma.platformModule.findUnique({
     where: { code: input.moduleCode },
     select: { id: true },
   });
-  if (!module) return { ok: false as const, error: "NOT_FOUND" as const };
+  if (!mod) return { ok: false as const, error: "NOT_FOUND" as const };
   await prisma.schoolModuleOverride.upsert({
     where: {
-      schoolId_moduleId: { schoolId: input.schoolId, moduleId: module.id },
+      schoolId_moduleId: { schoolId: input.schoolId, moduleId: mod.id },
     },
     update: { enabled: input.enabled, note: input.note ?? null, createdById: actorUserId },
     create: {
       schoolId: input.schoolId,
-      moduleId: module.id,
+      moduleId: mod.id,
       enabled: input.enabled,
       note: input.note ?? null,
       createdById: actorUserId,
@@ -264,7 +264,7 @@ export async function setModuleOverride(
     schoolId: input.schoolId,
     action: "platform.module.override",
     entity: "PlatformModule",
-    entityId: module.id,
+    entityId: mod.id,
     metadata: { code: input.moduleCode, enabled: input.enabled },
   });
   return { ok: true as const };

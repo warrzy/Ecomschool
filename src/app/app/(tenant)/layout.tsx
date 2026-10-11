@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { appNav } from "@/app/app/(tenant)/ui/nav";
 import { requireSchoolContext } from "@/lib/tenant/context";
+import { activeSupportSession } from "@/lib/services/platform/support";
 
 export const instant = false;
 
@@ -16,7 +17,7 @@ export default async function TenantLayout({
   if (tenant.roleName === "PARENT") redirect("/parent" as never);
   if (tenant.roleName === "STUDENT") redirect("/student" as never);
 
-  const [school, academicYear] = await Promise.all([
+  const [school, academicYear, supportSession] = await Promise.all([
     prisma.school.findUnique({
       where: { id: tenant.schoolId },
       select: { name: true },
@@ -25,6 +26,7 @@ export default async function TenantLayout({
       where: { schoolId: tenant.schoolId, isCurrent: true },
       select: { name: true },
     }),
+    activeSupportSession(tenant.schoolId),
   ]);
 
   return (
@@ -83,6 +85,14 @@ export default async function TenantLayout({
             </form>
             </div>
           </header>
+
+          {supportSession ? (
+            <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+              Session d&apos;assistance ECOM-TOUCH active — agent : {supportSession.agent.email}
+              {" · "}motif : {supportSession.reason}
+              {" · "}expire le {supportSession.expiresAt.toISOString().slice(0, 16).replace("T", " ")}
+            </div>
+          ) : null}
 
           <main className="flex-1 p-4">{children}</main>
         </div>
