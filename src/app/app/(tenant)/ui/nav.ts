@@ -20,6 +20,8 @@ export const appNav: NavItem[] = [
   { label: "Bulletins", href: "/app/report-cards" },
   { label: "Règles de notation", href: "/app/grading-policy" },
   { label: "Absences & retards", href: "/app/attendance" },
+  { label: "Annonces", href: "/app/announcements" },
+  { label: "Notifications", href: "/app/notifications" },
   { label: "Finances", href: "/app/fees" },
   { label: "Utilisateurs", href: "/app/users" },
   { label: "Paramètres", href: "/app/settings" },

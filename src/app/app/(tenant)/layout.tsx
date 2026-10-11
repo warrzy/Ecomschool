@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { appNav } from "@/app/app/(tenant)/ui/nav";
 import { requireSchoolContext } from "@/lib/tenant/context";
@@ -12,6 +13,8 @@ export default async function TenantLayout({
 }) {
   cookies();
   const tenant = await requireSchoolContext();
+  if (tenant.roleName === "PARENT") redirect("/parent" as never);
+  if (tenant.roleName === "STUDENT") redirect("/student" as never);
 
   const [school, academicYear] = await Promise.all([
     prisma.school.findUnique({

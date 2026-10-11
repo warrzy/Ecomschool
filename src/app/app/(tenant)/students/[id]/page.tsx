@@ -19,6 +19,13 @@ import {
   listAttendance,
   studentAttendanceSummary,
 } from "@/lib/services/attendance";
+import { getStudentAccessStatus } from "@/lib/services/portal/accounts";
+import {
+  inviteGuardianAction,
+  inviteStudentAction,
+  resendInviteAction,
+  setPortalAccessAction,
+} from "@/app/app/(tenant)/students/portal-actions";
 import type { AttendanceStatus } from "@prisma/client";
 
 const DAY_LABEL: Record<string, string> = {
@@ -129,6 +136,17 @@ export default async function StudentDetailPage({
     schoolId: tenant.schoolId,
     permissionKey: "reportcards.print",
   });
+  const canManagePortal = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "portal.manage",
+  });
+  const access = canManagePortal
+    ? await getStudentAccessStatus(
+        { userId: tenant.userId, schoolId: tenant.schoolId },
+        student.id,
+      )
+    : null;
 
   const currentEnrollment =
     student.enrollments.find((e) => e.status === "ENROLLED") ?? null;
@@ -599,6 +617,150 @@ export default async function StudentDetailPage({
             </details>
           ) : null}
         </div>
+
+        {canManagePortal && access ? (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">
+              Accès aux portails
+            </div>
+            {typeof sp.invite === "string" ? (
+              <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Invitation créée — transmettez ce lien (aucun envoi automatique) :{" "}
+                <code className="break-all">{sp.invite}</code>
+              </div>
+            ) : null}
+            <ul className="mt-3 space-y-2 text-sm">
+              <li className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2">
+                <span>
+                  <span className="font-medium text-zinc-900">Compte élève</span>{" "}
+                  <span className="text-zinc-500">
+                    {access.student.user
+                      ? `${access.student.user.email} — ${
+                          access.student.user.status === "ACTIVE"
+                            ? "actif"
+                            : access.pendingInvites.has(access.student.user.id)
+                              ? "invitation en attente"
+                              : "désactivé"
+                        }`
+                      : "non créé"}
+                  </span>
+                </span>
+                <span className="flex items-center gap-1">
+                  {access.student.user ? (
+                    <>
+                      {access.student.user.status !== "ACTIVE" ? (
+                        <form action={resendInviteAction}>
+                          <input type="hidden" name="studentId" value={student.id} />
+                          <input type="hidden" name="userId" value={access.student.user.id} />
+                          <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                            Renvoyer l&apos;invitation
+                          </button>
+                        </form>
+                      ) : null}
+                      <form action={setPortalAccessAction}>
+                        <input type="hidden" name="studentId" value={student.id} />
+                        <input type="hidden" name="userId" value={access.student.user.id} />
+                        <input
+                          type="hidden"
+                          name="status"
+                          value={access.student.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
+                        />
+                        <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                          {access.student.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    <form action={inviteStudentAction} className="flex items-center gap-1">
+                      <input type="hidden" name="studentId" value={student.id} />
+                      <input
+                        name="email"
+                        type="email"
+                        required
+                        placeholder="Email du compte"
+                        className="h-8 w-44 rounded-lg border border-zinc-200 px-2 text-xs"
+                      />
+                      <button type="submit" className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                        Activer le compte
+                      </button>
+                    </form>
+                  )}
+                </span>
+              </li>
+              {access.student.guardians.map((g) => (
+                <li
+                  key={g.guardian.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span>
+                    <span className="font-medium text-zinc-900">
+                      {g.guardian.lastName} {g.guardian.firstName}
+                    </span>{" "}
+                    <span className="text-zinc-500">
+                      — {RELATIONS[g.relation] ?? g.relation} ·{" "}
+                      {g.guardian.user
+                        ? `${g.guardian.user.email} — ${
+                            g.guardian.user.status === "ACTIVE"
+                              ? "actif"
+                              : access.pendingInvites.has(g.guardian.user.id)
+                                ? "invitation en attente"
+                                : "désactivé"
+                          }`
+                        : "aucun compte"}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {g.guardian.user ? (
+                      <>
+                        {g.guardian.user.status !== "ACTIVE" ? (
+                          <form action={resendInviteAction}>
+                            <input type="hidden" name="studentId" value={student.id} />
+                            <input type="hidden" name="userId" value={g.guardian.user.id} />
+                            <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                              Renvoyer
+                            </button>
+                          </form>
+                        ) : null}
+                        <form action={setPortalAccessAction}>
+                          <input type="hidden" name="studentId" value={student.id} />
+                          <input type="hidden" name="userId" value={g.guardian.user.id} />
+                          <input
+                            type="hidden"
+                            name="status"
+                            value={g.guardian.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
+                          />
+                          <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                            {g.guardian.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <form action={inviteGuardianAction} className="flex items-center gap-1">
+                        <input type="hidden" name="studentId" value={student.id} />
+                        <input type="hidden" name="guardianId" value={g.guardian.id} />
+                        <input
+                          name="email"
+                          type="email"
+                          required
+                          placeholder="Email"
+                          defaultValue={g.guardian.email ?? ""}
+                          className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"
+                        />
+                        <button type="submit" className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                          Inviter
+                        </button>
+                      </form>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-zinc-500">
+              Les invitations expirent après 7 jours. Aucun mot de passe n&apos;est
+              envoyé : le destinataire définit le sien via le lien.
+            </p>
+          </div>
+        ) : null}
 
         {canViewGrades ? (
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
