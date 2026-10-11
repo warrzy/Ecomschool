@@ -7,7 +7,9 @@ module.exports = {
   apps: [
     {
       name: "ecomschool-preprod",
-      cwd: "/var/www/ecomschool-preprod",
+      // `current` est un lien symbolique vers releases/<ts> — résolu par le
+      // noyau au démarrage du processus (bascule de release par lien).
+      cwd: "/var/www/ecomschool-preprod/current",
       script: "node_modules/next/dist/bin/next",
       args: "start -p 3001 -H 127.0.0.1",
       instances: 1,

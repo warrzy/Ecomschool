@@ -33,7 +33,7 @@ else
   echo "OK   port 3001 libre"
 fi
 check "port 5432 local uniquement" \
-  "! ss -tln | grep -E ':5432' | grep -qv '127.0.0.1'"
+  "! ss -tln | grep -E ':5432' | grep -vE '127\.0\.0\.1|\[::1\]|::1'"
 [ -d /var/www/ecomschool-preprod ] \
   && echo "INFO /var/www/ecomschool-preprod existe déjà" \
   || echo "OK   répertoire cible disponible"
@@ -50,7 +50,9 @@ else
 fi
 
 echo "== DNS =="
-host_ip=$(dig +short preprod.ecomschool.fr A 2>/dev/null | tail -1)
+host_ip=$(command -v dig >/dev/null \
+  && dig +short preprod.ecomschool.fr A | tail -1 \
+  || getent hosts preprod.ecomschool.fr | awk '{print $1; exit}')
 echo "preprod.ecomschool.fr → ${host_ip:-non résolu} (attendu : 147.79.118.212)"
 
 [ "$fail" -eq 0 ] && echo -e "\nPrérequis OK" || { echo -e "\nDes prérequis manquent"; exit 1; }

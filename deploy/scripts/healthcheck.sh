@@ -2,6 +2,7 @@
 # ECOM-SCHOOL — vérifications de santé applicative.
 # Usage : bash deploy/scripts/healthcheck.sh
 set -uo pipefail
+source "$(dirname "$0")/lib.sh" 2>/dev/null || true
 fail=0
 
 echo "== Processus =="
@@ -11,9 +12,14 @@ pm2 describe ecomschool-preprod >/dev/null 2>&1 \
 ss -tln | grep -q '127.0.0.1:3001' \
   && echo "OK   écoute 127.0.0.1:3001 (non exposé)" \
   || { echo "FAIL pas d'écoute sur 127.0.0.1:3001"; fail=1; }
-ss -tln | grep -E '(^|\s)0\.0\.0\.0:3001' >/dev/null \
+ss -tln | grep -E '(0\.0\.0\.0|\[::\]|\*|::):3001' >/dev/null \
   && { echo "FAIL 3001 exposé sur toutes les interfaces"; fail=1; } \
   || echo "OK   3001 non exposé publiquement"
+
+echo "== Release =="
+[ -n "${APP_CURRENT:-}" ] && [ -L "$APP_CURRENT" ] \
+  && echo "OK   current → $(readlink -f "$APP_CURRENT")" \
+  || echo "WARN lien current introuvable"
 
 echo "== Applicatif =="
 code=$(curl -sk -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/auth/csrf)
@@ -23,8 +29,10 @@ code=$(curl -sk -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/auth/cs
 echo "== Nginx =="
 nginx -t >/dev/null 2>&1 && echo "OK   nginx -t" \
   || { echo "FAIL nginx -t"; fail=1; }
-code=$(curl -sk -o /dev/null -w '%{http_code}' http://preprod.ecomschool.fr/api/auth/csrf)
-echo "HTTP  préprod.ecomschool.fr → $code (200 attendu)"
+# Après Certbot : HTTPS attendu. HTTP → 301 accepté (redirection vers HTTPS).
+code=$(curl -sk -L -o /dev/null -w '%{http_code}' \
+  https://preprod.ecomschool.fr/api/auth/csrf)
+echo "HTTPS preprod.ecomschool.fr → $code (200 attendu)"
 
 echo "== Cron =="
 grep -rqs 'ecomschool\|api/cron' /etc/cron.d/ /var/spool/cron/crontabs/ 2>/dev/null \
