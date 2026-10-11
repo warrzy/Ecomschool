@@ -7,7 +7,8 @@ import { hashPassword } from "@/lib/auth/password";
  * Variables requises :
  *   PREPROD_PLATFORM_ADMIN_EMAIL
  *   PREPROD_PLATFORM_ADMIN_PASSWORD
- * Idempotent : ré-exécution réinitialise le mot de passe du compte.
+ * Idempotent : ré-exécution sans effet sur un compte existant (mot de
+ * passe, statut et rôles inchangés).
  */
 async function main() {
   const email = process.env.PREPROD_PLATFORM_ADMIN_EMAIL?.toLowerCase().trim();
@@ -26,7 +27,7 @@ async function main() {
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({
     where: { email },
-    update: { passwordHash, status: "ACTIVE" },
+    update: {},
     create: {
       email,
       passwordHash,
