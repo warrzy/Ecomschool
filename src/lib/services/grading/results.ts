@@ -10,6 +10,7 @@ import {
   type GradingRules,
 } from "./calculation";
 import { resolveRules, annualWeightsFor } from "./policy";
+import { notifyResultsPublished } from "@/lib/services/notifications";
 import type { ResultStatus } from "@prisma/client";
 
 export type ResultsError =
@@ -407,6 +408,17 @@ export async function setValidationStatus(
     entity: "ResultValidation",
     entityId: rv.id,
   });
+  if (input.status === "PUBLISHED") {
+    const period = await prisma.academicPeriod.findUnique({
+      where: { id: input.academicPeriodId },
+      select: { name: true },
+    });
+    await notifyResultsPublished({
+      schoolId: ctx.schoolId,
+      classroomId: input.classroomId,
+      periodName: period?.name ?? "Période",
+    });
+  }
   return { ok: true, result: undefined };
 }
 

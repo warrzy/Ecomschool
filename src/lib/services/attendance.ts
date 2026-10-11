@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { parseDay } from "@/lib/services/schedules";
+import { notifyAbsenceUnjustified, notifyLateness } from "@/lib/services/notifications";
 import type { AttendanceStatus } from "@prisma/client";
 
 export type AttendanceError =
@@ -464,6 +465,21 @@ export async function addAttendanceRecord(
       entityId: row.id,
       metadata: { studentId: input.studentId, date: input.date },
     });
+
+    // Notification interne (pas d'envoi externe) : absence non justifiée / retard.
+    if (input.status === "ABSENT") {
+      await notifyAbsenceUnjustified({
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        date,
+      });
+    } else if (input.status === "LATE") {
+      await notifyLateness({
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        date,
+      });
+    }
 
     return { ok: true, result: { id: row.id } };
   } catch {
