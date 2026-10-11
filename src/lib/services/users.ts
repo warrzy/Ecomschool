@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getSchoolAssignableRole } from "@/lib/permissions/rbac";
 import { hashPassword } from "@/lib/auth/password";
 import { logAudit } from "@/lib/services/audit";
+import { checkLimit } from "@/lib/services/platform/modules";
 
 export type ServiceError =
   | "INVALID_INPUT"
@@ -12,6 +13,7 @@ export type ServiceError =
   | "CANNOT_TARGET_PLATFORM_USER"
   | "LAST_ACTIVE_ADMIN"
   | "INVALID_ROLE"
+  | "LIMIT_REACHED"
   | "CREATE_FAILED"
   | "UPDATE_FAILED"
   | "DELETE_FAILED";
@@ -157,6 +159,10 @@ export async function createSchoolUser(
     select: { id: true },
   });
   if (existing) return { ok: false, error: "EMAIL_TAKEN" };
+
+  // Limite commerciale d'utilisateurs (abonnement SaaS)
+  const limit = await checkLimit(ctx.schoolId, "users");
+  if (!limit.ok) return { ok: false, error: "LIMIT_REACHED" };
 
   const passwordHash = await hashPassword(input.password);
 

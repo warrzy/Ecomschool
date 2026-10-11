@@ -435,58 +435,99 @@ export async function listCashClosures(ctx: SchoolCtx) {
 
 // ---------- Impayés ----------
 
+/**
+ * Soldes restants par échéance.
+ * - Les réductions/exonérations sont déduites des échéances les plus
+ *   anciennes (même règle que la répartition FIFO des paiements).
+ * - `exigible` distingue les échéances échues des échéances futures.
+ */
 export async function listUnpaid(
   ctx: SchoolCtx,
   input: { academicYearId: string; classroomId?: string },
 ) {
   const today = new Date();
-  const installments = await prisma.feeInstallment.findMany({
-    where: {
-      schoolId: ctx.schoolId,
-      academicYearId: input.academicYearId,
-      status: "ACTIVE",
-      charge: { status: "ACTIVE" },
-      ...(input.classroomId
-        ? {
-            student: {
-              enrollments: {
-                some: {
-                  academicYearId: input.academicYearId,
-                  classroomId: input.classroomId,
-                  status: "ENROLLED",
+  const [installments, discounts] = await Promise.all([
+    prisma.feeInstallment.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: input.academicYearId,
+        status: "ACTIVE",
+        charge: { status: "ACTIVE" },
+        ...(input.classroomId
+          ? {
+              student: {
+                enrollments: {
+                  some: {
+                    academicYearId: input.academicYearId,
+                    classroomId: input.classroomId,
+                    status: "ENROLLED",
+                  },
                 },
               },
+            }
+          : {}),
+      },
+      include: {
+        student: {
+          select: {
+            id: true,
+            matricule: true,
+            firstName: true,
+            lastName: true,
+            enrollments: {
+              where: { academicYearId: input.academicYearId, status: "ENROLLED" },
+              select: { classroom: { select: { name: true, level: { select: { name: true } } } } },
+              take: 1,
             },
-          }
-        : {}),
-    },
-    include: {
-      student: {
-        select: {
-          id: true,
-          matricule: true,
-          firstName: true,
-          lastName: true,
-          enrollments: {
-            where: { academicYearId: input.academicYearId, status: "ENROLLED" },
-            select: { classroom: { select: { name: true, level: { select: { name: true } } } } },
-            take: 1,
           },
         },
+        charge: { select: { category: { select: { label: true } } } },
+        allocations: {
+          where: { payment: { status: "VALIDATED" } },
+          select: { amount: true },
+        },
       },
-      charge: { select: { category: { select: { label: true } } } },
-      allocations: {
-        where: { payment: { status: "VALIDATED" } },
-        select: { amount: true },
+      orderBy: { dueDate: "asc" },
+    }),
+    prisma.feeDiscount.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: input.academicYearId,
+        status: "ACTIVE",
       },
-    },
-    orderBy: { dueDate: "asc" },
-  });
+      select: { studentId: true, type: true, value: true },
+    }),
+  ]);
+
+  // Total des charges par élève (base des remises en %)
+  const totalByStudent = new Map<string, number>();
+  for (const i of installments) {
+    totalByStudent.set(i.student.id, (totalByStudent.get(i.student.id) ?? 0) + i.amount);
+  }
+  // Enveloppe de réduction restante par élève, consommée FIFO
+  const discountPool = new Map<string, number>();
+  for (const d of discounts) {
+    const total = totalByStudent.get(d.studentId) ?? 0;
+    const amount =
+      d.type === "EXEMPTION"
+        ? total
+        : d.type === "PERCENT"
+          ? Math.floor((total * d.value) / 100)
+          : d.value;
+    discountPool.set(d.studentId, (discountPool.get(d.studentId) ?? 0) + amount);
+  }
 
   return installments
     .map((i) => {
       const paid = i.allocations.reduce((s, a) => s + a.amount, 0);
-      const remaining = Math.max(0, i.amount - paid);
+      let remaining = Math.max(0, i.amount - paid);
+      // Consommation de l'enveloppe de réduction de l'élève (FIFO)
+      const pool = discountPool.get(i.student.id) ?? 0;
+      if (pool > 0 && remaining > 0) {
+        const applied = Math.min(pool, remaining);
+        remaining -= applied;
+        discountPool.set(i.student.id, pool - applied);
+      }
       const daysLate = Math.max(
         0,
         Math.floor((today.getTime() - i.dueDate.getTime()) / 86400000),
@@ -503,6 +544,7 @@ export async function listUnpaid(
         paid,
         remaining,
         daysLate,
+        exigible: i.dueDate < today,
         late: i.dueDate < today && remaining > 0,
       };
     })

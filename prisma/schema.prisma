@@ -214,6 +214,14 @@ model School {
   cashClosures        CashClosure[]
   feeReminders        FeeReminder[]
 
+  subscriptions            SchoolSubscription[]
+  moduleOverrides          SchoolModuleOverride[]
+  platformInvoices         PlatformInvoice[]
+  platformPayments         PlatformPayment[]
+  platformCreditNotes      PlatformCreditNote[]
+  supportSessions          SupportSession[]
+  subscriptionChangeRequests SubscriptionChangeRequest[]
+
   @@index([status])
 }
 
@@ -246,6 +254,8 @@ model User {
   guardianAccounts  Guardian[] @relation("GuardianAccount")
   notifications     Notification[]
   accountInvites    AccountInvite[]
+  supportAgentSessions     SupportSession[]
+  supportAuthorizedSessions SupportSession[] @relation("SupportAuthorizedBy")
 
   @@index([schoolId])
   @@index([email])
@@ -1575,4 +1585,326 @@ model AccountInvite {
 
   @@index([schoolId])
   @@index([userId])
+}
+
+// ===================== PHASE 8 — SaaS commercial ECOM-TOUCH =====================
+
+/** Catalogue des fonctionnalités commercialisables. */
+model PlatformModule {
+  id          String @id @default(cuid())
+  code        String @unique
+  name        String
+  description String?
+  dependsOn   String[] @default([])
+  commercial  Boolean @default(true)
+  status      RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  planModules PlanModule[]
+  overrides   SchoolModuleOverride[]
+}
+
+/** Formule commerciale (prix en entiers XOF). */
+model SubscriptionPlan {
+  id   String @id @default(cuid())
+  code String @unique
+
+  name        String
+  description String?
+
+  monthlyPrice Int    @default(0)
+  yearlyPrice  Int    @default(0)
+  currency     String @default("XOF")
+
+  maxStudents Int?
+  maxUsers    Int?
+
+  trialDays Int          @default(0)
+  graceDays Int          @default(7)
+  status    RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modules       PlanModule[]
+  subscriptions SchoolSubscription[]
+  changeRequests SubscriptionChangeRequest[]
+}
+
+model PlanModule {
+  id       String @id @default(cuid())
+  planId   String
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  moduleId String
+  module   PlatformModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  @@unique([planId, moduleId])
+}
+
+/** Abonnement d'un établissement (historique conservé). */
+model SchoolSubscription {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  planId String
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  status             SubscriptionStatus @default(TRIALING)
+  cycle              BillingCycle       @default(MONTHLY)
+  startedAt          DateTime           @default(now())
+  trialEndsAt        DateTime?
+  currentPeriodStart DateTime           @default(now())
+  currentPeriodEnd   DateTime
+  graceEndsAt        DateTime?
+
+  suspendedAt DateTime?
+  cancelledAt DateTime?
+  endedAt     DateTime?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  events   SubscriptionEvent[]
+  invoices PlatformInvoice[]
+
+  @@index([schoolId, status])
+  @@index([status, currentPeriodEnd])
+}
+
+model SubscriptionEvent {
+  id             String @id @default(cuid())
+  subscriptionId String
+  subscription   SchoolSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  type       SubscriptionEventType
+  fromPlanId String?
+  toPlanId   String?
+  note       String?
+  actorId    String?
+  createdAt  DateTime @default(now())
+
+  @@index([subscriptionId, createdAt])
+}
+
+/** Activation/désactivation forcée d'un module pour une école (hors plan). */
+model SchoolModuleOverride {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  moduleId String
+  module   PlatformModule @relation(fields: [moduleId], references: [id], onDelete: Restrict)
+
+  enabled     Boolean
+  note        String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([schoolId, moduleId])
+}
+
+/** Demande de changement d'offre émise par l'établissement (validation plateforme). */
+model SubscriptionChangeRequest {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  subscriptionId  String?
+  requestedPlanId String
+  requestedPlan   SubscriptionPlan @relation(fields: [requestedPlanId], references: [id], onDelete: Restrict)
+
+  note         String?
+  status       ChangeRequestStatus @default(PENDING)
+  createdById  String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([schoolId, status])
+}
+
+// ---------- Facturation SaaS (indépendante des finances scolaires) ----------
+
+/** Configuration facturation ECOM-TOUCH (singleton id="platform"). */
+model PlatformConfig {
+  id          String  @id @default("platform")
+  legalName   String?
+  address     String?
+  city        String?
+  country     String?
+  phone       String?
+  email       String?
+  taxId       String?
+  invoiceFooter String?
+  defaultGraceDays Int @default(7)
+  updatedAt   DateTime @updatedAt
+}
+
+model PlatformInvoice {
+  id             String @id @default(cuid())
+  invoiceNumber  String @unique
+  schoolId       String
+  school         School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  subscriptionId String?
+  subscription   SchoolSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  status  PlatformInvoiceStatus @default(ISSUED)
+  cycle   BillingCycle          @default(MONTHLY)
+  issueDate DateTime            @default(now())
+  dueDate   DateTime
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  total    Int
+  currency String @default("XOF")
+  snapshot Json? // émetteur, client, lignes, montants — immuable
+
+  cancelledAt  DateTime?
+  cancelReason String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines       PlatformInvoiceLine[]
+  payments    PlatformPayment[]
+  creditNotes PlatformCreditNote[]
+
+  @@index([schoolId, status])
+  @@index([status, dueDate])
+}
+
+model PlatformInvoiceLine {
+  id        String @id @default(cuid())
+  invoiceId String
+  invoice   PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  label     String
+  quantity  Int @default(1)
+  unitPrice Int
+  amount    Int
+}
+
+model PlatformPayment {
+  id        String @id @default(cuid())
+  invoiceId String
+  invoice   PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  amount    Int
+  paidAt    DateTime @default(now())
+  method    String?
+  reference String?
+  observation String?
+  receivedById String?
+
+  status       PaymentStatus @default(VALIDATED)
+  cancelledAt  DateTime?
+  cancelledById String?
+  cancelReason  String?
+
+  idempotencyKey String? @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([schoolId])
+}
+
+/** Avoir (note de crédit) — réduit le solde dû de la facture. */
+model PlatformCreditNote {
+  id              String @id @default(cuid())
+  creditNoteNumber String @unique
+  invoiceId       String
+  invoice         PlatformInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  amount      Int
+  reason      String
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([schoolId])
+}
+
+/** Session d'assistance ECOM-TOUCH auprès d'un établissement (autorisée, limitée, journalisée). */
+model SupportSession {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  agentId String
+  agent   User   @relation(fields: [agentId], references: [id], onDelete: Restrict)
+
+  reason         String
+  authorizedById String?
+  authorizedBy   User?   @relation("SupportAuthorizedBy", fields: [authorizedById], references: [id], onDelete: SetNull)
+
+  status    SupportSessionStatus @default(ACTIVE)
+  startedAt DateTime             @default(now())
+  expiresAt DateTime
+  endedAt   DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([schoolId, status])
+  @@index([agentId])
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  GRACE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionEventType {
+  CREATED
+  TRIAL_STARTED
+  TRIAL_EXTENDED
+  ACTIVATED
+  PLAN_CHANGED
+  RENEWED
+  PAST_DUE
+  GRACE_STARTED
+  SUSPENDED
+  REACTIVATED
+  CANCELLED
+  EXPIRED
+  CHANGE_REQUESTED
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PlatformInvoiceStatus {
+  ISSUED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum SupportSessionStatus {
+  ACTIVE
+  ENDED
+  EXPIRED
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
+import { checkLimit } from "@/lib/services/platform/modules";
 import type { EnrollmentStatus } from "@prisma/client";
 
 export type EnrollmentsError =
@@ -9,6 +10,7 @@ export type EnrollmentsError =
   | "ALREADY_ENROLLED"
   | "CROSS_YEAR"
   | "NO_CURRENT_YEAR"
+  | "LIMIT_REACHED"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -151,6 +153,10 @@ export async function enrollStudent(
     });
     if (existing) return { ok: false, error: "ALREADY_ENROLLED" };
   }
+
+  // Limite commerciale d'élèves (abonnement SaaS)
+  const limit = await checkLimit(ctx.schoolId, "students");
+  if (!limit.ok) return { ok: false, error: "LIMIT_REACHED" };
 
   try {
     const enrollment = await prisma.enrollment.create({

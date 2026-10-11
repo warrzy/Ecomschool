@@ -8,6 +8,7 @@ import {
   userHasPlatformPermission,
   userHasSchoolPermission,
 } from "@/lib/permissions/rbac";
+import { isPermissionCoveredBySubscription } from "@/lib/services/platform/modules";
 
 export async function requirePlatformPermission(permissionKey: string) {
   const ctx = await requirePlatformContext();
@@ -30,8 +31,12 @@ export async function requireSchoolPermission(permissionKey: string) {
     schoolId: ctx.schoolId,
     permissionKey,
   });
-
   if (!ok) redirect("/app" as never);
+
+  // Activation commerciale : le module doit être souscrit et l'abonnement
+  // non suspendu (les lectures restent autorisées en suspension).
+  const covered = await isPermissionCoveredBySubscription(ctx.schoolId, permissionKey);
+  if (!covered) redirect("/app" as never);
 
   return ctx;
 }
