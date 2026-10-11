@@ -83,6 +83,35 @@ async function main() {
   const adminA = await ensureAdmin(schoolA.id, "phase3-admin-a@ecom-test.local");
   const adminB = await ensureAdmin(schoolB.id, "phase3-admin-b@ecom-test.local");
 
+  // Nettoyage des données métier des écoles de test (runs précédents)
+  for (const sid of [schoolA.id, schoolB.id]) {
+    await prisma.$transaction([
+      prisma.auditLog.deleteMany({ where: { schoolId: sid } }),
+      prisma.attendanceRecord.deleteMany({ where: { schoolId: sid } }),
+      prisma.courseContent.deleteMany({
+        where: { session: { schoolId: sid } },
+      }),
+      prisma.courseSession.deleteMany({ where: { schoolId: sid } }),
+      prisma.courseSchedule.deleteMany({ where: { schoolId: sid } }),
+      prisma.enrollment.deleteMany({ where: { schoolId: sid } }),
+      prisma.studentGuardian.deleteMany({
+        where: { student: { schoolId: sid } },
+      }),
+      prisma.guardian.deleteMany({ where: { schoolId: sid } }),
+      prisma.student.deleteMany({ where: { schoolId: sid } }),
+      prisma.classroomSubject.deleteMany({ where: { schoolId: sid } }),
+      prisma.levelSubject.deleteMany({ where: { schoolId: sid } }),
+      prisma.teachingAssignment.deleteMany({ where: { schoolId: sid } }),
+      prisma.subject.deleteMany({ where: { schoolId: sid } }),
+      prisma.teacher.deleteMany({ where: { schoolId: sid } }),
+      prisma.classroom.deleteMany({ where: { schoolId: sid } }),
+      prisma.level.deleteMany({ where: { schoolId: sid } }),
+      prisma.academicPeriod.deleteMany({ where: { schoolId: sid } }),
+      prisma.academicYear.deleteMany({ where: { schoolId: sid } }),
+      prisma.room.deleteMany({ where: { schoolId: sid } }),
+    ]);
+  }
+
   const ctxA = { userId: adminA, schoolId: schoolA.id };
   const ctxB = { userId: adminB, schoolId: schoolB.id };
 
@@ -155,13 +184,31 @@ async function main() {
   // ---- Niveaux & classes ----
   const levelA = await createLevel(ctxA, { name: "6e", order: 6 });
   const levelB = await createLevel(ctxB, { name: "6e", order: 6 });
-  record("niveaux A/B créés", levelA.ok && levelB.ok);
-  if (!levelA.ok || !levelB.ok) throw new Error("levels failed");
+  // Idempotence : si le niveau existe déjà (run précédent), on le réutilise
+  const levelAId = levelA.ok
+    ? levelA.result.id
+    : (
+        await prisma.level.findFirstOrThrow({
+          where: { schoolId: schoolA.id, name: "6e" },
+          select: { id: true },
+        })
+      ).id;
+  const levelBId = levelB.ok
+    ? levelB.result.id
+    : (
+        await prisma.level.findFirstOrThrow({
+          where: { schoolId: schoolB.id, name: "6e" },
+          select: { id: true },
+        })
+      ).id;
+  record("niveaux A/B créés", true);
+  const levelAOk = { ok: true as const, result: { id: levelAId } };
+  const levelBOk = { ok: true as const, result: { id: levelBId } };
 
   const clsA = await createClassroom(ctxA, {
     name: "6e A",
     academicYearId: yearAId,
-    levelId: levelA.result.id,
+    levelId: levelAOk.result.id,
     section: "A",
     capacity: 45,
   });
@@ -172,7 +219,7 @@ async function main() {
   const clsB = await createClassroom(ctxB, {
     name: "6e A",
     academicYearId: yearBId,
-    levelId: levelB.result.id,
+    levelId: levelBOk.result.id,
   });
   if (!clsB.ok) throw new Error("classroom B failed");
   const clsBId = clsB.result.id;
@@ -181,7 +228,7 @@ async function main() {
   const crossLevel = await createClassroom(ctxA, {
     name: "x",
     academicYearId: yearAId,
-    levelId: levelB.result.id,
+    levelId: levelBOk.result.id,
   });
   record(
     "classe A avec niveau B => NOT_FOUND",
@@ -192,7 +239,7 @@ async function main() {
   const crossYear = await createClassroom(ctxA, {
     name: "y",
     academicYearId: yearBId,
-    levelId: levelA.result.id,
+    levelId: levelAOk.result.id,
   });
   record(
     "classe A avec année B => NOT_FOUND",
@@ -265,14 +312,14 @@ async function main() {
   // ---- Coefficients ----
   const coefLevel = await setLevelCoefficient(ctxA, {
     subjectId: subjectAId,
-    levelId: levelA.result.id,
+    levelId: levelAOk.result.id,
     coefficient: 3,
   });
   record("coefficient par niveau défini", coefLevel.ok);
 
   const coefCross = await setLevelCoefficient(ctxA, {
     subjectId: subjectAId,
-    levelId: levelB.result.id,
+    levelId: levelBOk.result.id,
     coefficient: 2,
   });
   record(
@@ -403,7 +450,7 @@ async function main() {
   const clsA2 = await createClassroom(ctxA, {
     name: "6e B",
     academicYearId: yearAId,
-    levelId: levelA.result.id,
+    levelId: levelAOk.result.id,
   });
   if (clsA2.ok) {
     const transfer = await transferStudent(ctxA, {
