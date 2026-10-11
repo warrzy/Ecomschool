@@ -105,6 +105,48 @@ enum AttendanceStatus {
   UNMARKED
 }
 
+enum AssessmentStatus {
+  DRAFT
+  OPEN
+  SUBMITTED
+  VALIDATED
+  PUBLISHED
+  CANCELLED
+}
+
+enum GradeStatus {
+  ENTERED
+  MISSING
+  ABSENT
+  EXEMPT
+  CANCELLED
+}
+
+enum ResultStatus {
+  DRAFT
+  CALCULATED
+  PENDING_VALIDATION
+  VALIDATED
+  PUBLISHED
+  RECTIFIED
+}
+
+enum RoundingMode {
+  HALF_UP
+  FLOOR
+  CEIL
+}
+
+enum TieRule {
+  SHARED_RANK
+  DENSE_RANK
+}
+
+enum MissingGradePolicy {
+  EXCLUDE
+  ZERO
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -150,6 +192,16 @@ model School {
   courseSchedules CourseSchedule[]
   courseSessions  CourseSession[]
   attendanceRecords AttendanceRecord[]
+  gradingPolicies     GradingPolicy[]
+  assessmentTypes     AssessmentType[]
+  assessments         Assessment[]
+  grades              Grade[]
+  subjectResults      SubjectPeriodResult[]
+  studentPeriodResults StudentPeriodResult[]
+  studentAnnualResults StudentAnnualResult[]
+  resultValidations   ResultValidation[]
+  reportCards         ReportCard[]
+  reportCardTemplates ReportCardTemplate[]
 
   @@index([status])
 }
@@ -174,6 +226,11 @@ model User {
   teachers    Teacher[]
   recordedAttendance AttendanceRecord[] @relation("AttendanceRecorder")
   justifiedAttendance AttendanceRecord[] @relation("AttendanceJustifier")
+  recordedGrades      Grade[]              @relation("GradeRecorder")
+  gradeRevisions      GradeRevision[]     @relation("GradeReviser")
+  validatedResults    ResultValidation[]  @relation("ResultValidator")
+  publishedResults    ResultValidation[]  @relation("ResultPublisher")
+  reportCardVersions  ReportCardVersion[] @relation("ReportCardVersionCreator")
 
   @@index([schoolId])
   @@index([email])
@@ -265,6 +322,9 @@ model AcademicYear {
   enrollments         Enrollment[]
   courseSchedules     CourseSchedule[]
   courseSessions      CourseSession[]
+  gradingPolicies     GradingPolicy[]
+  assessments         Assessment[]
+  studentAnnualResults StudentAnnualResult[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -289,6 +349,12 @@ model AcademicPeriod {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  assessments         Assessment[]
+  subjectResults      SubjectPeriodResult[]
+  studentResults      StudentPeriodResult[]
+  resultValidations   ResultValidation[]
+  reportCards         ReportCard[]
+
   @@unique([academicYearId, number])
   @@index([academicYearId])
   @@index([academicYearId, isLocked])
@@ -309,6 +375,8 @@ model Level {
 
   classrooms Classroom[]
   subjects   LevelSubject[]
+  gradingPolicies     GradingPolicy[]
+  reportCardTemplates ReportCardTemplate[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -337,6 +405,7 @@ model Teacher {
   classroomSubjects ClassroomSubject[]
   courseSchedules   CourseSchedule[]
   courseSessions    CourseSession[]
+  assessments       Assessment[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -360,6 +429,8 @@ model Subject {
   classAssignments  ClassroomSubject[]
   courseSchedules   CourseSchedule[]
   courseSessions    CourseSession[]
+  assessments       Assessment[]
+  subjectResults    SubjectPeriodResult[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -419,6 +490,11 @@ model Classroom {
   subjects    ClassroomSubject[]
   courseSchedules CourseSchedule[]
   courseSessions  CourseSession[]
+  assessments       Assessment[]
+  subjectResults    SubjectPeriodResult[]
+  studentResults    StudentPeriodResult[]
+  resultValidations ResultValidation[]
+  reportCards       ReportCard[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -453,6 +529,11 @@ model Student {
   guardians   StudentGuardian[]
   enrollments Enrollment[]
   attendanceRecords AttendanceRecord[]
+  grades            Grade[]
+  subjectResults    SubjectPeriodResult[]
+  periodResults     StudentPeriodResult[]
+  annualResults     StudentAnnualResult[]
+  reportCards       ReportCard[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -767,4 +848,345 @@ model AuditLog {
   @@index([schoolId, createdAt])
   @@index([entity, entityId])
   @@index([actorId])
+}
+
+model GradingPolicy {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  levelId String?
+  level   Level?  @relation(fields: [levelId], references: [id], onDelete: Restrict)
+
+  maxScore  Float @default(20)
+  minScore  Float @default(0)
+  precision Int   @default(2)
+  rounding  RoundingMode @default(HALF_UP)
+  passMark  Float @default(10)
+
+  missingGradePolicy MissingGradePolicy @default(EXCLUDE)
+  absentPolicy       MissingGradePolicy @default(EXCLUDE)
+  exemptPolicy       MissingGradePolicy @default(EXCLUDE)
+
+  tieRule        TieRule @default(SHARED_RANK)
+  perSubjectRank Boolean @default(true)
+
+  mentions      Json? // [{ label, min }]
+  annualWeights Json? // { periodId: coefficient }
+
+  version Int          @default(1)
+  status  RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, levelId])
+  @@index([schoolId])
+  // Index partiel manuel : une seule politique par défaut par année (levelId IS NULL)
+}
+
+model AssessmentType {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  code         String
+  name         String
+  defaultCoefficient Float @default(1)
+  order        Int          @default(0)
+  status       RecordStatus @default(ACTIVE)
+
+  assessments Assessment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+model Assessment {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  academicPeriodId String?
+  academicPeriod   AcademicPeriod? @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  typeId String
+  type   AssessmentType @relation(fields: [typeId], references: [id], onDelete: Restrict)
+
+  title       String
+  date        DateTime
+  maxScore    Float   @default(20)
+  coefficient Float   @default(1)
+  description String?
+  status      AssessmentStatus @default(DRAFT)
+
+  grades Grade[]
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([classroomId])
+  @@index([academicPeriodId])
+  @@index([teacherId])
+  @@index([schoolId, status])
+}
+
+model Grade {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  value       Float?
+  status      GradeStatus @default(MISSING)
+  observation String?
+
+  recordedById String?
+  recordedBy   User?    @relation("GradeRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  revisions GradeRevision[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([assessmentId, studentId])
+  @@index([schoolId])
+  @@index([studentId])
+}
+
+model GradeRevision {
+  id      String @id @default(cuid())
+  gradeId String
+  grade   Grade  @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  oldValue  Float?
+  newValue  Float?
+  oldStatus GradeStatus
+  newStatus GradeStatus
+  reason    String?
+
+  changedById String?
+  changedBy   User?   @relation("GradeReviser", fields: [changedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([gradeId])
+}
+
+model SubjectPeriodResult {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicPeriodId String
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  average        Float?
+  coefficient    Float?
+  weightedPoints Float?
+  rank           Int?
+  appreciation   String?
+  isComplete     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicPeriodId, studentId, subjectId])
+  @@index([schoolId])
+  @@index([classroomId])
+}
+
+model StudentPeriodResult {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicPeriodId String
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  generalAverage    Float?
+  totalCoefficients Float   @default(0)
+  subjectsCount     Int     @default(0)
+  rank              Int?
+  mention           String?
+  isComplete        Boolean @default(true)
+  status            ResultStatus @default(DRAFT)
+
+  computedAt   DateTime?
+  computedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicPeriodId, studentId])
+  @@index([schoolId])
+  @@index([classroomId])
+}
+
+model StudentAnnualResult {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  annualAverage Float?
+  rank          Int?
+  mention       String?
+  decision      String?
+  status        ResultStatus @default(DRAFT)
+
+  computedAt   DateTime?
+  computedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, studentId])
+  @@index([schoolId])
+}
+
+model ResultValidation {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  academicPeriodId String
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  status ResultStatus @default(DRAFT)
+  note   String?
+
+  computedById   String?
+  computedAt     DateTime?
+  validatedById  String?
+  validatedBy    User?     @relation("ResultValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+  validatedAt    DateTime?
+  publishedById  String?
+  publishedBy    User?     @relation("ResultPublisher", fields: [publishedById], references: [id], onDelete: SetNull)
+  publishedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([classroomId, academicPeriodId])
+  @@index([schoolId])
+}
+
+model ReportCard {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  identifier String
+
+  academicPeriodId String
+  academicPeriod   AcademicPeriod @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  status         ResultStatus @default(DRAFT)
+  currentVersion Int          @default(0)
+  templateKey    String       @default("standard")
+
+  generatedById String?
+  publishedAt   DateTime?
+  publishedById String?
+
+  versions ReportCardVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, identifier])
+  @@unique([academicPeriodId, studentId])
+  @@index([schoolId])
+  @@index([classroomId])
+}
+
+model ReportCardVersion {
+  id          String     @id @default(cuid())
+  reportCardId String
+  reportCard   ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+
+  version Int
+  payload Json
+  reason  String?
+
+  createdById String?
+  createdBy   User?    @relation("ReportCardVersionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@unique([reportCardId, version])
+}
+
+model ReportCardTemplate {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  key     String
+  name    String
+  levelId String?
+  level   Level?  @relation(fields: [levelId], references: [id], onDelete: SetNull)
+
+  layout    Json?
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, key])
+  @@index([schoolId])
 }
