@@ -24,53 +24,82 @@ import {
 } from "@/lib/services/platform/billing";
 import { startSupportSession, endSupportSession } from "@/lib/services/platform/support";
 import type { BillingCycle } from "@prisma/client";
+import { z } from "zod";
+import {
+  dateField,
+  idField,
+  intField,
+  intPositive,
+  optionalText,
+  requiredText,
+} from "@/lib/validations/form";
 
-const back = (path: string) => redirect(path as never);
+const nonNegInt = intField.refine((v) => v >= 0, "INVALID_NUMBER");
+
+const back = (path: string): never => redirect(path as never);
 
 // ---------- Offres ----------
 
 export async function createPlanAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.plans.manage");
   const moduleCodes = formData.getAll("moduleCodes").map(String).filter(Boolean);
-  const res = await createPlan(ctx.userId, {
-    code: String(formData.get("code") ?? ""),
-    name: String(formData.get("name") ?? ""),
-    description: String(formData.get("description") ?? ""),
-    monthlyPrice: Math.trunc(Number(formData.get("monthlyPrice") ?? 0)),
-    yearlyPrice: Math.trunc(Number(formData.get("yearlyPrice") ?? 0)),
-    maxStudents: formData.get("maxStudents") ? Math.trunc(Number(formData.get("maxStudents"))) : null,
-    maxUsers: formData.get("maxUsers") ? Math.trunc(Number(formData.get("maxUsers"))) : null,
-    trialDays: Math.trunc(Number(formData.get("trialDays") ?? 0)),
-    graceDays: Math.trunc(Number(formData.get("graceDays") ?? 7)),
-    moduleCodes,
-  });
+  const parsed = z
+    .object({
+      code: requiredText.max(40),
+      name: requiredText.max(120),
+      description: z.string().max(2000),
+      monthlyPrice: nonNegInt,
+      yearlyPrice: nonNegInt,
+      maxStudents: nonNegInt.nullable(),
+      maxUsers: nonNegInt.nullable(),
+      trialDays: nonNegInt,
+      graceDays: nonNegInt,
+    })
+    .safeParse({
+      code: formData.get("code"),
+      name: formData.get("name"),
+      description: formData.get("description"),
+      monthlyPrice: formData.get("monthlyPrice") ?? 0,
+      yearlyPrice: formData.get("yearlyPrice") ?? 0,
+      maxStudents: formData.get("maxStudents") || null,
+      maxUsers: formData.get("maxUsers") || null,
+      trialDays: formData.get("trialDays") ?? 0,
+      graceDays: formData.get("graceDays") ?? 7,
+    });
+  if (!parsed.success) return back("/platform/plans?error=INVALID_INPUT");
+  const res = await createPlan(ctx.userId, { ...parsed.data, moduleCodes });
   back(res.ok ? "/platform/plans?ok=created" : `/platform/plans?error=${res.error}`);
 }
 
 export async function updatePlanAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.plans.manage");
-  const id = String(formData.get("id") ?? "");
   const moduleCodes = formData.getAll("moduleCodes").map(String).filter(Boolean);
+  const optInt = nonNegInt.optional();
+  const parsed = z
+    .object({
+      id: idField,
+      name: optionalText,
+      monthlyPrice: optInt,
+      yearlyPrice: optInt,
+      maxStudents: optInt,
+      maxUsers: optInt,
+      trialDays: optInt,
+      graceDays: optInt,
+    })
+    .safeParse({
+      id: formData.get("id"),
+      name: formData.get("name"),
+      monthlyPrice: formData.get("monthlyPrice") || undefined,
+      yearlyPrice: formData.get("yearlyPrice") || undefined,
+      maxStudents: formData.get("maxStudents") || undefined,
+      maxUsers: formData.get("maxUsers") || undefined,
+      trialDays: formData.get("trialDays") || undefined,
+      graceDays: formData.get("graceDays") || undefined,
+    });
+  if (!parsed.success) return back("/platform/plans?error=INVALID_INPUT");
+  const { id, ...data } = parsed.data;
   const res = await updatePlan(ctx.userId, id, {
-    name: String(formData.get("name") ?? "") || undefined,
-    monthlyPrice: formData.get("monthlyPrice")
-      ? Math.trunc(Number(formData.get("monthlyPrice")))
-      : undefined,
-    yearlyPrice: formData.get("yearlyPrice")
-      ? Math.trunc(Number(formData.get("yearlyPrice")))
-      : undefined,
-    maxStudents: formData.get("maxStudents")
-      ? Math.trunc(Number(formData.get("maxStudents")))
-      : undefined,
-    maxUsers: formData.get("maxUsers")
-      ? Math.trunc(Number(formData.get("maxUsers")))
-      : undefined,
-    trialDays: formData.get("trialDays")
-      ? Math.trunc(Number(formData.get("trialDays")))
-      : undefined,
-    graceDays: formData.get("graceDays")
-      ? Math.trunc(Number(formData.get("graceDays")))
-      : undefined,
+    ...data,
     moduleCodes: moduleCodes.length > 0 ? moduleCodes : undefined,
   });
   back(res.ok ? "/platform/plans?ok=updated" : `/platform/plans?error=${res.error}`);
@@ -81,12 +110,24 @@ export async function updatePlanAction(formData: FormData) {
 export async function assignSubscriptionAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.subscriptions.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
+  const parsed = z
+    .object({
+      schoolId: idField,
+      planId: idField,
+      cycle: z.enum(["MONTHLY", "YEARLY"]),
+      trialDays: nonNegInt.optional(),
+    })
+    .safeParse({
+      schoolId,
+      planId: formData.get("planId"),
+      cycle: formData.get("cycle") ?? "MONTHLY",
+      trialDays: formData.get("trialDays") || undefined,
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
   const res = await assignSubscription(ctx.userId, {
-    schoolId,
-    planId: String(formData.get("planId") ?? ""),
-    cycle: (String(formData.get("cycle") ?? "MONTHLY") === "YEARLY" ? "YEARLY" : "MONTHLY") as BillingCycle,
+    ...parsed.data,
+    cycle: parsed.data.cycle as BillingCycle,
     startTrial: formData.get("startTrial") === "on",
-    trialDays: formData.get("trialDays") ? Math.trunc(Number(formData.get("trialDays"))) : undefined,
   });
   back(
     res.ok
@@ -98,11 +139,19 @@ export async function assignSubscriptionAction(formData: FormData) {
 export async function changePlanAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.subscriptions.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
-  const res = await changePlan(ctx.userId, {
-    subscriptionId: String(formData.get("subscriptionId") ?? ""),
-    planId: String(formData.get("planId") ?? ""),
-    note: String(formData.get("note") ?? "") || undefined,
-  });
+  const parsed = z
+    .object({
+      subscriptionId: idField,
+      planId: idField,
+      note: optionalText,
+    })
+    .safeParse({
+      subscriptionId: formData.get("subscriptionId"),
+      planId: formData.get("planId"),
+      note: formData.get("note"),
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
+  const res = await changePlan(ctx.userId, parsed.data);
   back(
     res.ok
       ? `/platform/schools/${schoolId}?ok=plan`
@@ -113,10 +162,14 @@ export async function changePlanAction(formData: FormData) {
 export async function extendTrialAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.subscriptions.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
-  const res = await extendTrial(ctx.userId, {
-    subscriptionId: String(formData.get("subscriptionId") ?? ""),
-    days: Math.trunc(Number(formData.get("days") ?? 0)),
-  });
+  const parsed = z
+    .object({ subscriptionId: idField, days: intPositive })
+    .safeParse({
+      subscriptionId: formData.get("subscriptionId"),
+      days: formData.get("days"),
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
+  const res = await extendTrial(ctx.userId, parsed.data);
   back(
     res.ok
       ? `/platform/schools/${schoolId}?ok=trial`
@@ -138,9 +191,11 @@ export async function renewSubscriptionAction(formData: FormData) {
 export async function suspendSubscriptionAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.subscriptions.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
+  const subId = idField.safeParse(formData.get("subscriptionId"));
+  if (!subId.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
   const res = await suspendSubscription(
     ctx.userId,
-    String(formData.get("subscriptionId") ?? ""),
+    subId.data,
     String(formData.get("note") ?? "") || undefined,
   );
   back(
@@ -164,10 +219,17 @@ export async function reactivateSubscriptionAction(formData: FormData) {
 export async function cancelSubscriptionAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.subscriptions.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
+  const parsed = z
+    .object({ subscriptionId: idField, note: requiredText.max(300) })
+    .safeParse({
+      subscriptionId: formData.get("subscriptionId"),
+      note: formData.get("note"),
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
   const res = await cancelSubscription(
     ctx.userId,
-    String(formData.get("subscriptionId") ?? ""),
-    String(formData.get("note") ?? "") || undefined,
+    parsed.data.subscriptionId,
+    parsed.data.note,
   );
   back(
     res.ok
@@ -215,12 +277,26 @@ export async function setModuleOverrideAction(formData: FormData) {
 export async function generateInvoiceAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.invoices.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
+  const parsed = z
+    .object({
+      schoolId: idField,
+      subscriptionId: optionalText,
+      cycle: z.enum(["MONTHLY", "YEARLY"]),
+      dueDate: dateField.optional(),
+    })
+    .safeParse({
+      schoolId,
+      subscriptionId: formData.get("subscriptionId"),
+      cycle: formData.get("cycle") ?? "MONTHLY",
+      dueDate: formData.get("dueDate") || undefined,
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
   const res = await generateInvoice(ctx.userId, {
-    schoolId,
-    subscriptionId: String(formData.get("subscriptionId") ?? "") || undefined,
-    cycle: String(formData.get("cycle") ?? "") === "YEARLY" ? "YEARLY" : "MONTHLY",
-    dueDate: formData.get("dueDate")
-      ? new Date(`${formData.get("dueDate")}T00:00:00Z`)
+    schoolId: parsed.data.schoolId,
+    subscriptionId: parsed.data.subscriptionId,
+    cycle: parsed.data.cycle,
+    dueDate: parsed.data.dueDate
+      ? new Date(`${parsed.data.dueDate}T00:00:00Z`)
       : undefined,
   });
   back(
@@ -233,13 +309,23 @@ export async function generateInvoiceAction(formData: FormData) {
 export async function recordPlatformPaymentAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.payments.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
-  const res = await recordPlatformPayment(ctx.userId, {
-    invoiceId: String(formData.get("invoiceId") ?? ""),
-    amount: Math.trunc(Number(formData.get("amount") ?? 0)),
-    method: String(formData.get("method") ?? "") || undefined,
-    reference: String(formData.get("reference") ?? "") || undefined,
-    idempotencyKey: String(formData.get("idempotencyKey") ?? "") || undefined,
-  });
+  const parsed = z
+    .object({
+      invoiceId: idField,
+      amount: intPositive,
+      method: optionalText,
+      reference: optionalText,
+      idempotencyKey: optionalText,
+    })
+    .safeParse({
+      invoiceId: formData.get("invoiceId"),
+      amount: formData.get("amount"),
+      method: formData.get("method"),
+      reference: formData.get("reference"),
+      idempotencyKey: formData.get("idempotencyKey"),
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
+  const res = await recordPlatformPayment(ctx.userId, parsed.data);
   back(
     res.ok
       ? `/platform/invoices?ok=payment`
@@ -249,9 +335,13 @@ export async function recordPlatformPaymentAction(formData: FormData) {
 
 export async function cancelPlatformPaymentAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.payments.manage");
+  const parsed = z
+    .object({ id: idField, reason: requiredText.max(300) })
+    .safeParse({ id: formData.get("id"), reason: formData.get("reason") });
+  if (!parsed.success) return back("/platform/invoices?error=INVALID_INPUT");
   const res = await cancelPlatformPayment(ctx.userId, {
-    paymentId: String(formData.get("id") ?? ""),
-    reason: String(formData.get("reason") ?? ""),
+    paymentId: parsed.data.id,
+    reason: parsed.data.reason,
   });
   back(res.ok ? "/platform/invoices?ok=payment_cancelled" : `/platform/invoices?error=${res.error}`);
 }
@@ -259,11 +349,19 @@ export async function cancelPlatformPaymentAction(formData: FormData) {
 export async function issueCreditNoteAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.invoices.manage");
   const schoolId = String(formData.get("schoolId") ?? "");
-  const res = await issueCreditNote(ctx.userId, {
-    invoiceId: String(formData.get("invoiceId") ?? ""),
-    amount: Math.trunc(Number(formData.get("amount") ?? 0)),
-    reason: String(formData.get("reason") ?? ""),
-  });
+  const parsed = z
+    .object({
+      invoiceId: idField,
+      amount: intPositive,
+      reason: requiredText.max(300),
+    })
+    .safeParse({
+      invoiceId: formData.get("invoiceId"),
+      amount: formData.get("amount"),
+      reason: formData.get("reason"),
+    });
+  if (!parsed.success) return back(`/platform/schools/${schoolId}?error=INVALID_INPUT`);
+  const res = await issueCreditNote(ctx.userId, parsed.data);
   back(
     res.ok
       ? `/platform/invoices?ok=credit`
@@ -273,9 +371,13 @@ export async function issueCreditNoteAction(formData: FormData) {
 
 export async function cancelInvoiceAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.invoices.manage");
+  const parsed = z
+    .object({ id: idField, reason: requiredText.max(300) })
+    .safeParse({ id: formData.get("id"), reason: formData.get("reason") });
+  if (!parsed.success) return back("/platform/invoices?error=INVALID_INPUT");
   const res = await cancelInvoice(ctx.userId, {
-    invoiceId: String(formData.get("id") ?? ""),
-    reason: String(formData.get("reason") ?? ""),
+    invoiceId: parsed.data.id,
+    reason: parsed.data.reason,
   });
   back(res.ok ? "/platform/invoices?ok=cancelled" : `/platform/invoices?error=${res.error}`);
 }
@@ -285,11 +387,39 @@ export async function cancelInvoiceAction(formData: FormData) {
 export async function startSupportSessionAction(formData: FormData) {
   const ctx = await requirePlatformPermission("platform.support.access");
   const schoolId = String(formData.get("schoolId") ?? "");
+  const reason = String(formData.get("reason") ?? "");
+  const authorizedEmail = String(formData.get("authorizedEmail") ?? "")
+    .toLowerCase()
+    .trim();
+  const parsed = z
+    .object({
+      schoolId: idField,
+      reason: requiredText.max(300),
+      authorizedEmail: z.string().email(),
+      hours: intPositive.optional(),
+    })
+    .safeParse({
+      schoolId,
+      reason,
+      authorizedEmail,
+      hours: formData.get("hours") || undefined,
+    });
+  if (!parsed.success) return back("/platform/support?error=INVALID_INPUT");
+
+  // Accord explicite de l'établissement : l'email doit correspondre à un
+  // membre actif de l'école (vérifié côté service par SchoolMembership).
+  const { prisma } = await import("@/lib/db/prisma");
+  const authorizer = await prisma.user.findUnique({
+    where: { email: parsed.data.authorizedEmail },
+    select: { id: true },
+  });
+  if (!authorizer) return back("/platform/support?error=NOT_FOUND");
+
   const res = await startSupportSession(ctx.userId, {
-    schoolId,
-    reason: String(formData.get("reason") ?? ""),
-    durationHours: formData.get("hours") ? Math.trunc(Number(formData.get("hours"))) : undefined,
-    authorizedById: String(formData.get("authorizedById") ?? "") || undefined,
+    schoolId: parsed.data.schoolId,
+    reason: parsed.data.reason,
+    durationHours: parsed.data.hours,
+    authorizedById: authorizer.id,
   });
   back(res.ok ? "/platform/support?ok=started" : `/platform/support?error=${res.error}`);
 }

@@ -52,6 +52,12 @@ const TEMPLATES: { code: string; name: string; subject: string; body: string }[]
     subject: "Suspension prochaine — ECOM-SCHOOL",
     body: "Bonjour,\n\nVotre abonnement est en période de grâce jusqu'au {{date}}. Passé ce délai, votre accès sera suspendu (données conservées).",
   },
+  {
+    code: "PASSWORD_RESET",
+    name: "Réinitialisation de mot de passe",
+    subject: "Réinitialisation de votre mot de passe — ECOM-SCHOOL",
+    body: "Bonjour,\n\nUn lien de réinitialisation de mot de passe a été demandé pour votre compte :\n{{resetLink}}\n\nCe lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.",
+  },
 ];
 
 async function main() {

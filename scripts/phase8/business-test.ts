@@ -504,11 +504,13 @@ async function main() {
     schoolId: schoolA.id,
     reason: "Diagnostic Phase 8",
     durationHours: 1,
+    authorizedById: adminA,
   });
   record("Session assistance ouverte", sess.ok);
   const sessNoReason = await startSupportSession(platformActor, {
     schoolId: schoolA.id,
     reason: "   ",
+    authorizedById: adminA,
   });
   record("Motif obligatoire", !sessNoReason.ok);
   if (sess.ok) {
@@ -520,6 +522,7 @@ async function main() {
   const sess2 = await startSupportSession(platformActor, {
     schoolId: schoolA.id,
     reason: "Test expiration",
+    authorizedById: adminA,
   });
   if (sess2.ok) {
     await prisma.supportSession.update({

@@ -26,3 +26,24 @@ ci-dessous n'ont pas été migrées — **ne pas le supprimer**.
 3. Stopper toute écriture de `User.schoolId`.
 4. Migration SQL de retrait de la colonne (`migrate dev --create-only`, revue, `migrate deploy`).
 5. Cas multi-écoles : un user avec plusieurs memberships ACTIVE → sélecteur d'école à prévoir (non implémenté).
+
+## État Phase 10 (2026-10-11) — bascule lecture effectuée
+
+Étapes 1 et 2 réalisées :
+
+- `authorize` (`src/lib/auth/options.ts`) : `schoolId` dérivé de la première
+  membership ACTIVE (ordre `createdAt`), fallback rôle PLATFORM.
+- `requireSessionUser` (`src/lib/tenant/context.ts`) : `schoolId` via
+  `getActiveSchoolId` (membership), plus de lecture de `User.schoolId`.
+- `src/app/app/onboarding/page.tsx` : s'appuie sur le `schoolId` dérivé.
+- `portal/accounts.ts` : `requestPasswordReset`/`Public` vérifient le
+  rattachement via `SchoolMembership` (permet aussi le reset des comptes
+  plateforme sans école).
+
+Reste à faire (retrait différé) :
+
+- Stopper l'écriture de `User.schoolId` (`users.ts`, `platform/onboarding`,
+  `seed.ts`, fixtures Phase 2) — nécessite un passage coordonné.
+- Migration de retrait de colonne + stratégie retour arrière documentée ci-dessus.
+- Sélecteur d'école multi-memberships (non implémenté, première membership
+  par date de création retenue).

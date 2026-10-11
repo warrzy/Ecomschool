@@ -22,22 +22,51 @@ import {
   remindUnpaid,
 } from "@/lib/services/finance/payments";
 import type { PaymentMethod } from "@prisma/client";
+import { z } from "zod";
+import {
+  dateField,
+  idField,
+  intField,
+  intPositive,
+  optionalText,
+  requiredText,
+} from "@/lib/validations/form";
+
+const paymentMethodSchema = z.enum([
+  "CASH",
+  "BANK_TRANSFER",
+  "CHECK",
+  "MOBILE_MONEY",
+  "OTHER",
+]);
+const discountTypeSchema = z.enum([
+  "FIXED_AMOUNT",
+  "PERCENT",
+  "SCHOLARSHIP",
+  "EXEMPTION",
+  "FAMILY",
+  "EXCEPTIONAL",
+]);
 
 function ctx(t: { userId: string; schoolId: string }) {
   return { userId: t.userId, schoolId: t.schoolId };
 }
 
-const back = (path: string) => redirect(path as never);
+const back = (path: string): never => redirect(path as never);
 
 // ---------- Catégories ----------
 
 export async function createCategoryAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.configure");
-  const res = await createFeeCategory(ctx(tenant), {
-    code: String(formData.get("code") ?? ""),
-    label: String(formData.get("label") ?? ""),
-    description: String(formData.get("description") ?? ""),
-  });
+  const parsed = z
+    .object({ code: requiredText.max(30), label: requiredText.max(120), description: z.string() })
+    .safeParse({
+      code: formData.get("code"),
+      label: formData.get("label"),
+      description: formData.get("description"),
+    });
+  if (!parsed.success) return back("/app/fees/settings?error=INVALID_INPUT");
+  const res = await createFeeCategory(ctx(tenant), parsed.data);
   back(res.ok ? "/app/fees/settings?ok=category" : `/app/fees/settings?error=${res.error}`);
 }
 
@@ -52,28 +81,44 @@ export async function archiveCategoryAction(formData: FormData) {
 
 export async function createTariffAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.fees.manage");
+  const parsed = z
+    .object({
+      academicYearId: idField,
+      categoryId: idField,
+      levelId: optionalText,
+      classroomId: optionalText,
+      amount: intField.refine((v) => v >= 0, "INVALID_NUMBER"),
+      paymentPlan: z.enum(["SINGLE", "INSTALLMENTS"]),
+      installmentCount: intPositive,
+      conditions: optionalText,
+    })
+    .safeParse({
+      academicYearId: formData.get("academicYearId"),
+      categoryId: formData.get("categoryId"),
+      levelId: formData.get("levelId"),
+      classroomId: formData.get("classroomId"),
+      amount: formData.get("amount"),
+      paymentPlan: formData.get("paymentPlan") ?? "SINGLE",
+      installmentCount: formData.get("installmentCount") ?? 1,
+      conditions: formData.get("conditions"),
+    });
+  if (!parsed.success) return back("/app/fees/settings?error=INVALID_INPUT");
   const res = await createFeeTariff(ctx(tenant), {
-    academicYearId: String(formData.get("academicYearId") ?? ""),
-    categoryId: String(formData.get("categoryId") ?? ""),
-    levelId: String(formData.get("levelId") ?? "") || undefined,
-    classroomId: String(formData.get("classroomId") ?? "") || undefined,
-    amount: Math.trunc(Number(formData.get("amount") ?? 0)),
-    mandatory: formData.get("mandatory") !== "on" ? false : true,
-    paymentPlan:
-      String(formData.get("paymentPlan") ?? "SINGLE") === "INSTALLMENTS"
-        ? "INSTALLMENTS"
-        : "SINGLE",
-    installmentCount: Math.max(1, Math.trunc(Number(formData.get("installmentCount") ?? 1))),
-    conditions: String(formData.get("conditions") ?? "") || undefined,
+    ...parsed.data,
+    mandatory: formData.get("mandatory") === "on",
   });
   back(res.ok ? "/app/fees/settings?ok=tariff" : `/app/fees/settings?error=${res.error}`);
 }
 
 export async function updateTariffAmountAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.fees.manage");
-  const id = String(formData.get("id") ?? "");
-  const amount = Math.trunc(Number(formData.get("amount") ?? -1));
-  const res = await updateFeeTariff(ctx(tenant), id, { amount });
+  const parsed = z
+    .object({ id: idField, amount: intField.refine((v) => v >= 0) })
+    .safeParse({ id: formData.get("id"), amount: formData.get("amount") });
+  if (!parsed.success) return back("/app/fees/settings?error=INVALID_INPUT");
+  const res = await updateFeeTariff(ctx(tenant), parsed.data.id, {
+    amount: parsed.data.amount,
+  });
   back(res.ok ? "/app/fees/settings?ok=tariff" : `/app/fees/settings?error=${res.error}`);
 }
 
@@ -93,14 +138,26 @@ export async function generateChargesAction(formData: FormData) {
 
 export async function updateInstallmentAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.fees.manage");
-  const id = String(formData.get("id") ?? "");
-  const studentId = String(formData.get("studentId") ?? "");
-  const yearId = String(formData.get("academicYearId") ?? "");
-  const dueDateStr = String(formData.get("dueDate") ?? "");
-  const amount = Math.trunc(Number(formData.get("amount") ?? -1));
+  const parsed = z
+    .object({
+      id: idField,
+      studentId: idField,
+      academicYearId: idField,
+      dueDate: dateField.optional(),
+      amount: intField.optional(),
+    })
+    .safeParse({
+      id: formData.get("id"),
+      studentId: formData.get("studentId"),
+      academicYearId: formData.get("academicYearId"),
+      dueDate: formData.get("dueDate") || undefined,
+      amount: formData.get("amount") ?? undefined,
+    });
+  if (!parsed.success) return back(`/app/fees?error=INVALID_INPUT`);
+  const { id, studentId, academicYearId: yearId, dueDate, amount } = parsed.data;
   const res = await updateInstallment(ctx(tenant), id, {
-    ...(dueDateStr ? { dueDate: new Date(`${dueDateStr}T00:00:00Z`) } : {}),
-    ...(amount >= 0 ? { amount } : {}),
+    ...(dueDate ? { dueDate: new Date(`${dueDate}T00:00:00Z`) } : {}),
+    ...(amount !== undefined && amount >= 0 ? { amount } : {}),
   });
   back(
     res.ok
@@ -113,21 +170,24 @@ export async function updateInstallmentAction(formData: FormData) {
 
 export async function createDiscountAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.discounts.manage");
-  const studentId = String(formData.get("studentId") ?? "");
-  const yearId = String(formData.get("academicYearId") ?? "");
-  const res = await createDiscount(ctx(tenant), {
-    studentId,
-    academicYearId: yearId,
-    type: String(formData.get("type") ?? "FIXED_AMOUNT") as
-      | "FIXED_AMOUNT"
-      | "PERCENT"
-      | "SCHOLARSHIP"
-      | "EXEMPTION"
-      | "FAMILY"
-      | "EXCEPTIONAL",
-    value: Math.trunc(Number(formData.get("value") ?? 0)),
-    reason: String(formData.get("reason") ?? ""),
-  });
+  const parsed = z
+    .object({
+      studentId: idField,
+      academicYearId: idField,
+      type: discountTypeSchema,
+      value: intField.refine((v) => v >= 0),
+      reason: requiredText.max(300),
+    })
+    .safeParse({
+      studentId: formData.get("studentId"),
+      academicYearId: formData.get("academicYearId"),
+      type: formData.get("type") ?? "FIXED_AMOUNT",
+      value: formData.get("value"),
+      reason: formData.get("reason"),
+    });
+  if (!parsed.success) return back("/app/fees?error=INVALID_INPUT");
+  const { studentId, academicYearId: yearId } = parsed.data;
+  const res = await createDiscount(ctx(tenant), parsed.data);
   back(
     res.ok
       ? `/app/fees/accounts/${studentId}?year=${yearId}&ok=discount`
@@ -152,17 +212,30 @@ export async function archiveDiscountAction(formData: FormData) {
 
 export async function recordPaymentAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.payments.create");
-  const studentId = String(formData.get("studentId") ?? "");
-  const yearId = String(formData.get("academicYearId") ?? "");
+  const parsed = z
+    .object({
+      studentId: idField,
+      academicYearId: idField,
+      amount: intPositive,
+      method: paymentMethodSchema,
+      reference: optionalText,
+      observation: optionalText,
+    })
+    .safeParse({
+      studentId: formData.get("studentId"),
+      academicYearId: formData.get("academicYearId"),
+      amount: formData.get("amount"),
+      method: formData.get("method") ?? "CASH",
+      reference: formData.get("reference"),
+      observation: formData.get("observation"),
+    });
+  if (!parsed.success) return back("/app/fees?error=INVALID_INPUT");
+  const { studentId, academicYearId: yearId } = parsed.data;
   const idempotencyKey =
     String(formData.get("idempotencyKey") ?? "").trim() || randomUUID();
   const res = await recordPayment(ctx(tenant), {
-    studentId,
-    academicYearId: yearId,
-    amount: Math.trunc(Number(formData.get("amount") ?? 0)),
-    method: String(formData.get("method") ?? "CASH") as PaymentMethod,
-    reference: String(formData.get("reference") ?? "") || undefined,
-    observation: String(formData.get("observation") ?? "") || undefined,
+    ...parsed.data,
+    method: parsed.data.method as PaymentMethod,
     idempotencyKey,
   });
   back(
@@ -174,9 +247,14 @@ export async function recordPaymentAction(formData: FormData) {
 
 export async function cancelPaymentAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.payments.cancel");
-  const id = String(formData.get("id") ?? "");
-  const reason = String(formData.get("reason") ?? "");
-  const res = await cancelPayment(ctx(tenant), { paymentId: id, reason });
+  const parsed = z
+    .object({ id: idField, reason: requiredText.max(300) })
+    .safeParse({ id: formData.get("id"), reason: formData.get("reason") });
+  if (!parsed.success) return back("/app/fees/payments?error=INVALID_INPUT");
+  const res = await cancelPayment(ctx(tenant), {
+    paymentId: parsed.data.id,
+    reason: parsed.data.reason,
+  });
   back(res.ok ? "/app/fees/payments?ok=cancelled" : `/app/fees/payments?error=${res.error}`);
 }
 
@@ -185,17 +263,27 @@ export async function cancelPaymentAction(formData: FormData) {
 export async function closeCashAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.cash.close");
   const dateStr = String(formData.get("date") ?? "");
-  const date = dateStr ? new Date(`${dateStr}T00:00:00Z`) : new Date();
+  const parsed = dateField.optional().safeParse(dateStr || undefined);
+  if (!parsed.success) return back("/app/fees/payments?error=INVALID_INPUT");
+  const date = parsed.data ? new Date(`${parsed.data}T00:00:00Z`) : new Date();
   const res = await closeCashDay(ctx(tenant), date);
   back(res.ok ? "/app/fees/payments?ok=closed" : `/app/fees/payments?error=${res.error}`);
 }
 
 export async function remindAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.read");
-  const res = await remindUnpaid(ctx(tenant), {
-    studentId: String(formData.get("studentId") ?? ""),
-    installmentId: String(formData.get("installmentId") ?? "") || undefined,
-    note: String(formData.get("note") ?? ""),
-  });
+  const parsed = z
+    .object({
+      studentId: idField,
+      installmentId: optionalText,
+      note: requiredText.max(300),
+    })
+    .safeParse({
+      studentId: formData.get("studentId"),
+      installmentId: formData.get("installmentId"),
+      note: formData.get("note"),
+    });
+  if (!parsed.success) return back("/app/fees/unpaid?error=INVALID_INPUT");
+  const res = await remindUnpaid(ctx(tenant), parsed.data);
   back(res.ok ? "/app/fees/unpaid?ok=reminded" : `/app/fees/unpaid?error=${res.error}`);
 }

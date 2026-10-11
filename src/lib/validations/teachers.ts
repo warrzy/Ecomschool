@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "@/lib/auth/password";
 
 export const teacherCreateSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
@@ -24,5 +25,5 @@ export const assignmentCreateSchema = z.object({
 
 export const teacherAccountSchema = z.object({
   teacherId: z.string().min(1),
-  password: z.string().min(8).max(200),
+  password: passwordSchema,
 });

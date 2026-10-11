@@ -238,6 +238,10 @@ model User {
   lastName     String?
   status       UserStatus @default(ACTIVE)
 
+  // Anti force-brute : compteur persistant + verrouillage temporaire.
+  failedLoginCount Int       @default(0)
+  lockedUntil      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1541,6 +1545,7 @@ model Announcement {
 
   publishedAt DateTime?
   scheduledAt DateTime?
+  archivedAt DateTime? // conservation : archivée ≠ supprimée
   createdById String?
 
   createdAt DateTime @default(now())
@@ -1572,8 +1577,8 @@ model Notification {
 
 model AccountInvite {
   id       String @id @default(cuid())
-  schoolId String
-  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -2001,7 +2006,8 @@ model SchoolMessage {
 /** Une tentative d'envoi par destinataire et par canal. */
 model MessageDelivery {
   id        String          @id @default(cuid())
-  schoolId  String
+  /** Nullable : les envois plateforme (reset, alertes SaaS) n'ont pas d'école. */
+  schoolId  String?
   messageId String?
   message   SchoolMessage?  @relation(fields: [messageId], references: [id], onDelete: Cascade)
 

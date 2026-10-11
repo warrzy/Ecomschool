@@ -8,25 +8,27 @@ export type SupportResult<T = undefined> =
 /**
  * Ouvre une session d'assistance auprès d'un établissement.
  * Durée limitée (défaut 2 h), motif obligatoire, journalisée.
+ * authorizedById est OBLIGATOIRE : l'intervention requiert l'accord explicite
+ * d'un membre actif de l'établissement (traçabilité de l'accès support).
  * La session n'accorde aucun contournement des permissions scolaires :
  * elle trace l'intervention ECOM-TOUCH.
  */
 export async function startSupportSession(
   agentUserId: string,
-  input: { schoolId: string; reason: string; durationHours?: number; authorizedById?: string },
+  input: { schoolId: string; reason: string; durationHours?: number; authorizedById: string },
 ): Promise<SupportResult<{ id: string }>> {
   const school = await prisma.school.findUnique({
     where: { id: input.schoolId },
     select: { id: true },
   });
-  if (!school || !input.reason.trim()) return { ok: false, error: "INVALID_INPUT" };
-  if (input.authorizedById) {
-    const auth = await prisma.schoolMembership.findFirst({
-      where: { schoolId: input.schoolId, userId: input.authorizedById, status: "ACTIVE" },
-      select: { id: true },
-    });
-    if (!auth) return { ok: false, error: "NOT_FOUND" };
+  if (!school || !input.reason.trim() || !input.authorizedById) {
+    return { ok: false, error: "INVALID_INPUT" };
   }
+  const auth = await prisma.schoolMembership.findFirst({
+    where: { schoolId: input.schoolId, userId: input.authorizedById, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!auth) return { ok: false, error: "NOT_FOUND" };
   const hours = Math.min(72, Math.max(1, input.durationHours ?? 2));
   try {
     const s = await prisma.supportSession.create({

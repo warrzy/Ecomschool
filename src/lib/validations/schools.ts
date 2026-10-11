@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "@/lib/auth/password";
 
 const optionalText = z
   .string()
@@ -56,7 +57,7 @@ export type PlatformSchoolUpdateInput = z.infer<
 
 export const schoolAdminCreateSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
+  password: passwordSchema,
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().min(1),
 });

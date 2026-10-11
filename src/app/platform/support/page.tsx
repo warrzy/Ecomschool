@@ -57,6 +57,13 @@ export default async function SupportPage(props: {
             ))}
           </select>
           <input name="reason" placeholder="Motif obligatoire" required className={input} />
+          <input
+            name="authorizedEmail"
+            type="email"
+            placeholder="Email du responsable qui autorise"
+            required
+            className={input}
+          />
           <input name="hours" type="number" min="1" max="72" defaultValue="2" title="Durée (h)" className={input} />
           <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
             Démarrer

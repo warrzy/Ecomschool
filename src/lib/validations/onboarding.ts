@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { passwordSchema } from "@/lib/auth/password";
 
 export const onboardingCreateSchoolSchema = z.object({
   name: z.string().min(2),
@@ -19,7 +20,7 @@ export const onboardingCreateSchoolSchema = z.object({
   endDate: z.string().min(4),
   periodType: z.enum(["TRIMESTER", "SEMESTER"]),
   adminEmail: z.string().email(),
-  adminPassword: z.string().min(8),
+  adminPassword: passwordSchema,
   adminFirstName: z.string().min(2),
   adminLastName: z.string().min(2),
 });
