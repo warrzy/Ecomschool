@@ -61,16 +61,35 @@ export default async function ClassroomDetailPage({
       permissionKey: "classroom.manage",
     }));
 
-  const [levels, teachers] = await Promise.all([
+  const activeTab = TABS.some((t) => t.key === tab) ? tab : "general";
+
+  const [levels, teachers, enrollments] = await Promise.all([
     listLevels(ctx),
     prisma.teacher.findMany({
       where: { schoolId: tenant.schoolId, status: "ACTIVE" },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),
+    activeTab === "students"
+      ? prisma.enrollment.findMany({
+          where: { classroomId: id, status: "ENROLLED" },
+          orderBy: { enrolledAt: "asc" },
+          select: {
+            id: true,
+            enrolledAt: true,
+            student: {
+              select: {
+                id: true,
+                matricule: true,
+                firstName: true,
+                lastName: true,
+                sex: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ]);
-
-  const activeTab = TABS.some((t) => t.key === tab) ? tab : "general";
 
   return (
     <div className="space-y-4">
@@ -123,7 +142,71 @@ export default async function ClassroomDetailPage({
         ))}
       </div>
 
-      {activeTab === "general" ? (
+      {activeTab === "students" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-zinc-900">
+            {enrollments.length} élève{enrollments.length > 1 ? "s" : ""}{" "}
+            inscrit{enrollments.length > 1 ? "s" : ""}
+            {classroom.capacity
+              ? ` / capacité ${classroom.capacity}`
+              : ""}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                  <th className="py-2 pr-4">Matricule</th>
+                  <th className="py-2 pr-4">Nom</th>
+                  <th className="py-2 pr-4">Prénom</th>
+                  <th className="py-2 pr-4">Sexe</th>
+                  <th className="py-2 pr-4">Inscrit le</th>
+                  <th className="py-2 pr-4"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {enrollments.map((e) => (
+                  <tr key={e.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4 font-medium text-zinc-900">
+                      {e.student.matricule}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-900">
+                      {e.student.lastName}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {e.student.firstName}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {e.student.sex === "MALE"
+                        ? "M"
+                        : e.student.sex === "FEMALE"
+                          ? "F"
+                          : "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {e.enrolledAt.toISOString().slice(0, 10)}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Link
+                        href={`/app/students/${e.student.id}`}
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                      >
+                        Fiche
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {enrollments.length === 0 ? (
+                  <tr>
+                    <td className="py-6 text-zinc-500" colSpan={6}>
+                      Aucun élève inscrit dans cette classe.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "general" ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           {canManage ? (
             <form action={updateClassroomAction}>

@@ -8,6 +8,7 @@ export const appNav: NavItem[] = [
   { label: "Années scolaires", href: "/app/academic-years" },
   { label: "Élèves", href: "/app/students" },
   { label: "Parents", href: "/app/guardians" },
+  { label: "Inscriptions", href: "/app/enrollments" },
   { label: "Enseignants", href: "/app/teachers" },
   { label: "Niveaux", href: "/app/levels" },
   { label: "Classes", href: "/app/classrooms" },

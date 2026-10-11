@@ -275,10 +275,46 @@ export default async function StudentDetailPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <PendingSection
-          title="Parcours scolaire / classe actuelle"
-          module="Inscriptions"
-        />
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Parcours scolaire
+          </div>
+          {student.enrollments.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucune inscription.{" "}
+              <Link href="/app/enrollments" className="underline">
+                Inscrire l&apos;élève
+              </Link>
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {student.enrollments.map((e) => (
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span>
+                    <Link
+                      href={`/app/classrooms/${e.classroom.id}`}
+                      className="font-medium text-zinc-900 hover:underline"
+                    >
+                      {e.classroom.name}
+                    </Link>{" "}
+                    <span className="text-zinc-500">
+                      ({e.classroom.level.name}) — {e.academicYear.name}
+                    </span>
+                  </span>
+                  <span className="text-xs text-zinc-500">
+                    {e.status}
+                    {e.leftAt
+                      ? ` · au ${e.leftAt.toISOString().slice(0, 10)}`
+                      : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="text-sm font-medium text-zinc-900">

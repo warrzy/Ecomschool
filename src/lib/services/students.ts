@@ -92,6 +92,23 @@ export async function getStudent(ctx: SchoolCtx, studentId: string) {
           },
         },
       },
+      enrollments: {
+        orderBy: { enrolledAt: "desc" },
+        select: {
+          id: true,
+          enrolledAt: true,
+          leftAt: true,
+          status: true,
+          classroom: {
+            select: {
+              id: true,
+              name: true,
+              level: { select: { name: true } },
+            },
+          },
+          academicYear: { select: { name: true, isCurrent: true } },
+        },
+      },
     },
   });
 }

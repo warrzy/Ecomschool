@@ -64,6 +64,13 @@ enum GuardianRelation {
   EMERGENCY
 }
 
+enum EnrollmentStatus {
+  ENROLLED
+  TRANSFERRED
+  WITHDRAWN
+  COMPLETED
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -102,6 +109,7 @@ model School {
   students        Student[]
   guardians       Guardian[]
   studentGuardians StudentGuardian[]
+  enrollments     Enrollment[]
 
   @@index([status])
 }
@@ -212,6 +220,7 @@ model AcademicYear {
   periods             AcademicPeriod[]
   classrooms          Classroom[]
   teachingAssignments TeachingAssignment[]
+  enrollments         Enrollment[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -354,6 +363,7 @@ model Classroom {
   status   RecordStatus @default(ACTIVE)
 
   assignments TeachingAssignment[]
+  enrollments Enrollment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -385,7 +395,8 @@ model Student {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  guardians StudentGuardian[]
+  guardians   StudentGuardian[]
+  enrollments Enrollment[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -434,6 +445,37 @@ model StudentGuardian {
   @@index([schoolId])
   @@index([studentId])
   @@index([guardianId])
+}
+
+model Enrollment {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  enrolledAt DateTime         @default(now())
+  leftAt     DateTime?
+  status     EnrollmentStatus @default(ENROLLED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unicité partielle ajoutée manuellement dans la migration :
+  // un seul ENROLLED par (studentId, academicYearId).
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([classroomId])
+  @@index([academicYearId])
+  @@index([schoolId, status])
 }
 
 model AuditLog {
