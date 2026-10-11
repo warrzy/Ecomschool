@@ -1,9 +1,341 @@
-import { requireSchoolContext } from "@/lib/tenant/context";
-import ModulePlaceholder from "@/components/module-placeholder";
+import Link from "next/link";
+import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
+import { listStudents } from "@/lib/services/students";
+import {
+  createStudentAction,
+  importStudentsAction,
+} from "@/app/app/(tenant)/students/actions";
 
 export const instant = false;
 
-export default async function Page() {
-  await requireSchoolContext();
-  return <ModulePlaceholder title="Élèves" section="Établissement" />;
+export default async function StudentsPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const tenant = await requireSchoolPermission("student.read");
+  const sp = (await props.searchParams) ?? {};
+  const ok = typeof sp.ok === "string" ? sp.ok : undefined;
+  const error = typeof sp.error === "string" ? sp.error : undefined;
+  const status =
+    sp.status === "ARCHIVED" ? ("ARCHIVED" as const) : ("ACTIVE" as const);
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
+
+  const canManage = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "student.manage",
+  });
+
+  const { items, total, pageSize } = await listStudents(
+    { userId: tenant.userId, schoolId: tenant.schoolId },
+    { status, q, page },
+  );
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams();
+    if (status === "ARCHIVED") params.set("status", "ARCHIVED");
+    if (q) params.set("q", q);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/app/students${qs ? `?${qs}` : ""}`;
+  };
+
+  const importSummary =
+    ok === "import"
+      ? `Import : ${sp.created ?? 0} créés, ${sp.updated ?? 0} mis à jour, ${sp.failed ?? 0} en échec`
+      : ok;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-sm text-zinc-500">Référentiel</div>
+            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+              Élèves
+            </div>
+          </div>
+          <Link
+            href="/app/students/export"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Exporter CSV
+          </Link>
+        </div>
+        {importSummary ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {importSummary}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <form method="GET" className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-500">
+              Recherche
+            </label>
+            <input
+              name="q"
+              defaultValue={q ?? ""}
+              placeholder="Matricule, nom, prénom…"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-500">Statut</label>
+            <select
+              name="status"
+              defaultValue={status}
+              className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+            >
+              <option value="ACTIVE">Actifs</option>
+              <option value="ARCHIVED">Archivés</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+          >
+            Filtrer
+          </button>
+        </form>
+      </div>
+
+      {canManage ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">
+              Nouvel élève
+            </div>
+            <form action={createStudentAction} className="mt-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Matricule
+                  </label>
+                  <input
+                    name="matricule"
+                    required
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Sexe
+                  </label>
+                  <select
+                    name="sex"
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">—</option>
+                    <option value="M">Masculin</option>
+                    <option value="F">Féminin</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Nom
+                  </label>
+                  <input
+                    name="lastName"
+                    required
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Prénom
+                  </label>
+                  <input
+                    name="firstName"
+                    required
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Date de naissance
+                  </label>
+                  <input
+                    name="birthDate"
+                    type="date"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Lieu de naissance
+                  </label>
+                  <input
+                    name="birthPlace"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Téléphone
+                  </label>
+                  <input
+                    name="phone"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Email
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Adresse
+                  </label>
+                  <input
+                    name="address"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Photo (URL)
+                  </label>
+                  <input
+                    name="photoUrl"
+                    type="url"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Créer
+              </button>
+            </form>
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">
+              Importer un CSV
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              Colonnes : matricule;nom;prenom;sexe(M|F);dateNaissance(YYYY-MM-DD);lieuNaissance;telephone;email;adresse
+            </p>
+            <form action={importStudentsAction} className="mt-3 space-y-3">
+              <input
+                name="file"
+                type="file"
+                accept=".csv,text/csv,text/plain"
+                className="block w-full text-sm text-zinc-600"
+              />
+              <textarea
+                name="csv"
+                rows={4}
+                placeholder="Ou coller le contenu CSV ici…"
+                className="w-full rounded-xl border border-zinc-200 p-3 font-mono text-xs outline-none focus:border-zinc-900"
+              />
+              <button
+                type="submit"
+                className="h-11 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
+              >
+                Importer
+              </button>
+            </form>
+            <p className="mt-2 text-xs text-zinc-500">
+              Un matricule existant met à jour la fiche correspondante.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mb-3 text-sm text-zinc-600">
+          {total} élève{total > 1 ? "s" : ""} — page {page}/{totalPages}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                <th className="py-2 pr-4">Matricule</th>
+                <th className="py-2 pr-4">Nom</th>
+                <th className="py-2 pr-4">Prénom</th>
+                <th className="py-2 pr-4">Sexe</th>
+                <th className="py-2 pr-4">Naissance</th>
+                <th className="py-2 pr-4">Statut</th>
+                <th className="py-2 pr-4"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((s) => (
+                <tr key={s.id} className="border-b border-zinc-100">
+                  <td className="py-2 pr-4 font-medium text-zinc-900">
+                    {s.matricule}
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-900">{s.lastName}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{s.firstName}</td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {s.sex === "MALE" ? "M" : s.sex === "FEMALE" ? "F" : "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {s.birthDate
+                      ? s.birthDate.toISOString().slice(0, 10)
+                      : "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-700">{s.status}</td>
+                  <td className="py-2 pr-4">
+                    <Link
+                      href={`/app/students/${s.id}`}
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                    >
+                      Fiche
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {items.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-zinc-500" colSpan={7}>
+                    Aucun élève
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {totalPages > 1 ? (
+          <div className="mt-4 flex items-center gap-2 text-sm">
+            {page > 1 ? (
+              <a
+                href={pageHref(page - 1)}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              >
+                ← Précédent
+              </a>
+            ) : null}
+            {page < totalPages ? (
+              <a
+                href={pageHref(page + 1)}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              >
+                Suivant →
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
