@@ -205,6 +205,14 @@ model School {
   announcements       Announcement[]
   notifications       Notification[]
   accountInvites      AccountInvite[]
+  feeCategories       FeeCategory[]
+  feeTariffs          FeeTariff[]
+  feeCharges          StudentFeeCharge[]
+  feeInstallments     FeeInstallment[]
+  feeDiscounts        FeeDiscount[]
+  payments            Payment[]
+  cashClosures        CashClosure[]
+  feeReminders        FeeReminder[]
 
   @@index([status])
 }
@@ -309,6 +317,247 @@ model RolePermission {
   @@unique([roleId, permissionId])
 }
 
+model FeeCategory {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  code        String
+  label       String
+  description String?
+  status      RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tariffs FeeTariff[]
+  charges StudentFeeCharge[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+model FeeTariff {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  categoryId String
+  category   FeeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  levelId     String?
+  level       Level?     @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  classroomId String?
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  amount           Int // XOF, entier — jamais de flottant
+  currency         String @default("XOF")
+  mandatory        Boolean @default(true)
+  paymentPlan      FeePaymentPlan @default(SINGLE)
+  installmentCount Int @default(1)
+  effectiveFrom    DateTime @default(now())
+  conditions       String?
+  status           RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  charges StudentFeeCharge[]
+
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([levelId])
+  @@index([classroomId])
+  @@index([categoryId])
+}
+
+/** Créance : frais appliqué à un élève pour une année (figé à la génération). */
+model StudentFeeCharge {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  categoryId String
+  category   FeeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  tariffId String?
+  tariff   FeeTariff? @relation(fields: [tariffId], references: [id], onDelete: SetNull)
+
+  amount   Int // montant figé à l'établissement de la créance
+  currency String @default("XOF")
+  status   RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  installments FeeInstallment[]
+
+  @@unique([studentId, academicYearId, categoryId])
+  @@index([schoolId])
+  @@index([academicYearId])
+}
+
+/** Échéance de paiement rattachée à une créance. */
+model FeeInstallment {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  chargeId String
+  charge   StudentFeeCharge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  label    String?
+  dueDate  DateTime
+  amount   Int
+  currency String @default("XOF")
+  status   RecordStatus @default(ACTIVE) // ACTIVE ou ARCHIVED — le statut métier est calculé
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([dueDate])
+  @@index([academicYearId])
+}
+
+/** Réduction/bourse/exonération — historisée, jamais supprimée physiquement. */
+model FeeDiscount {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  type  DiscountType
+  value Int // FIXED_* : montant XOF ; PERCENT : pourcentage (0-100)
+  reason String
+  status RecordStatus @default(ACTIVE) // ARCHIVED = réduction annulée (historique conservé)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYearId])
+}
+
+model Payment {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  amount      Int
+  currency    String @default("XOF")
+  paidAt      DateTime @default(now())
+  method      PaymentMethod
+  reference   String?
+  observation String?
+
+  receivedById String?
+  status       PaymentStatus @default(VALIDATED)
+  cancelledAt  DateTime?
+  cancelledById String?
+  cancelReason  String?
+
+  receiptNumber   String?
+  receiptSnapshot Json?
+
+  idempotencyKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@unique([schoolId, receiptNumber])
+  @@unique([schoolId, idempotencyKey])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([academicYearId])
+  @@index([paidAt])
+  @@index([status])
+}
+
+/** Répartition d'un paiement sur les échéances. */
+model PaymentAllocation {
+  id         String @id @default(cuid())
+  paymentId  String
+  payment    Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  installmentId String
+  installment   FeeInstallment @relation(fields: [installmentId], references: [id], onDelete: Restrict)
+
+  amount Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([paymentId, installmentId])
+  @@index([installmentId])
+}
+
+/** Clôture de caisse journalière. */
+model CashClosure {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  date        DateTime
+  totalAmount Int
+  paymentsCount Int
+  closedById  String?
+  closedAt    DateTime @default(now())
+
+  @@unique([schoolId, date])
+  @@index([schoolId])
+}
+
+/** Relance d'impayé (historique interne). */
+model FeeReminder {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  installmentId String?
+  note          String
+  createdById   String?
+  createdAt     DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([studentId])
+}
+
 model AcademicYear {
   id       String @id @default(cuid())
   schoolId String
@@ -332,6 +581,11 @@ model AcademicYear {
   gradingPolicies     GradingPolicy[]
   assessments         Assessment[]
   studentAnnualResults StudentAnnualResult[]
+  feeTariffs          FeeTariff[]
+  feeCharges          StudentFeeCharge[]
+  feeInstallments     FeeInstallment[]
+  feeDiscounts        FeeDiscount[]
+  payments            Payment[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -384,6 +638,7 @@ model Level {
   subjects   LevelSubject[]
   gradingPolicies     GradingPolicy[]
   reportCardTemplates ReportCardTemplate[]
+  feeTariffs          FeeTariff[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -503,6 +758,7 @@ model Classroom {
   studentResults    StudentPeriodResult[]
   resultValidations ResultValidation[]
   reportCards       ReportCard[]
+  feeTariffs        FeeTariff[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -545,6 +801,11 @@ model Student {
   periodResults     StudentPeriodResult[]
   annualResults     StudentAnnualResult[]
   reportCards       ReportCard[]
+  feeCharges        StudentFeeCharge[]
+  feeInstallments   FeeInstallment[]
+  feeDiscounts      FeeDiscount[]
+  payments          Payment[]
+  feeReminders      FeeReminder[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -1227,6 +1488,34 @@ enum NotificationType {
   ABSENCE_UNJUSTIFIED
   LATENESS
   ADMIN_MESSAGE
+  FINANCE_REMINDER
+}
+
+enum FeePaymentPlan {
+  SINGLE
+  INSTALLMENTS
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHECK
+  MOBILE_MONEY
+  OTHER
+}
+
+enum PaymentStatus {
+  VALIDATED
+  CANCELLED
+}
+
+enum DiscountType {
+  FIXED_AMOUNT
+  PERCENT
+  SCHOLARSHIP
+  EXEMPTION
+  FAMILY
+  EXCEPTIONAL
 }
 
 model Announcement {
