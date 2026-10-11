@@ -1,0 +1,430 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db/prisma";
+import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
+import { getTeacher } from "@/lib/services/teachers";
+import {
+  activateTeacherAccountAction,
+  assignTeacherAction,
+  removeAssignmentAction,
+  updateTeacherAction,
+} from "@/app/app/(tenant)/teachers/actions";
+
+export const instant = false;
+
+export default async function TeacherDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const tenant = await requireSchoolPermission("teacher.read");
+  const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const ok = typeof sp.ok === "string" ? sp.ok : undefined;
+  const error = typeof sp.error === "string" ? sp.error : undefined;
+
+  const teacher = await getTeacher(
+    { userId: tenant.userId, schoolId: tenant.schoolId },
+    id,
+  );
+  if (!teacher) notFound();
+
+  const canManage = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "teacher.manage",
+  });
+
+  const [years, classrooms, subjects] = await Promise.all([
+    prisma.academicYear.findMany({
+      where: { schoolId: tenant.schoolId, status: { not: "CLOSED" } },
+      orderBy: { startDate: "desc" },
+      select: { id: true, name: true, isCurrent: true },
+    }),
+    prisma.classroom.findMany({
+      where: { schoolId: tenant.schoolId, status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        academicYearId: true,
+        level: { select: { name: true } },
+      },
+    }),
+    prisma.subject.findMany({
+      where: { schoolId: tenant.schoolId, status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
+
+  const currentYear = years.find((y) => y.isCurrent) ?? years[0];
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-sm text-zinc-500">Enseignant</div>
+            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+              {teacher.lastName} {teacher.firstName}
+            </div>
+            <div className="mt-1 text-sm text-zinc-600">
+              {teacher.status}
+              {teacher.userId
+                ? ` · Compte : ${teacher.user?.email} (${teacher.user?.status})`
+                : " · Pas de compte utilisateur"}
+            </div>
+          </div>
+          <Link
+            href="/app/teachers"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Retour
+          </Link>
+        </div>
+        {ok ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {ok}
+          </div>
+        ) : null}
+        {error ? (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Identité &amp; coordonnées
+          </div>
+          {canManage ? (
+            <form action={updateTeacherAction} className="mt-4 space-y-4">
+              <input type="hidden" name="id" value={teacher.id} />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Nom
+                  </label>
+                  <input
+                    name="lastName"
+                    defaultValue={teacher.lastName}
+                    required
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Prénom
+                  </label>
+                  <input
+                    name="firstName"
+                    defaultValue={teacher.firstName}
+                    required
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Email
+                  </label>
+                  <input
+                    name="email"
+                    type="email"
+                    defaultValue={teacher.email ?? ""}
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Téléphone
+                  </label>
+                  <input
+                    name="phone"
+                    defaultValue={teacher.phone ?? ""}
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-zinc-800">
+                    Statut
+                  </label>
+                  <select
+                    name="status"
+                    defaultValue={teacher.status}
+                    className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="ARCHIVED">ARCHIVED</option>
+                  </select>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Enregistrer
+              </button>
+            </form>
+          ) : (
+            <dl className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <dt className="text-xs font-medium text-zinc-500">Nom</dt>
+                <dd className="mt-1 text-sm text-zinc-900">
+                  {teacher.lastName} {teacher.firstName}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-zinc-500">Email</dt>
+                <dd className="mt-1 text-sm text-zinc-900">
+                  {teacher.email ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-zinc-500">
+                  Téléphone
+                </dt>
+                <dd className="mt-1 text-sm text-zinc-900">
+                  {teacher.phone ?? "—"}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-zinc-500">Statut</dt>
+                <dd className="mt-1 text-sm text-zinc-900">{teacher.status}</dd>
+              </div>
+            </dl>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">
+              Compte utilisateur
+            </div>
+            {teacher.userId ? (
+              <p className="mt-2 text-sm text-zinc-600">
+                Compte lié : {teacher.user?.email} — statut{" "}
+                {teacher.user?.status}. La gestion du compte se fait dans
+                Utilisateurs.
+              </p>
+            ) : canManage ? (
+              <form
+                action={activateTeacherAccountAction}
+                className="mt-4 space-y-3"
+              >
+                <input type="hidden" name="teacherId" value={teacher.id} />
+                <p className="text-sm text-zinc-600">
+                  Crée un compte de connexion avec le rôle TEACHER (nécessite un
+                  email renseigné).
+                </p>
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="Mot de passe (min. 8)"
+                  minLength={8}
+                  required
+                  disabled={!teacher.email}
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 disabled:bg-zinc-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!teacher.email}
+                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-300"
+                >
+                  Activer le compte
+                </button>
+                {!teacher.email ? (
+                  <p className="text-xs text-zinc-500">
+                    Renseignez d&apos;abord un email pour l&apos;enseignant.
+                  </p>
+                ) : null}
+              </form>
+            ) : (
+              <p className="mt-2 text-sm text-zinc-600">
+                Aucun compte utilisateur lié.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">
+              Professeur principal de
+            </div>
+            {teacher.headOfClassrooms.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">
+                Aucune classe en responsabilité.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1 text-sm text-zinc-700">
+                {teacher.headOfClassrooms.map((c) => (
+                  <li key={c.id}>
+                    <Link
+                      href={`/app/classrooms/${c.id}`}
+                      className="text-zinc-900 underline-offset-2 hover:underline"
+                    >
+                      {c.name}
+                    </Link>{" "}
+                    <span className="text-zinc-500">
+                      ({c.academicYear.name})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="text-sm font-medium text-zinc-900">Affectations</div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                <th className="py-2 pr-4">Classe</th>
+                <th className="py-2 pr-4">Niveau</th>
+                <th className="py-2 pr-4">Matière</th>
+                <th className="py-2 pr-4">Année</th>
+                {canManage ? <th className="py-2 pr-4"></th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {teacher.assignments.map((a) => (
+                <tr key={a.id} className="border-b border-zinc-100">
+                  <td className="py-2 pr-4 text-zinc-900">
+                    <Link
+                      href={`/app/classrooms/${a.classroom.id}`}
+                      className="hover:underline"
+                    >
+                      {a.classroom.name}
+                    </Link>
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {a.classroom.level.name}
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {a.subject?.name ?? "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {a.academicYear.name}
+                  </td>
+                  {canManage ? (
+                    <td className="py-2 pr-4">
+                      <form action={removeAssignmentAction}>
+                        <input
+                          type="hidden"
+                          name="assignmentId"
+                          value={a.id}
+                        />
+                        <input
+                          type="hidden"
+                          name="teacherId"
+                          value={teacher.id}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                        >
+                          Retirer
+                        </button>
+                      </form>
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+              {teacher.assignments.length === 0 ? (
+                <tr>
+                  <td className="py-6 text-zinc-500" colSpan={5}>
+                    Aucune affectation
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        {canManage ? (
+          <form action={assignTeacherAction} className="mt-4">
+            <input type="hidden" name="teacherId" value={teacher.id} />
+            <div className="grid items-end gap-4 md:grid-cols-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-zinc-800">
+                  Année
+                </label>
+                <select
+                  name="academicYearId"
+                  defaultValue={currentYear?.id ?? ""}
+                  required
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                >
+                  {years.map((y) => (
+                    <option key={y.id} value={y.id}>
+                      {y.name}
+                      {y.isCurrent ? " (courante)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-zinc-800">
+                  Classe
+                </label>
+                <select
+                  name="classroomId"
+                  required
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                >
+                  {classrooms.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} — {c.level.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-zinc-800">
+                  Matière (optionnel)
+                </label>
+                <select
+                  name="subjectId"
+                  className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                >
+                  <option value="">—</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Affecter
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">
+              La classe doit appartenir à l&apos;année scolaire sélectionnée.
+            </p>
+          </form>
+        ) : null}
+      </div>
+
+      <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6">
+        <div className="text-sm font-medium text-zinc-800">
+          Emploi du temps — module futur
+        </div>
+        <p className="mt-1 text-sm text-zinc-600">
+          L&apos;emploi du temps de l&apos;enseignant sera disponible avec le
+          module Emplois du temps.
+        </p>
+      </div>
+    </div>
+  );
+}
