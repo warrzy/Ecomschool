@@ -1,3 +1,7 @@
+# Scripts shell : fins de ligne LF obligatoires (exécutés sous Linux)
+*.sh text eol=lf
+*.cron text eol=lf
+
 src/prisma/contract.json linguist-generated
 src/prisma/contract.d.ts linguist-generated
 src/prisma/ops.json linguist-generated
