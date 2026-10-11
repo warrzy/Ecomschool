@@ -1,0 +1,15 @@
+# ECOM-SCHOOL — ordonnanceur des traitements applicatifs (/api/cron).
+# Fichier : /etc/cron.d/ecomschool-preprod
+#
+# Remplacez __CRON_SECRET__ par la valeur de CRON_SECRET dans
+# /var/www/ecomschool-preprod/.env (la même, jamais dans le dépôt).
+#
+# Fréquence : toutes les 10 minutes. Le traitement est idempotent —
+# resserrer la périodicité est sans risque fonctionnel.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/10 * * * * deploy curl -fsS -o /dev/null -m 300 -H "Authorization: Bearer __CRON_SECRET__" http://127.0.0.1:3001/api/cron || echo "$(date -Is) ecomschool cron failed" >> /var/log/ecomschool/cron-errors.log
+
+# Sauvegarde quotidienne à 02:30 (rotation 14 jours).
+30 2 * * * deploy bash /var/www/ecomschool-preprod/deploy/scripts/backup.sh >> /var/log/ecomschool/backup.log 2>&1
