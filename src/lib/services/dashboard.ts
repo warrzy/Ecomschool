@@ -268,3 +268,83 @@ export async function getPedagogyDashboard(
     attendanceRate: marked > 0 ? present / marked : null,
   };
 }
+
+/** Indicateurs évaluations / résultats / bulletins (Phase 5). */
+export async function getEvaluationsDashboard(
+  ctx: SchoolCtx,
+  filters: { academicYearId?: string } = {},
+) {
+  const yearFilter = filters.academicYearId;
+  const now = new Date();
+
+  const [
+    upcoming,
+    open,
+    missingGrades,
+    pendingValidations,
+    publishedCards,
+    avgByClassroom,
+  ] = await Promise.all([
+    prisma.assessment.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: { in: ["DRAFT", "OPEN"] },
+        date: { gte: now },
+        ...(yearFilter ? { academicYearId: yearFilter } : {}),
+      },
+    }),
+    prisma.assessment.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "OPEN",
+        ...(yearFilter ? { academicYearId: yearFilter } : {}),
+      },
+    }),
+    prisma.grade.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "MISSING",
+        assessment: yearFilter ? { academicYearId: yearFilter } : undefined,
+      },
+    }),
+    prisma.resultValidation.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: { in: ["CALCULATED", "PENDING_VALIDATION"] },
+        ...(yearFilter
+          ? { academicPeriod: { academicYearId: yearFilter } }
+          : {}),
+      },
+    }),
+    prisma.reportCard.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "PUBLISHED",
+        ...(yearFilter
+          ? { academicPeriod: { academicYearId: yearFilter } }
+          : {}),
+      },
+    }),
+    prisma.studentPeriodResult.groupBy({
+      by: ["classroomId"],
+      where: {
+        schoolId: ctx.schoolId,
+        generalAverage: { not: null },
+        ...(yearFilter
+          ? { academicPeriod: { academicYearId: yearFilter } }
+          : {}),
+      },
+      _avg: { generalAverage: true },
+      _count: true,
+    }),
+  ]);
+
+  return {
+    upcomingEvaluations: upcoming,
+    openEvaluations: open,
+    missingGrades,
+    pendingValidations,
+    publishedReportCards: publishedCards,
+    averageByClassroom: avgByClassroom.length,
+  };
+}

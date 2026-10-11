@@ -16,17 +16,33 @@ export type AcademicResult<T = undefined> =
 
 type SchoolCtx = { userId: string; schoolId: string };
 
-function periodTemplates(type: AcademicPeriodType) {
-  return type === "SEMESTER"
-    ? [
-        { name: "Semestre 1", number: 1 },
-        { name: "Semestre 2", number: 2 },
-      ]
-    : [
-        { name: "Trimestre 1", number: 1 },
-        { name: "Trimestre 2", number: 2 },
-        { name: "Trimestre 3", number: 3 },
-      ];
+function periodTemplates(
+  type: AcademicPeriodType,
+  startDate: Date,
+  endDate: Date,
+) {
+  const defs =
+    type === "SEMESTER"
+      ? [
+          { name: "Semestre 1", number: 1 },
+          { name: "Semestre 2", number: 2 },
+        ]
+      : [
+          { name: "Trimestre 1", number: 1 },
+          { name: "Trimestre 2", number: 2 },
+          { name: "Trimestre 3", number: 3 },
+        ];
+  // Découpe l'année en tranches égales (dernière période jusqu'à endDate).
+  const total = endDate.getTime() - startDate.getTime();
+  const slice = total / defs.length;
+  return defs.map((p, i) => ({
+    ...p,
+    startDate: new Date(startDate.getTime() + Math.floor(slice * i)),
+    endDate:
+      i === defs.length - 1
+        ? endDate
+        : new Date(startDate.getTime() + Math.floor(slice * (i + 1)) - 1),
+  }));
 }
 
 export async function listYears(ctx: SchoolCtx) {
@@ -83,13 +99,13 @@ export async function createYear(
       });
 
       await tx.academicPeriod.createMany({
-        data: periodTemplates(input.periodType).map((p) => ({
+        data: periodTemplates(input.periodType, startDate, endDate).map((p) => ({
           academicYearId: created.id,
           schoolId: ctx.schoolId,
           name: p.name,
           number: p.number,
-          startDate,
-          endDate,
+          startDate: p.startDate,
+          endDate: p.endDate,
           type: input.periodType,
         })),
       });
