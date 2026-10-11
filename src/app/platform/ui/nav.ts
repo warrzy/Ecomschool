@@ -13,6 +13,7 @@ export const platformNav: NavItem[] = [
   { label: "Abonnements", href: "/platform/subscriptions" },
   { label: "Factures", href: "/platform/invoices" },
   { label: "Supervision", href: "/platform/monitoring" },
+  { label: "Automatisations", href: "/platform/automations" },
   { label: "Audit", href: "/platform/audit" },
   { label: "Assistance", href: "/platform/support" },
 ];

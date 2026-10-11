@@ -30,7 +30,8 @@ export async function canContactGuardian(
   const consent = await prisma.guardianCommConsent.findUnique({
     where: { guardianId },
   });
-  if (consent?.optOutAll) return topic === "TRANSACTIONAL" ? false : false;
+  // optOutAll bloque le démarchage mais pas les messages transactionnels.
+  if (consent?.optOutAll) return topic === "TRANSACTIONAL";
   if (channel === "SMS") return consent?.smsOptIn ?? false;
   if (channel === "WHATSAPP") return consent?.whatsappOptIn ?? false;
   return false;

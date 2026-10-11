@@ -21,6 +21,7 @@ export const appNav: NavItem[] = [
   { label: "Règles de notation", href: "/app/grading-policy" },
   { label: "Absences & retards", href: "/app/attendance" },
   { label: "Annonces", href: "/app/announcements" },
+  { label: "Messagerie", href: "/app/messages" },
   { label: "Notifications", href: "/app/notifications" },
   { label: "Finances", href: "/app/fees" },
   { label: "Utilisateurs", href: "/app/users" },

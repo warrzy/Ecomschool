@@ -22,6 +22,9 @@ export async function createAnnouncementAction(formData: FormData) {
       body: String(formData.get("body") ?? ""),
       audience,
       publish: formData.get("publish") === "on",
+      scheduledAt: String(formData.get("scheduledAt") ?? "")
+        ? new Date(String(formData.get("scheduledAt")))
+        : null,
     },
   );
   redirect(

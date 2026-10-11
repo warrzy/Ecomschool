@@ -67,6 +67,10 @@ export default async function AnnouncementsPage(props: {
               <label className="flex items-center gap-2 text-sm text-zinc-700">
                 <input type="checkbox" name="publish" /> Publier immédiatement
               </label>
+              <label className="flex items-center gap-2 text-xs text-zinc-500">
+                ou programmée :
+                <input type="datetime-local" name="scheduledAt" className={inputCls} />
+              </label>
               <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
                 Enregistrer
               </button>
@@ -91,7 +95,11 @@ export default async function AnnouncementsPage(props: {
                 <td className="py-2 pr-3 font-medium">{a.title}</td>
                 <td className="py-2 pr-3">{AUDIENCE_LABELS[a.audience]}</td>
                 <td className="py-2 pr-3">
-                  {a.publishedAt ? `Publiée le ${a.publishedAt.toLocaleDateString("fr-FR")}` : "Brouillon"}
+                  {a.publishedAt
+                    ? `Publiée le ${a.publishedAt.toLocaleDateString("fr-FR")}`
+                    : a.scheduledAt
+                      ? `Programmée le ${a.scheduledAt.toLocaleString("fr-FR")}`
+                      : "Brouillon"}
                 </td>
                 <td className="py-2">
                   {canManage ? (

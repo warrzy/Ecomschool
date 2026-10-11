@@ -29,9 +29,16 @@ export async function notifyUsers(input: {
   return ids.length;
 }
 
-export async function listNotifications(userId: string, opts: { take?: number } = {}) {
+export async function listNotifications(
+  userId: string,
+  opts: { take?: number; unreadOnly?: boolean; type?: NotificationType } = {},
+) {
   return prisma.notification.findMany({
-    where: { userId },
+    where: {
+      userId,
+      ...(opts.unreadOnly ? { readAt: null } : {}),
+      ...(opts.type ? { type: opts.type } : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: opts.take ?? 20,
     select: {

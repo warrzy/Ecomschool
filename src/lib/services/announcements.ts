@@ -20,6 +20,7 @@ export async function listAnnouncements(ctx: SchoolCtx) {
       body: true,
       audience: true,
       publishedAt: true,
+      scheduledAt: true,
       createdAt: true,
     },
   });
@@ -45,7 +46,13 @@ export async function listPublishedAnnouncements(
 
 export async function createAnnouncement(
   ctx: SchoolCtx,
-  input: { title: string; body: string; audience: AnnouncementAudience; publish?: boolean },
+  input: {
+    title: string;
+    body: string;
+    audience: AnnouncementAudience;
+    publish?: boolean;
+    scheduledAt?: Date | null;
+  },
 ): Promise<AnnouncementsResult<{ id: string }>> {
   if (!input.title.trim() || !input.body.trim()) return { ok: false, error: "INVALID_INPUT" };
   try {
@@ -56,6 +63,7 @@ export async function createAnnouncement(
         body: input.body.trim(),
         audience: input.audience,
         publishedAt: input.publish ? new Date() : null,
+        scheduledAt: input.publish ? null : (input.scheduledAt ?? null),
         createdById: ctx.userId,
       },
       select: { id: true },
