@@ -1,0 +1,131 @@
+import { prisma } from "@/lib/db/prisma";
+
+type SchoolCtx = { schoolId: string };
+
+export async function getSchoolDashboard(ctx: SchoolCtx) {
+  const school = await prisma.school.findUnique({
+    where: { id: ctx.schoolId },
+    select: { name: true, city: true, type: true, logoUrl: true },
+  });
+
+  const currentYear = await prisma.academicYear.findFirst({
+    where: { schoolId: ctx.schoolId, isCurrent: true },
+    select: { id: true, name: true, startDate: true, endDate: true },
+  });
+
+  const [
+    studentsActive,
+    teachersActive,
+    classroomsActive,
+    enrolledCount,
+    bySexMale,
+    bySexFemale,
+    byLevelRaw,
+    latestEnrollments,
+  ] = await Promise.all([
+    prisma.student.count({
+      where: { schoolId: ctx.schoolId, status: "ACTIVE" },
+    }),
+    prisma.teacher.count({
+      where: { schoolId: ctx.schoolId, status: "ACTIVE" },
+    }),
+    prisma.classroom.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "ACTIVE",
+        ...(currentYear ? { academicYearId: currentYear.id } : {}),
+      },
+    }),
+    currentYear
+      ? prisma.enrollment.count({
+          where: {
+            schoolId: ctx.schoolId,
+            academicYearId: currentYear.id,
+            status: "ENROLLED",
+          },
+        })
+      : Promise.resolve(0),
+    currentYear
+      ? prisma.enrollment.count({
+          where: {
+            schoolId: ctx.schoolId,
+            academicYearId: currentYear.id,
+            status: "ENROLLED",
+            student: { sex: "MALE" },
+          },
+        })
+      : Promise.resolve(0),
+    currentYear
+      ? prisma.enrollment.count({
+          where: {
+            schoolId: ctx.schoolId,
+            academicYearId: currentYear.id,
+            status: "ENROLLED",
+            student: { sex: "FEMALE" },
+          },
+        })
+      : Promise.resolve(0),
+    currentYear
+      ? prisma.enrollment.groupBy({
+          by: ["classroomId"],
+          where: {
+            schoolId: ctx.schoolId,
+            academicYearId: currentYear.id,
+            status: "ENROLLED",
+          },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+    prisma.enrollment.findMany({
+      where: { schoolId: ctx.schoolId },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        enrolledAt: true,
+        status: true,
+        student: {
+          select: { id: true, matricule: true, firstName: true, lastName: true },
+        },
+        classroom: { select: { name: true } },
+        academicYear: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  let byLevel: { level: string; count: number }[] = [];
+  if (byLevelRaw.length > 0) {
+    const classrooms = await prisma.classroom.findMany({
+      where: { id: { in: byLevelRaw.map((r) => r.classroomId) } },
+      select: { id: true, level: { select: { name: true, order: true } } },
+    });
+    const levelByClassroom = new Map(
+      classrooms.map((c) => [c.id, c.level] as const),
+    );
+    const agg = new Map<string, { order: number; count: number }>();
+    for (const row of byLevelRaw) {
+      const level = levelByClassroom.get(row.classroomId);
+      if (!level) continue;
+      const cur = agg.get(level.name) ?? { order: level.order, count: 0 };
+      cur.count += row._count._all;
+      cur.order = Math.min(cur.order, level.order);
+      agg.set(level.name, cur);
+    }
+    byLevel = [...agg.entries()]
+      .map(([level, v]) => ({ level, count: v.count, order: v.order }))
+      .sort((a, b) => a.order - b.order || a.level.localeCompare(b.level))
+      .map(({ level, count }) => ({ level, count }));
+  }
+
+  return {
+    school,
+    currentYear,
+    studentsActive,
+    teachersActive,
+    classroomsActive,
+    enrolledCount,
+    bySex: { male: bySexMale, female: bySexFemale },
+    byLevel,
+    latestEnrollments,
+  };
+}
