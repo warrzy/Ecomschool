@@ -57,8 +57,11 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Email</label>
+            <label htmlFor="email" className="text-sm font-medium text-zinc-800">
+              Email
+            </label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -69,10 +72,14 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium text-zinc-800"
+            >
               Mot de passe
             </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

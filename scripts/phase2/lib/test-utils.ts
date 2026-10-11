@@ -205,3 +205,18 @@ export function resolveTestPort() {
 export function assert(cond: boolean, message: string) {
   if (!cond) throw new Error(`ASSERTION_FAILED: ${message}`);
 }
+
+/**
+ * Cible de redirection d'une réponse : header `location` (307 classique) ou
+ * marqueur RSC `NEXT_REDIRECT;replace;/path;307` (Next 16 + PPR diffuse la
+ * redirection dans le flux quand la page est partiellement pré-rendue).
+ */
+export function redirectTarget(r: {
+  headers: IncomingHttpHeaders;
+  body: string;
+}) {
+  const loc = r.headers.location;
+  if (typeof loc === "string" && loc) return loc;
+  const m = r.body.match(/NEXT_REDIRECT;(?:replace|push);([^;\\]+)/);
+  return m?.[1];
+}

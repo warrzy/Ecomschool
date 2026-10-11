@@ -82,12 +82,9 @@ export const authOptions: NextAuthOptions = {
           select: { schoolId: true },
         });
         const schoolId = membership?.schoolId ?? null;
-        if (!schoolId) {
-          const hasPlatformRole = await prisma.userRole.count({
-            where: { userId: user.id, role: { scope: "PLATFORM" } },
-          });
-          if (hasPlatformRole === 0) return null;
-        }
+        // Pas de membership ACTIVE (suspendu, ou aucun rattachement) : la
+        // session est tout de même créée avec schoolId=null — les guards
+        // redirigent vers /app/onboarding (ou /platform si rôle plateforme).
 
         const authUser: AuthUser = {
           id: user.id,

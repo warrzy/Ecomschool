@@ -16,6 +16,7 @@ import {
   ensureDevServer,
   httpRequest,
   killDevServer,
+  redirectTarget,
   resolveTestPort,
   signIn,
 } from "./lib/test-utils";
@@ -468,8 +469,9 @@ async function main() {
         password: seedPassword,
       });
       const r1 = await httpRequest(`${baseUrl}/`, { method: "GET" }, adminA.jar);
-      assert(r1.headers.location?.startsWith("/app") === true,
-        `admin A root should redirect to /app, got ${r1.headers.location}`);
+      const t1 = redirectTarget(r1);
+      assert(t1?.startsWith("/app") === true,
+        `admin A root should redirect to /app, got ${t1}`);
       checks.push({ name: "http: admin école => /app", ok: true });
 
       const r2 = await httpRequest(`${baseUrl}/app/users`, { method: "GET" }, adminA.jar);
@@ -477,9 +479,9 @@ async function main() {
       checks.push({ name: "http: admin A accède à ses utilisateurs", ok: true });
 
       const r3 = await httpRequest(`${baseUrl}/platform`, { method: "GET" }, adminA.jar);
-      const loc3 = r3.headers.location;
+      const loc3 = redirectTarget(r3);
       assert(
-        r3.status !== 200 && typeof loc3 === "string" && loc3.startsWith("/app"),
+        typeof loc3 === "string" && loc3.startsWith("/app"),
         `admin A GET /platform expected redirect to /app, got status=${r3.status} loc=${loc3}`,
       );
       checks.push({ name: "http: admin école sur /platform => refusé", ok: true });
@@ -489,10 +491,10 @@ async function main() {
         { method: "GET" },
         adminA.jar,
       );
+      const t4 = redirectTarget(r4);
       assert(
-        r4.headers.location === "/app/users" ||
-          r4.headers.location?.endsWith("/app/users") === true,
-        `cross-tenant edit page must redirect to /app/users, got ${r4.headers.location}`,
+        t4 === "/app/users" || t4?.endsWith("/app/users") === true,
+        `cross-tenant edit page must redirect to /app/users, got ${t4}`,
       );
       checks.push({
         name: "http: édition d'un user de l'école B => refusé",
@@ -509,10 +511,10 @@ async function main() {
         { method: "GET" },
         bAdminSession.jar,
       );
+      const t5 = redirectTarget(r5);
       assert(
-        r5.headers.location === "/app/users" ||
-          r5.headers.location?.endsWith("/app/users") === true,
-        `B admin editing A user must redirect, got ${r5.headers.location}`,
+        t5 === "/app/users" || t5?.endsWith("/app/users") === true,
+        `B admin editing A user must redirect, got ${t5}`,
       );
       checks.push({
         name: "http: admin B édite user de A => refusé",
@@ -525,9 +527,10 @@ async function main() {
         password: seedPassword,
       });
       const r6 = await httpRequest(`${baseUrl}/app`, { method: "GET" }, suspendedSession.jar);
+      const t6 = redirectTarget(r6);
       assert(
-        r6.headers.location?.startsWith("/app/onboarding") === true,
-        `suspended member should land on /app/onboarding, got ${r6.headers.location}`,
+        t6?.startsWith("/app/onboarding") === true,
+        `suspended member should land on /app/onboarding, got ${t6}`,
       );
       checks.push({ name: "http: membership suspendu => onboarding", ok: true });
 
@@ -537,9 +540,10 @@ async function main() {
         password: seedPassword,
       });
       const r7 = await httpRequest(`${baseUrl}/app`, { method: "GET" }, noMemberSession.jar);
+      const t7 = redirectTarget(r7);
       assert(
-        r7.headers.location?.startsWith("/app/onboarding") === true,
-        `no-membership user should land on /app/onboarding, got ${r7.headers.location}`,
+        t7?.startsWith("/app/onboarding") === true,
+        `no-membership user should land on /app/onboarding, got ${t7}`,
       );
       checks.push({ name: "http: sans membership => onboarding", ok: true });
 
@@ -549,10 +553,10 @@ async function main() {
         password: seedPassword,
       });
       const r8 = await httpRequest(`${baseUrl}/app/users`, { method: "GET" }, noPermSession.jar);
+      const t8 = redirectTarget(r8);
       assert(
-        r8.headers.location === "/app" ||
-          r8.headers.location?.endsWith("/app") === true,
-        `missing permission should redirect to /app, got ${r8.headers.location}`,
+        t8 === "/app" || t8?.endsWith("/app") === true,
+        `missing permission should redirect to /app, got ${t8}`,
       );
       checks.push({ name: "http: permission manquante => refusé", ok: true });
 
@@ -574,9 +578,10 @@ async function main() {
         password: seedPassword,
       });
       const r9 = await httpRequest(`${baseUrl}/`, { method: "GET" }, platformSession.jar);
+      const t9 = redirectTarget(r9);
       assert(
-        r9.headers.location?.startsWith("/platform") === true,
-        `platform user without schoolId should redirect to /platform, got ${r9.headers.location}`,
+        t9?.startsWith("/platform") === true,
+        `platform user without schoolId should redirect to /platform, got ${t9}`,
       );
       checks.push({
         name: "http: compte plateforme sans schoolId => /platform",
@@ -588,18 +593,19 @@ async function main() {
         { method: "GET" },
         platformSession.jar,
       );
+      const t10 = redirectTarget(r10);
       assert(
-        r10.headers.location?.startsWith("/platform") === true,
-        `platform user on /app should redirect to /platform, got ${r10.headers.location}`,
+        t10?.startsWith("/platform") === true,
+        `platform user on /app should redirect to /platform, got ${t10}`,
       );
       checks.push({ name: "http: plateforme sur /app => /platform", ok: true });
 
       const anonJar = {};
       const r11 = await httpRequest(`${baseUrl}/app/users`, { method: "GET" }, anonJar);
+      const t11 = redirectTarget(r11);
       assert(
-        r11.headers.location?.startsWith("/login") === true ||
-          r11.headers.location?.includes("/login") === true,
-        `anonymous should redirect to /login, got ${r11.headers.location}`,
+        t11?.includes("/login") === true,
+        `anonymous should redirect to /login, got ${t11}`,
       );
       checks.push({ name: "http: anonyme => /login", ok: true });
     } finally {

@@ -47,3 +47,11 @@ dist/
 # backups
 /backups/
 *.dump
+
+# Playwright
+/test-results/
+/playwright-report/
+/e2e/.auth/
+
+# Dumps PostgreSQL locaux (données sensibles)
+backups/

@@ -3,6 +3,7 @@ import {
   ensureDevServer,
   httpRequest,
   killDevServer,
+  redirectTarget,
   resolveTestPort,
   signIn,
 } from "./lib/test-utils";
@@ -23,7 +24,7 @@ async function signInAndAssertRootRedirect(args: {
   }
 
   const rootRes = await httpRequest(`${args.baseUrl}/`, { method: "GET" }, jar);
-  const loc = typeof rootRes.headers.location === "string" ? rootRes.headers.location : null;
+  const loc = redirectTarget(rootRes) ?? null;
   if (!loc || !loc.startsWith(args.expectedLocationPrefix)) {
     throw new Error(
       `Unexpected root redirect. expectedPrefix=${args.expectedLocationPrefix} got=${loc ?? "<none>"}`,
