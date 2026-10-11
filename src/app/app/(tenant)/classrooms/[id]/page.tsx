@@ -107,8 +107,23 @@ export default async function ClassroomDetailPage({
     schoolId: tenant.schoolId,
     permissionKey: "attendance.read",
   });
+  const canViewGrades = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "grades.read",
+  });
+  const canViewResults = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "results.read",
+  });
+  const canViewCards = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "reportcards.read",
+  });
 
-  const [levels, teachers, enrollments, classSubjects, classTeachers, allSubjects, ttSlots, classSessions, classAbsences, stats] = await Promise.all([
+  const [levels, teachers, enrollments, classSubjects, classTeachers, allSubjects, ttSlots, classSessions, classAbsences, stats, classAssessments, classResults, classCards] = await Promise.all([
     listLevels(ctx),
     prisma.teacher.findMany({
       where: { schoolId: tenant.schoolId, status: "ACTIVE" },
@@ -200,6 +215,41 @@ export default async function ClassroomDetailPage({
     activeTab === "stats"
       ? classroomStats(ctx, id)
       : Promise.resolve(null),
+    activeTab === "grades" && canViewGrades
+      ? prisma.assessment.findMany({
+          where: { schoolId: tenant.schoolId, classroomId: id },
+          include: {
+            subject: { select: { name: true } },
+            type: { select: { name: true } },
+            academicPeriod: { select: { name: true } },
+            _count: { select: { grades: true } },
+          },
+          orderBy: { date: "desc" },
+          take: 100,
+        })
+      : Promise.resolve([]),
+    activeTab === "results" && canViewResults
+      ? prisma.studentPeriodResult.findMany({
+          where: { schoolId: tenant.schoolId, classroomId: id },
+          include: {
+            student: { select: { matricule: true, firstName: true, lastName: true } },
+            academicPeriod: { select: { name: true, number: true } },
+          },
+          orderBy: [{ academicPeriod: { number: "desc" } }, { rank: "asc" }],
+          take: 200,
+        })
+      : Promise.resolve([]),
+    activeTab === "report-cards" && canViewCards
+      ? prisma.reportCard.findMany({
+          where: { schoolId: tenant.schoolId, classroomId: id },
+          include: {
+            student: { select: { matricule: true, firstName: true, lastName: true } },
+            academicPeriod: { select: { name: true, number: true } },
+          },
+          orderBy: [{ academicPeriod: { number: "desc" } }, { student: { lastName: "asc" } }],
+          take: 200,
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -861,6 +911,149 @@ export default async function ClassroomDetailPage({
               ))}
             </div>
           ) : null}
+        </div>
+      ) : activeTab === "grades" && canViewGrades ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Évaluations de la classe
+          </div>
+          {classAssessments.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Aucune évaluation.</p>
+          ) : (
+            <table className="mt-3 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Titre</th>
+                  <th className="py-2 pr-4">Matière</th>
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Période</th>
+                  <th className="py-2 pr-4">Notes</th>
+                  <th className="py-2">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classAssessments.map((a) => (
+                  <tr key={a.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4">{a.date.toLocaleDateString("fr-FR")}</td>
+                    <td className="py-2 pr-4">
+                      <Link href={`/app/grades/${a.id}`} className="font-medium hover:underline">
+                        {a.title}
+                      </Link>
+                    </td>
+                    <td className="py-2 pr-4">{a.subject.name}</td>
+                    <td className="py-2 pr-4">{a.type.name}</td>
+                    <td className="py-2 pr-4">{a.academicPeriod?.name ?? "—"}</td>
+                    <td className="py-2 pr-4">{a._count.grades}</td>
+                    <td className="py-2">{a.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : activeTab === "results" && canViewResults ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-medium text-zinc-900">
+              Résultats et classements
+            </div>
+            <Link
+              href={`/app/averages?classroom=${id}`}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Calculer les moyennes
+            </Link>
+          </div>
+          {classResults.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucun résultat calculé — lancez le calcul depuis « Résultats »
+              en choisissant la période.
+            </p>
+          ) : (
+            <table className="mt-3 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Période</th>
+                  <th className="py-2 pr-4">Rang</th>
+                  <th className="py-2 pr-4">Matricule</th>
+                  <th className="py-2 pr-4">Élève</th>
+                  <th className="py-2 pr-4">Moyenne</th>
+                  <th className="py-2 pr-4">Mention</th>
+                  <th className="py-2">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classResults.map((r) => (
+                  <tr key={r.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4">{r.academicPeriod.name}</td>
+                    <td className="py-2 pr-4">{r.rank ?? "—"}</td>
+                    <td className="py-2 pr-4 text-zinc-500">{r.student.matricule}</td>
+                    <td className="py-2 pr-4 font-medium">
+                      {r.student.lastName} {r.student.firstName}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {r.generalAverage != null ? `${r.generalAverage.toFixed(2)}/20` : "—"}
+                    </td>
+                    <td className="py-2 pr-4">{r.mention ?? "—"}</td>
+                    <td className="py-2">{r.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : activeTab === "report-cards" && canViewCards ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-medium text-zinc-900">Bulletins de la classe</div>
+            <Link
+              href={`/app/report-cards?classroom=${id}`}
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+            >
+              Gérer les bulletins
+            </Link>
+          </div>
+          {classCards.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucun bulletin — générez-les depuis la page Bulletins après calcul des moyennes.
+            </p>
+          ) : (
+            <table className="mt-3 w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Période</th>
+                  <th className="py-2 pr-4">Identifiant</th>
+                  <th className="py-2 pr-4">Élève</th>
+                  <th className="py-2 pr-4">Version</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {classCards.map((card) => (
+                  <tr key={card.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4">{card.academicPeriod.name}</td>
+                    <td className="py-2 pr-4 font-mono text-xs">{card.identifier}</td>
+                    <td className="py-2 pr-4 font-medium">
+                      {card.student.lastName} {card.student.firstName}
+                    </td>
+                    <td className="py-2 pr-4">v{card.currentVersion}</td>
+                    <td className="py-2 pr-4">{card.status}</td>
+                    <td className="py-2">
+                      <a
+                        href={`/app/report-cards/pdf?id=${card.id}`}
+                        target="_blank"
+                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                      >
+                        Ouvrir
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       ) : (
         <PlannedTab

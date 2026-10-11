@@ -114,6 +114,21 @@ export default async function StudentDetailPage({
     schoolId: tenant.schoolId,
     permissionKey: "attendance.read",
   });
+  const canViewGrades = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "grades.read",
+  });
+  const canViewCards = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "reportcards.read",
+  });
+  const canPrintCards = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "reportcards.print",
+  });
 
   const currentEnrollment =
     student.enrollments.find((e) => e.status === "ENROLLED") ?? null;
@@ -144,6 +159,54 @@ export default async function StudentDetailPage({
 
   const absences = attList?.items.filter((r) => r.status !== "LATE") ?? [];
   const lates = attList?.items.filter((r) => r.status === "LATE") ?? [];
+
+  const [gradeRows, periodResults, reportCards] = await Promise.all([
+    canViewGrades
+      ? prisma.grade.findMany({
+          where: { schoolId: tenant.schoolId, studentId: student.id },
+          include: {
+            assessment: {
+              select: {
+                title: true,
+                date: true,
+                maxScore: true,
+                status: true,
+                subject: { select: { name: true } },
+                type: { select: { name: true } },
+                academicPeriod: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { assessment: { date: "desc" } },
+          take: 100,
+        })
+      : Promise.resolve([]),
+    canViewGrades
+      ? prisma.studentPeriodResult.findMany({
+          where: { schoolId: tenant.schoolId, studentId: student.id },
+          include: {
+            academicPeriod: {
+              select: { name: true, academicYear: { select: { name: true } } },
+            },
+            classroom: { select: { name: true } },
+          },
+          orderBy: { academicPeriod: { number: "desc" } },
+          take: 20,
+        })
+      : Promise.resolve([]),
+    canViewCards
+      ? prisma.reportCard.findMany({
+          where: { schoolId: tenant.schoolId, studentId: student.id },
+          include: {
+            academicPeriod: {
+              select: { name: true, academicYear: { select: { name: true } } },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        })
+      : Promise.resolve([]),
+  ]);
 
   const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "");
 
@@ -537,8 +600,105 @@ export default async function StudentDetailPage({
           ) : null}
         </div>
 
-        <PendingSection title="Notes" module="Notes" />
-        <PendingSection title="Bulletins" module="Bulletins" />
+        {canViewGrades ? (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">Notes</div>
+            {gradeRows.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">Aucune note saisie.</p>
+            ) : (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {gradeRows.slice(0, 15).map((g) => (
+                  <li
+                    key={g.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  >
+                    <span className="font-medium text-zinc-900">
+                      {g.assessment.subject.name} — {g.assessment.title}
+                    </span>
+                    <span className="text-xs text-zinc-600">
+                      {g.status === "ENTERED" && g.value != null
+                        ? `${g.value}/${g.assessment.maxScore}`
+                        : g.status === "ABSENT"
+                          ? "Absent"
+                          : g.status === "EXEMPT"
+                            ? "Dispensé"
+                            : "Non noté"}
+                      {g.assessment.academicPeriod
+                        ? ` · ${g.assessment.academicPeriod.name}`
+                        : ""}
+                      {" · "}
+                      {d(g.assessment.date)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {periodResults.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-xs font-medium uppercase text-zinc-500">
+                  Résultats par période
+                </div>
+                <ul className="mt-2 space-y-1.5 text-sm">
+                  {periodResults.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                    >
+                      <span className="font-medium text-zinc-900">
+                        {r.academicPeriod.academicYear.name} — {r.academicPeriod.name}
+                        <span className="ml-2 text-xs text-zinc-500">{r.classroom.name}</span>
+                      </span>
+                      <span className="text-xs text-zinc-600">
+                        {r.generalAverage != null
+                          ? `Moy. ${r.generalAverage.toFixed(2)}/20`
+                          : "—"}
+                        {r.rank != null ? ` · Rang ${r.rank}` : ""}
+                        {r.mention ? ` · ${r.mention}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <PendingSection title="Notes" module="Notes" />
+        )}
+        {canViewCards ? (
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">Bulletins</div>
+            {reportCards.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">Aucun bulletin généré.</p>
+            ) : (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {reportCards.map((card) => (
+                  <li
+                    key={card.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  >
+                    <span className="font-medium text-zinc-900">
+                      {card.academicPeriod.academicYear.name} — {card.academicPeriod.name}
+                    </span>
+                    <span className="flex items-center gap-2 text-xs text-zinc-600">
+                      v{card.currentVersion} · {card.status}
+                      {canPrintCards ? (
+                        <a
+                          href={`/app/report-cards/pdf?id=${card.id}`}
+                          target="_blank"
+                          className="rounded-lg border border-zinc-300 px-2 py-1 hover:bg-zinc-50"
+                        >
+                          PDF
+                        </a>
+                      ) : null}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : (
+          <PendingSection title="Bulletins" module="Bulletins" />
+        )}
         <PendingSection title="Paiements" module="Finances" />
         <PendingSection title="Documents" module="Documents" />
       </div>

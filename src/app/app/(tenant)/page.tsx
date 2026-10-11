@@ -3,6 +3,7 @@ import { requireSchoolContext } from "@/lib/tenant/context";
 import {
   getSchoolDashboard,
   getPedagogyDashboard,
+  getEvaluationsDashboard,
 } from "@/lib/services/dashboard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 
@@ -47,6 +48,14 @@ export default async function DashboardPage() {
   });
   const pedagogy = canViewAttendance
     ? await getPedagogyDashboard({ schoolId: tenant.schoolId })
+    : null;
+  const canViewResults = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "results.read",
+  });
+  const evals = canViewResults
+    ? await getEvaluationsDashboard({ schoolId: tenant.schoolId })
     : null;
 
   return (
@@ -170,9 +179,25 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <PendingCard label="Notes saisies" />
-        <PendingCard label="Bulletins générés" />
+      {evals ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Évaluations et bulletins
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-5">
+            <Card label="Évaluations à venir" value={evals.upcomingEvaluations} />
+            <Card label="Évaluations ouvertes" value={evals.openEvaluations} />
+            <Card label="Notes manquantes" value={evals.missingGrades} />
+            <Card
+              label="Résultats en attente de validation"
+              value={evals.pendingValidations}
+            />
+            <Card label="Bulletins publiés" value={evals.publishedReportCards} />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-1">
         <PendingCard label="Paiements (mois)" />
       </div>
     </div>

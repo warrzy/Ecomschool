@@ -49,7 +49,7 @@ export default async function TeacherDashboardPage() {
   const ws = weekStart(today);
   const we = new Date(ws.getTime() + 7 * 86400000);
 
-  const [sessionsToday, sessionsWeek, upcoming, schedules, toCall, toWrite] =
+  const [sessionsToday, sessionsWeek, upcoming, schedules, toCall, toWrite, myAssessments] =
     await Promise.all([
       prisma.courseSession.findMany({
         where: {
@@ -143,6 +143,24 @@ export default async function TeacherDashboardPage() {
           startMin: true,
           subject: { select: { name: true } },
           classroom: { select: { name: true } },
+        },
+      }),
+      prisma.assessment.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          status: { in: ["DRAFT", "OPEN", "SUBMITTED"] },
+        },
+        orderBy: { date: "asc" },
+        take: 20,
+        select: {
+          id: true,
+          title: true,
+          date: true,
+          status: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+          _count: { select: { grades: true } },
         },
       }),
     ]);
@@ -292,6 +310,38 @@ export default async function TeacherDashboardPage() {
                     className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
                   >
                     Faire l&#8217;appel
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Évaluations ({myAssessments.length})
+          </div>
+          {myAssessments.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Aucune évaluation en cours.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {myAssessments.map((a) => (
+                <li
+                  key={a.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {a.title}
+                    <span className="ml-2 text-xs font-normal text-zinc-500">
+                      {a.subject.name} — {a.classroom.name} ·{" "}
+                      {a.date.toISOString().slice(0, 10)} · {a.status}
+                    </span>
+                  </span>
+                  <Link
+                    href={`/app/grades/${a.id}`}
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                  >
+                    Saisir les notes
                   </Link>
                 </li>
               ))}

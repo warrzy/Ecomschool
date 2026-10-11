@@ -122,23 +122,25 @@ async function main() {
     select: { id: true },
   });
 
-  const roleB = await prisma.role.upsert({
-    where: { id: "00000000-0000-0000-0000-0000000000b1" },
-    update: {},
-    create: {
-      name: "TEST_ROLE_B",
-      scope: "SCHOOL",
-      schoolId: schoolB.id,
-    },
-    select: { id: true },
-  });
+  const roleB =
+    (await prisma.role.findFirst({
+      where: { name: "TEST_ROLE_B", scope: "SCHOOL", schoolId: schoolB.id },
+      select: { id: true },
+    })) ??
+    (await prisma.role.create({
+      data: { name: "TEST_ROLE_B", scope: "SCHOOL", schoolId: schoolB.id },
+      select: { id: true },
+    }));
 
-  const noPermRole = await prisma.role.upsert({
-    where: { id: "00000000-0000-0000-0000-0000000000b2" },
-    update: {},
-    create: { name: "TEST_NOPERM", scope: "SCHOOL", schoolId: null },
-    select: { id: true },
-  });
+  const noPermRole =
+    (await prisma.role.findFirst({
+      where: { name: "TEST_NOPERM", scope: "SCHOOL", schoolId: null },
+      select: { id: true },
+    })) ??
+    (await prisma.role.create({
+      data: { name: "TEST_NOPERM", scope: "SCHOOL", schoolId: null },
+      select: { id: true },
+    }));
 
   const bAdmin = await ensureUser({
     email: T("sec-b-admin"),
