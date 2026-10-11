@@ -243,7 +243,11 @@ export async function commDashboard(schoolId: string) {
     }),
     prisma.messageDelivery.groupBy({
       by: ["channel", "status"],
-      where: { schoolId },
+      // Les marqueurs de déduplication (sans destinataire) ne sont pas des envois.
+      where: {
+        schoolId,
+        OR: [{ userId: { not: null } }, { guardianId: { not: null } }],
+      },
       _count: true,
       _sum: { costUnits: true },
     }),

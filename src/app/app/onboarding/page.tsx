@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { requireSessionUser } from "@/lib/tenant/context";
-import { getActiveMembership } from "@/lib/permissions/rbac";
 
 export const instant = false;
 
@@ -8,11 +7,8 @@ export default async function OnboardingPage() {
   const user = await requireSessionUser();
 
   if (user.schoolId) {
-    const membership = await getActiveMembership({
-      userId: user.id,
-      schoolId: user.schoolId,
-    });
-    if (membership) redirect("/app" as never);
+    // `user.schoolId` est déjà dérivé de la membership ACTIVE.
+    redirect("/app" as never);
   }
 
   return (

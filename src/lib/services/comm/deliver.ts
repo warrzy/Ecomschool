@@ -5,7 +5,7 @@ import type { CommTopic, DeliveryStatus, MessageChannel } from "@prisma/client";
 
 /** Crée une livraison dédupliquée ; retourne null si doublon. */
 export async function createDelivery(input: {
-  schoolId: string;
+  schoolId?: string | null;
   channel: MessageChannel;
   userId?: string | null;
   guardianId?: string | null;

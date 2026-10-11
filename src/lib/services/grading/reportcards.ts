@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
+import type { ResultStatus } from "@prisma/client";
 
 export type ReportCardsError =
   | "NOT_FOUND"
@@ -200,7 +201,12 @@ export async function generateClassReportCards(
 
 export async function listReportCards(
   ctx: SchoolCtx,
-  filters: { classroomId?: string; academicPeriodId?: string; studentId?: string } = {},
+  filters: {
+    classroomId?: string;
+    academicPeriodId?: string;
+    studentId?: string;
+    status?: ResultStatus;
+  } = {},
 ) {
   return prisma.reportCard.findMany({
     where: {
@@ -208,6 +214,7 @@ export async function listReportCards(
       ...(filters.classroomId ? { classroomId: filters.classroomId } : {}),
       ...(filters.academicPeriodId ? { academicPeriodId: filters.academicPeriodId } : {}),
       ...(filters.studentId ? { studentId: filters.studentId } : {}),
+      ...(filters.status ? { status: filters.status } : {}),
     },
     include: {
       student: { select: { id: true, matricule: true, firstName: true, lastName: true } },

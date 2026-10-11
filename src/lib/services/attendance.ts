@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { parseDay } from "@/lib/services/schedules";
-import { notifyAbsenceUnjustified, notifyLateness } from "@/lib/services/notifications";
+import { notifyLateness } from "@/lib/services/notifications";
+import { enqueueJob } from "@/lib/services/comm/queue";
 import type { AttendanceStatus } from "@prisma/client";
 
 export type AttendanceError =
@@ -467,11 +468,17 @@ export async function addAttendanceRecord(
     });
 
     // Notification interne (pas d'envoi externe) : absence non justifiée / retard.
+    // L'absence passe par un job différé : délai de grâce pour justification
+    // avant d'alerter les parents (ABSENCE_NOTIFY_DELAY_MIN, défaut 120 min).
     if (input.status === "ABSENT") {
-      await notifyAbsenceUnjustified({
+      const delayMin = Number(process.env.ABSENCE_NOTIFY_DELAY_MIN) || 120;
+      await enqueueJob({
+        type: "attendance.absence_notify",
         schoolId: ctx.schoolId,
-        studentId: input.studentId,
-        date,
+        runAt: new Date(Date.now() + delayMin * 60_000),
+        payload: { recordId: row.id },
+        dedupKey: `absence-notify:${row.id}`,
+        maxAttempts: 3,
       });
     } else if (input.status === "LATE") {
       await notifyLateness({

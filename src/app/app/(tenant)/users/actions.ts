@@ -7,6 +7,7 @@ import {
   removeSchoolUser,
   updateSchoolUser,
 } from "@/lib/services/users";
+import { requestPasswordReset } from "@/lib/services/portal/accounts";
 import {
   userCreateSchema,
   userUpdateSchema,
@@ -65,4 +66,20 @@ export async function deleteUser(formData: FormData) {
   }
 
   redirect("/app/users");
+}
+
+export async function resetUserPassword(formData: FormData) {
+  const tenant = await requireSchoolPermission("user.manage");
+  const id = String(formData.get("id") ?? "");
+  if (!id) redirect("/app/users?error=INVALID_INPUT");
+
+  const res = await requestPasswordReset(
+    { userId: tenant.userId, schoolId: tenant.schoolId },
+    id,
+  );
+  redirect(
+    (res.ok
+      ? "/app/users?ok=reset"
+      : `/app/users?error=${res.error}`) as never,
+  );
 }

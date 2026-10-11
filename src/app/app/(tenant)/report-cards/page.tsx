@@ -33,6 +33,14 @@ export default async function ReportCardsPage(props: {
   const error = str("error");
   const classroomId = str("classroom");
   const periodId = str("period");
+  const status = str("status") as
+    | "DRAFT"
+    | "CALCULATED"
+    | "PENDING_VALIDATION"
+    | "VALIDATED"
+    | "PUBLISHED"
+    | "RECTIFIED"
+    | undefined;
 
   const [canGenerate, canValidate, canPrint] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "reportcards.generate" }),
@@ -66,6 +74,7 @@ export default async function ReportCardsPage(props: {
   const cards = await listReportCards(c, {
     classroomId,
     academicPeriodId: periodId,
+    status: status && STATUS_LABELS[status] ? status : undefined,
   });
 
   const inputCls =
@@ -104,6 +113,12 @@ export default async function ReportCardsPage(props: {
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
+          <select name="status" defaultValue={status ?? ""} className={inputCls}>
+            <option value="">Tous les statuts</option>
+            {Object.entries(STATUS_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
+            ))}
+          </select>
           <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
             Filtrer
           </button>
@@ -118,7 +133,7 @@ export default async function ReportCardsPage(props: {
           ) : null}
           {canPrint && classroomId && periodId ? (
             <a
-              href={`/app/report-cards/pdf?classroom=${classroomId}&period=${periodId}`}
+              href={`/app/report-cards/pdf?classroom=${classroomId}&period=${periodId}${status ? `&status=${status}` : ""}`}
               target="_blank"
               className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
             >

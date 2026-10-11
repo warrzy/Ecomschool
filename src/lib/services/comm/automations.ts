@@ -85,7 +85,7 @@ export async function runSchoolAutomations(schoolId: string) {
 
     // 1. Annonces programmées arrivées à échéance.
     const due = await prisma.announcement.findMany({
-      where: { schoolId, publishedAt: null, scheduledAt: { lte: now } },
+      where: { schoolId, publishedAt: null, archivedAt: null, scheduledAt: { lte: now } },
       select: { id: true, title: true, audience: true },
     });
     for (const a of due) {
@@ -158,42 +158,59 @@ export async function runSchoolAutomations(schoolId: string) {
         (discountByStudentYear.get(k) ?? 0) + (d.type === "PERCENT" ? 0 : d.value),
       );
     }
-    for (const inst of installments) {
-      const paid = inst.allocations.reduce((s, a) => s + a.amount, 0);
-      // Part de réduction au prorata de l'échéance sur la créance.
-      const discTotal =
-        discountByStudentYear.get(`${inst.studentId}:${inst.academicYearId}`) ?? 0;
-      const discShare =
-        inst.charge.amount > 0
-          ? Math.min(inst.amount, Math.floor((inst.amount * discTotal) / inst.charge.amount))
-          : 0;
-      const remaining = Math.max(0, inst.amount - paid - discShare);
-      if (remaining <= 0) continue;
+    // Pré-calcul des échéances à relancer puis lookup groupé des tuteurs.
+    const dueInstallments = installments
+      .map((inst) => {
+        const paid = inst.allocations.reduce((s, a) => s + a.amount, 0);
+        const discTotal =
+          discountByStudentYear.get(`${inst.studentId}:${inst.academicYearId}`) ?? 0;
+        const discShare =
+          inst.charge.amount > 0
+            ? Math.min(inst.amount, Math.floor((inst.amount * discTotal) / inst.charge.amount))
+            : 0;
+        return { inst, remaining: Math.max(0, inst.amount - paid - discShare) };
+      })
+      .filter((x) => x.remaining > 0);
 
-      if (!(await dedupMarker(schoolId, `fin-reminder:${inst.id}:${day()}`))) continue;
-
-      const links = await prisma.studentGuardian.findMany({
-        where: { schoolId, studentId: inst.studentId },
-        select: { guardian: { select: { id: true, userId: true } } },
-      });
-      const userIds = [
-        ...(inst.student.userId ? [inst.student.userId] : []),
-        ...links.map((l) => l.guardian.userId).filter((x): x is string => !!x),
-      ];
-      const name =
-        [inst.student.firstName, inst.student.lastName].filter(Boolean).join(" ") ||
-        "élève";
-      if (userIds.length) {
-        await notifyUsers({
+    if (dueInstallments.length > 0) {
+      const allLinks = await prisma.studentGuardian.findMany({
+        where: {
           schoolId,
-          userIds,
-          type: "FINANCE_REMINDER",
-          title: `Rappel d'échéance — ${name}`,
-          body: `${remaining.toLocaleString("fr-FR")} FCFA dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
-          link: "/parent",
-        });
+          studentId: { in: dueInstallments.map((x) => x.inst.studentId) },
+        },
+        select: {
+          studentId: true,
+          guardian: { select: { id: true, userId: true } },
+        },
+      });
+      const linksByStudent = new Map<string, typeof allLinks>();
+      for (const l of allLinks) {
+        linksByStudent.set(l.studentId, [...(linksByStudent.get(l.studentId) ?? []), l]);
       }
-      reminders++;
+
+      for (const { inst, remaining } of dueInstallments) {
+        if (!(await dedupMarker(schoolId, `fin-reminder:${inst.id}:${day()}`))) continue;
+
+        const links = linksByStudent.get(inst.studentId) ?? [];
+        const userIds = [
+          ...(inst.student.userId ? [inst.student.userId] : []),
+          ...links.map((l) => l.guardian.userId).filter((x): x is string => !!x),
+        ];
+        const name =
+          [inst.student.firstName, inst.student.lastName].filter(Boolean).join(" ") ||
+          "élève";
+        if (userIds.length) {
+          await notifyUsers({
+            schoolId,
+            userIds,
+            type: "FINANCE_REMINDER",
+            title: `Rappel d'échéance — ${name}`,
+            body: `${remaining.toLocaleString("fr-FR")} FCFA dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
+            link: "/parent",
+          });
+        }
+        reminders++;
+      }
     }
 
     return { published, messagesSent, reminders };
@@ -291,6 +308,56 @@ export function registerCommHandlers() {
   });
   registerJobHandler("automation.school", async (payload) => {
     await runSchoolAutomations(String(payload.schoolId));
+  });
+  // Absence : notification différée après délai de grâce. Si l'absence a été
+  // justifiée entre-temps, aucune alerte n'est émise.
+  registerJobHandler("attendance.absence_notify", async (payload) => {
+    const recordId = String(payload.recordId ?? "");
+    if (!recordId) return;
+    const rec = await prisma.attendanceRecord.findUnique({
+      where: { id: recordId },
+      select: {
+        schoolId: true,
+        studentId: true,
+        date: true,
+        status: true,
+        justifiedAt: true,
+      },
+    });
+    if (!rec || rec.status !== "ABSENT" || rec.justifiedAt) return;
+    const { notifyAbsenceUnjustified } = await import("@/lib/services/notifications");
+    await notifyAbsenceUnjustified({
+      schoolId: rec.schoolId,
+      studentId: rec.studentId,
+      date: rec.date,
+    });
+  });
+  // Réinitialisation de mot de passe : email transactionnel via la file.
+  registerJobHandler("delivery.password_reset", async (payload) => {
+    const userId = String(payload.userId ?? "");
+    const email = String(payload.email ?? "");
+    const token = String(payload.token ?? "");
+    if (!userId || !email || !token) return;
+    const schoolId = payload.schoolId ? String(payload.schoolId) : null;
+    const { createDelivery } = await import("@/lib/services/comm/deliver");
+    const { renderByCode } = await import("@/lib/services/comm/templates");
+    const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "";
+    const link = `${appUrl}/invite/${token}`;
+    const tpl = await renderByCode("PASSWORD_RESET", { resetLink: link });
+    const body =
+      tpl?.body ??
+      `Bonjour,\n\nUn lien de réinitialisation de mot de passe a été demandé pour votre compte :\n${link}\n\nCe lien expire dans 24 heures. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.`;
+    const deliveryId = await createDelivery({
+      schoolId: schoolId ?? undefined,
+      channel: "EMAIL",
+      userId,
+      address: email,
+      topic: "TRANSACTIONAL",
+      subject: tpl?.subject ?? "Réinitialisation de mot de passe",
+      body,
+      dedupKey: `pwreset-dlv:${userId}:${token.slice(0, 12)}`,
+    });
+    if (deliveryId) await processDelivery(deliveryId, { subject: tpl?.subject, body });
   });
 }
 

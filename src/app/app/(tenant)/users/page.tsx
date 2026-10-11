@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { listSchoolUsers } from "@/lib/services/users";
-import { deleteUser } from "@/app/app/(tenant)/users/actions";
+import {
+  deleteUser,
+  resetUserPassword,
+} from "@/app/app/(tenant)/users/actions";
 
 export const instant = false;
 
@@ -60,6 +63,12 @@ export default async function UsersPage(props: {
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
+          </div>
+        ) : null}
+        {sp.ok === "reset" ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Lien de réinitialisation émis (valable 24 h) — envoyé par email si le
+            canal est configuré.
           </div>
         ) : null}
 
@@ -123,6 +132,17 @@ export default async function UsersPage(props: {
                       >
                         Modifier
                       </Link>
+                      {m.user.id === tenant.userId ? null : (
+                        <form action={resetUserPassword}>
+                          <input type="hidden" name="id" value={m.user.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                          >
+                            Réinit. MDP
+                          </button>
+                        </form>
+                      )}
                       {m.user.id === tenant.userId ? null : (
                         <form action={deleteUser}>
                           <input type="hidden" name="id" value={m.user.id} />

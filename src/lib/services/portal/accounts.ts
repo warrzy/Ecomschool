@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
-import { hashPassword } from "@/lib/auth/password";
+import { hashPassword, passwordPolicyError } from "@/lib/auth/password";
 import { logAudit } from "@/lib/services/audit";
 
 export type PortalAccountsError =
@@ -226,8 +226,8 @@ export async function setPortalAccountStatus(
 export async function acceptInvite(
   token: string,
   password: string,
-): Promise<PortalAccountsResult<{ schoolId: string }>> {
-  if (password.length < 8) return { ok: false, error: "INVALID_INPUT" };
+): Promise<PortalAccountsResult<{ schoolId: string | null }>> {
+  if (passwordPolicyError(password)) return { ok: false, error: "INVALID_INPUT" };
   const invite = await prisma.accountInvite.findFirst({
     where: { token, usedAt: null, expiresAt: { gt: new Date() } },
     select: { id: true, userId: true, schoolId: true },
@@ -257,6 +257,113 @@ export async function acceptInvite(
     entityId: invite.userId,
   });
   return { ok: true, result: { schoolId: invite.schoolId } };
+}
+
+/**
+ * Réinitialisation de mot de passe déclenchée par un admin d'école :
+ * révoque les tokens actifs, émet un nouveau lien valable 24 h.
+ */
+export async function requestPasswordReset(
+  ctx: SchoolCtx,
+  userId: string,
+): Promise<PortalAccountsResult<{ token: string }>> {
+  // Rattachement vérifié via la membership ACTIVE (User.schoolId legacy).
+  const membership = await prisma.schoolMembership.findFirst({
+    where: { userId, schoolId: ctx.schoolId, status: "ACTIVE" },
+    select: { id: true },
+  });
+  if (!membership) return { ok: false, error: "NOT_FOUND" };
+  const user = await prisma.user.findFirst({
+    where: { id: userId, status: "ACTIVE" },
+    select: { id: true, email: true },
+  });
+  if (!user) return { ok: false, error: "NOT_FOUND" };
+
+  const token = randomBytes(24).toString("hex");
+  await prisma.$transaction([
+    prisma.accountInvite.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { expiresAt: new Date() },
+    }),
+    prisma.accountInvite.create({
+      data: {
+        schoolId: ctx.schoolId,
+        userId: user.id,
+        email: user.email,
+        token,
+        expiresAt: new Date(Date.now() + 24 * 3600_000),
+        createdById: ctx.userId,
+      },
+    }),
+  ]);
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "portal.password_reset_request",
+    entity: "User",
+    entityId: user.id,
+  });
+
+  // Email transactionnel via la file si un fournisseur est configuré.
+  const { enqueueJob } = await import("@/lib/services/comm/queue");
+  await enqueueJob({
+    type: "delivery.password_reset",
+    schoolId: ctx.schoolId,
+    payload: { userId: user.id, email: user.email, token },
+    dedupKey: `pwreset:${user.id}:${Math.floor(Date.now() / 3600_000)}`,
+  });
+  return { ok: true, result: { token } };
+}
+
+/**
+ * Réinitialisation en libre-service (route publique) : émet un token et
+ * enfile un email si le canal est configuré. Réponse identique quelle que
+ * soit l'existence du compte — pas d'énumération d'utilisateurs.
+ */
+export async function requestPasswordResetPublic(email: string) {
+  const emailNorm = email.toLowerCase().trim();
+  const user = await prisma.user.findFirst({
+    where: { email: emailNorm, status: "ACTIVE" },
+    select: { id: true, firstName: true },
+  });
+  if (!user) return;
+
+  // Rattachement dérivé de la membership ACTIVE (User.schoolId legacy).
+  const { getActiveSchoolId } = await import("@/lib/permissions/rbac");
+  const schoolId = await getActiveSchoolId(user.id);
+
+  const token = randomBytes(24).toString("hex");
+  await prisma.$transaction([
+    prisma.accountInvite.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { expiresAt: new Date() },
+    }),
+    prisma.accountInvite.create({
+      data: {
+        schoolId,
+        userId: user.id,
+        email: emailNorm,
+        token,
+        expiresAt: new Date(Date.now() + 24 * 3600_000),
+      },
+    }),
+  ]);
+  await logAudit({
+    actorId: user.id,
+    schoolId,
+    action: "portal.password_reset_self",
+    entity: "User",
+    entityId: user.id,
+  });
+
+  // Envoi transactionnel via la file si un fournisseur email est configuré.
+  const { enqueueJob } = await import("@/lib/services/comm/queue");
+  await enqueueJob({
+    type: "delivery.password_reset",
+    schoolId,
+    payload: { userId: user.id, email: emailNorm, token },
+    dedupKey: `pwreset:${user.id}:${Math.floor(Date.now() / 3600_000)}`,
+  });
 }
 
 /** Statut des accès pour la fiche élève : compte élève + tuteurs (liés ou non). */

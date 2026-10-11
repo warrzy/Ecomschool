@@ -21,8 +21,10 @@ export async function logAudit(input: {
       },
       select: { id: true },
     });
-  } catch {
-    // audit failure must never block a business operation
+  } catch (e) {
+    // L'audit ne doit jamais bloquer une opération métier, mais l'échec
+    // reste traçable (stdout → supervision).
+    console.error("AUDIT_LOG_FAILED", input.action, input.entity, e);
   }
 }
 

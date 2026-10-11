@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { getGuardian } from "@/lib/services/guardians";
+import { prisma } from "@/lib/db/prisma";
 import {
+  setGuardianConsentAction,
   unlinkGuardianAction,
   updateGuardianAction,
 } from "@/app/app/(tenant)/guardians/actions";
@@ -41,6 +43,9 @@ export default async function GuardianDetailPage({
     userId: tenant.userId,
     schoolId: tenant.schoolId,
     permissionKey: "guardian.manage",
+  });
+  const consent = await prisma.guardianCommConsent.findUnique({
+    where: { guardianId: guardian.id },
   });
 
   return (
@@ -228,6 +233,65 @@ export default async function GuardianDetailPage({
             </ul>
           )}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="text-sm font-medium text-zinc-900">
+          Consentement SMS / WhatsApp
+        </div>
+        <p className="mt-1 text-xs text-zinc-500">
+          Requis pour les envois SMS et WhatsApp vers ce tuteur (hors compte
+          utilisateur). Les messages transactionnels (sécurité, convocations)
+          restent autorisés sauf opposition totale.
+        </p>
+        {canManage ? (
+          <form action={setGuardianConsentAction} className="mt-4 space-y-3 text-sm">
+            <input type="hidden" name="id" value={guardian.id} />
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="smsOptIn"
+                defaultChecked={consent?.smsOptIn ?? false}
+              />
+              <span>Consentement SMS</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="whatsappOptIn"
+                defaultChecked={consent?.whatsappOptIn ?? false}
+              />
+              <span>Consentement WhatsApp Business</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="optOutAll"
+                defaultChecked={consent?.optOutAll ?? false}
+              />
+              <span className="text-red-700">
+                Opposition à toute communication (y compris transactionnelle)
+              </span>
+            </label>
+            <button
+              type="submit"
+              className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Enregistrer le consentement
+            </button>
+          </form>
+        ) : (
+          <div className="mt-3 text-sm text-zinc-600">
+            SMS : {consent?.smsOptIn ? "accepté" : "non consenti"} · WhatsApp :{" "}
+            {consent?.whatsappOptIn ? "accepté" : "non consenti"}
+            {consent?.optOutAll ? " · opposition totale" : ""}
+          </div>
+        )}
+        {consent ? (
+          <div className="mt-2 text-xs text-zinc-400">
+            Mis à jour le {consent.updatedAt.toLocaleString("fr-FR")}
+          </div>
+        ) : null}
       </div>
     </div>
   );

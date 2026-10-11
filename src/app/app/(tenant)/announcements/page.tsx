@@ -43,7 +43,7 @@ export default async function AnnouncementsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "created" ? "Annonce créée." : ok === "published" ? "Annonce publiée (notification envoyée)." : "Annonce supprimée."}
+            {ok === "created" ? "Annonce créée." : ok === "published" ? "Annonce publiée (notification envoyée)." : "Annonce archivée (conservée dans l'historique)."}
           </div>
         ) : null}
         {error ? (
@@ -115,7 +115,7 @@ export default async function AnnouncementsPage(props: {
                       <form action={archiveAnnouncementAction}>
                         <input type="hidden" name="id" value={a.id} />
                         <button type="submit" className="rounded-lg border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50">
-                          Supprimer
+                          Archiver
                         </button>
                       </form>
                     </div>

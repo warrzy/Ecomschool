@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { logAudit } from "@/lib/services/audit";
 import {
   createGuardian,
   linkGuardianToStudent,
@@ -128,4 +129,28 @@ export async function unlinkGuardianAction(formData: FormData) {
     studentId,
     res.ok ? "?ok=unlinked" : `?error=${res.error}`,
   );
+}
+
+/** Consentement SMS/WhatsApp du tuteur (messages hors compte utilisateur). */
+export async function setGuardianConsentAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("guardian.manage");
+  const id = String(formData.get("id") ?? "");
+  if (!id) back("?error=INVALID_INPUT");
+
+  const { setGuardianConsent } = await import("@/lib/services/comm/preferences");
+  const res = await setGuardianConsent({
+    schoolId: tenant.schoolId,
+    guardianId: id,
+    smsOptIn: formData.get("smsOptIn") === "on",
+    whatsappOptIn: formData.get("whatsappOptIn") === "on",
+    optOutAll: formData.get("optOutAll") === "on",
+  });
+  await logAudit({
+    actorId: tenant.userId,
+    schoolId: tenant.schoolId,
+    action: "guardian.consent_update",
+    entity: "Guardian",
+    entityId: id,
+  });
+  back(`/${id}${res.ok ? "?ok=consent" : `?error=${res.error}`}`);
 }

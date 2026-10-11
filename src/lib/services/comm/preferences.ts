@@ -18,7 +18,9 @@ export async function canContactUser(
     where: { userId_channel_topic: { userId, channel, topic } },
     select: { enabled: true },
   });
-  return pref?.enabled ?? true; // opt-out explicite seulement
+  // WhatsApp Business exige un consentement explicite : opt-in par défaut off.
+  if (channel === "WHATSAPP") return pref?.enabled ?? false;
+  return pref?.enabled ?? true; // autres canaux : opt-out explicite seulement
 }
 
 /** Canal SMS/WhatsApp vers un tuteur sans compte : consentement requis. */

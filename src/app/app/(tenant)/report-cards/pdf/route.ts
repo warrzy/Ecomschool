@@ -9,6 +9,7 @@ import {
   type ReportCardPayload,
 } from "@/lib/pdf/report-card";
 import { templateFor } from "@/lib/services/grading/reportcards";
+import type { ResultStatus } from "@prisma/client";
 
 export async function GET(req: NextRequest) {
   const tenant = await requireSchoolPermission("reportcards.print");
@@ -17,6 +18,18 @@ export async function GET(req: NextRequest) {
   const classroomId = url.searchParams.get("classroom");
   const periodId = url.searchParams.get("period");
   const templateOverride = url.searchParams.get("template");
+  const statusRaw = url.searchParams.get("status");
+  const STATUS: ResultStatus[] = [
+    "DRAFT",
+    "CALCULATED",
+    "PENDING_VALIDATION",
+    "VALIDATED",
+    "PUBLISHED",
+    "RECTIFIED",
+  ];
+  const status = STATUS.includes(statusRaw as ResultStatus)
+    ? (statusRaw as ResultStatus)
+    : undefined;
 
   const cards = await prisma.reportCard.findMany({
     where: {
@@ -24,6 +37,7 @@ export async function GET(req: NextRequest) {
       ...(id ? { id } : {}),
       ...(classroomId ? { classroomId } : {}),
       ...(periodId ? { academicPeriodId: periodId } : {}),
+      ...(status ? { status } : {}),
     },
     include: {
       versions: { orderBy: { version: "desc" }, take: 1 },

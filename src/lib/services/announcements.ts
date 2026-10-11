@@ -10,9 +10,12 @@ export type AnnouncementsResult<T = undefined> =
 
 type SchoolCtx = { userId: string; schoolId: string };
 
-export async function listAnnouncements(ctx: SchoolCtx) {
+export async function listAnnouncements(ctx: SchoolCtx, opts: { includeArchived?: boolean } = {}) {
   return prisma.announcement.findMany({
-    where: { schoolId: ctx.schoolId },
+    where: {
+      schoolId: ctx.schoolId,
+      ...(opts.includeArchived ? {} : { archivedAt: null }),
+    },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
@@ -21,6 +24,7 @@ export async function listAnnouncements(ctx: SchoolCtx) {
       audience: true,
       publishedAt: true,
       scheduledAt: true,
+      archivedAt: true,
       createdAt: true,
     },
   });
@@ -36,6 +40,7 @@ export async function listPublishedAnnouncements(
     where: {
       schoolId,
       publishedAt: { not: null },
+      archivedAt: null,
       OR: [{ audience: "ALL" }, { audience }],
     },
     orderBy: { publishedAt: "desc" },
@@ -110,17 +115,21 @@ export async function publishAnnouncement(
   return { ok: true, result: undefined };
 }
 
+/** Archive une annonce — conservation de l'historique, jamais de suppression physique. */
 export async function archiveAnnouncement(ctx: SchoolCtx, id: string): Promise<AnnouncementsResult> {
   const a = await prisma.announcement.findFirst({
-    where: { id, schoolId: ctx.schoolId },
+    where: { id, schoolId: ctx.schoolId, archivedAt: null },
     select: { id: true },
   });
   if (!a) return { ok: false, error: "NOT_FOUND" };
-  await prisma.announcement.delete({ where: { id: a.id } });
+  await prisma.announcement.update({
+    where: { id: a.id },
+    data: { archivedAt: new Date(), scheduledAt: null },
+  });
   await logAudit({
     actorId: ctx.userId,
     schoolId: ctx.schoolId,
-    action: "announcement.delete",
+    action: "announcement.archive",
     entity: "Announcement",
     entityId: id,
   });
