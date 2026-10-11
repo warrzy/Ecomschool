@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { requireSchoolContext } from "@/lib/tenant/context";
-import { getSchoolDashboard } from "@/lib/services/dashboard";
+import {
+  getSchoolDashboard,
+  getPedagogyDashboard,
+} from "@/lib/services/dashboard";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 
 export const instant = false;
 
@@ -36,6 +40,14 @@ function PendingCard({ label }: { label: string }) {
 export default async function DashboardPage() {
   const tenant = await requireSchoolContext();
   const dash = await getSchoolDashboard({ schoolId: tenant.schoolId });
+  const canViewAttendance = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "attendance.read",
+  });
+  const pedagogy = canViewAttendance
+    ? await getPedagogyDashboard({ schoolId: tenant.schoolId })
+    : null;
 
   return (
     <div className="space-y-4">
@@ -131,8 +143,34 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        <PendingCard label="Présences (jour)" />
+      {pedagogy ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Activité pédagogique —{" "}
+            {pedagogy.date.toISOString().slice(0, 10)}
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <Card label="Cours prévus aujourd&#8217;hui" value={pedagogy.plannedToday} />
+            <Card label="Cours réalisés" value={pedagogy.doneToday} />
+            <Card label="Enseignants en cours" value={pedagogy.teachersInClass} />
+            <Card label="Classes en séance" value={pedagogy.classesInSession} />
+            <Card label="Absences du jour" value={pedagogy.absencesToday} />
+            <Card label="Retards du jour" value={pedagogy.latesToday} />
+            <Card
+              label="Taux de présence"
+              value={
+                pedagogy.attendanceRate != null
+                  ? `${Math.round(pedagogy.attendanceRate * 100)} %`
+                  : "—"
+              }
+              hint="Marques enregistrées aujourd&#8217;hui"
+            />
+            <Card label="Séances annulées" value={pedagogy.cancelledToday} />
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 md:grid-cols-3">
         <PendingCard label="Notes saisies" />
         <PendingCard label="Bulletins générés" />
         <PendingCard label="Paiements (mois)" />

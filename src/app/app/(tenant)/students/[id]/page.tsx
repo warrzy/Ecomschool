@@ -10,6 +10,34 @@ import {
   linkGuardianAction,
   unlinkGuardianAction,
 } from "@/app/app/(tenant)/guardians/actions";
+import {
+  getWeekTimetable,
+  weekStart,
+  minutesToLabel,
+} from "@/lib/services/schedules";
+import {
+  listAttendance,
+  studentAttendanceSummary,
+} from "@/lib/services/attendance";
+import type { AttendanceStatus } from "@prisma/client";
+
+const DAY_LABEL: Record<string, string> = {
+  MONDAY: "Lun",
+  TUESDAY: "Mar",
+  WEDNESDAY: "Mer",
+  THURSDAY: "Jeu",
+  FRIDAY: "Ven",
+  SATURDAY: "Sam",
+  SUNDAY: "Dim",
+};
+
+const ATT_LABEL: Record<AttendanceStatus, string> = {
+  PRESENT: "Présent",
+  ABSENT: "Absent",
+  LATE: "Retard",
+  EXCUSED: "Excusé",
+  UNMARKED: "Non renseigné",
+};
 
 export const instant = false;
 
@@ -75,6 +103,47 @@ export default async function StudentDetailPage({
         select: { id: true, firstName: true, lastName: true },
       })
     : [];
+
+  const canViewTimetable = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "schedules.read",
+  });
+  const canViewAttendance = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "attendance.read",
+  });
+
+  const currentEnrollment =
+    student.enrollments.find((e) => e.status === "ENROLLED") ?? null;
+
+  const [weekSlots, attSummary, attList] = await Promise.all([
+    canViewTimetable && currentEnrollment
+      ? getWeekTimetable(
+          { schoolId: tenant.schoolId },
+          {
+            weekStart: weekStart(new Date()),
+            classroomId: currentEnrollment.classroom.id,
+          },
+        )
+      : Promise.resolve([]),
+    canViewAttendance
+      ? studentAttendanceSummary(
+          { userId: tenant.userId, schoolId: tenant.schoolId },
+          student.id,
+        )
+      : Promise.resolve(null),
+    canViewAttendance
+      ? listAttendance(
+          { userId: tenant.userId, schoolId: tenant.schoolId },
+          { studentId: student.id, pageSize: 100 },
+        )
+      : Promise.resolve(null),
+  ]);
+
+  const absences = attList?.items.filter((r) => r.status !== "LATE") ?? [];
+  const lates = attList?.items.filter((r) => r.status === "LATE") ?? [];
 
   const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "");
 
@@ -470,10 +539,134 @@ export default async function StudentDetailPage({
 
         <PendingSection title="Notes" module="Notes" />
         <PendingSection title="Bulletins" module="Bulletins" />
-        <PendingSection title="Absences et retards" module="Présences" />
         <PendingSection title="Paiements" module="Finances" />
         <PendingSection title="Documents" module="Documents" />
       </div>
+
+      {canViewTimetable ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Emploi du temps — classe actuelle
+            {currentEnrollment ? ` (${currentEnrollment.classroom.name})` : ""}
+          </div>
+          {!currentEnrollment ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucune inscription en cours — pas d&#8217;emploi du temps.
+            </p>
+          ) : weekSlots.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucun cours planifié cette semaine.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {weekSlots.map((s) => (
+                <li
+                  key={`${s.source}-${s.id}`}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subjectName ?? "Cours"}
+                  </span>
+                  <span className="text-xs text-zinc-600">
+                    {DAY_LABEL[s.weekday]} {s.date.slice(8)}·{s.date.slice(5, 7)}{" "}
+                    · {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)} ·{" "}
+                    {s.teacherName}
+                    {s.roomName ? ` · ${s.roomName}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
+
+      {canViewAttendance ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">Absences</div>
+            {attSummary ? (
+              <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-700">
+                <span>
+                  Total :{" "}
+                  <strong>{attSummary.absences + attSummary.justified}</strong>
+                </span>
+                <span>
+                  Justifiées : <strong>{attSummary.justified}</strong>
+                </span>
+                <span>
+                  Non justifiées : <strong>{attSummary.unjustified}</strong>
+                </span>
+              </div>
+            ) : null}
+            {absences.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">Aucune absence.</p>
+            ) : (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {absences.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-xl border border-zinc-100 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-900">
+                        {d(r.date)} — {ATT_LABEL[r.status]}
+                      </span>
+                      <span className="text-xs text-zinc-500">
+                        {r.session?.subject?.name ??
+                          (r.session ? "cours" : "journalier")}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {r.reason ? `Motif : ${r.reason}` : "Sans motif"}
+                      {r.justification ? ` · Justif. : ${r.justification}` : ""}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <div className="text-sm font-medium text-zinc-900">Retards</div>
+            {attSummary ? (
+              <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-700">
+                <span>
+                  Nombre : <strong>{attSummary.lates}</strong>
+                </span>
+                <span>
+                  Durée cumulée : <strong>{attSummary.lateMin} min</strong>
+                </span>
+              </div>
+            ) : null}
+            {lates.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">Aucun retard.</p>
+            ) : (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {lates.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-xl border border-zinc-100 px-3 py-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-zinc-900">{d(r.date)}</span>
+                      <span className="text-xs text-zinc-500">
+                        {r.durationMin != null ? `${r.durationMin} min` : ""}
+                        {r.session?.subject?.name
+                          ? ` · ${r.session.subject.name}`
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-zinc-500">
+                      {r.reason ? `Motif : ${r.reason}` : "Sans motif"}
+                      {r.justification ? ` · Justif. : ${r.justification}` : ""}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

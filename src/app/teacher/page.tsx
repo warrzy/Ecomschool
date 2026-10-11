@@ -1,0 +1,332 @@
+import Link from "next/link";
+import { requireSchoolContext } from "@/lib/tenant/context";
+import { prisma } from "@/lib/db/prisma";
+import { teacherIdForUser } from "@/lib/services/attendance";
+import { weekStart, minutesToLabel } from "@/lib/services/schedules";
+
+export const instant = false;
+
+const DAY_LABEL: Record<string, string> = {
+  MONDAY: "Lun",
+  TUESDAY: "Mar",
+  WEDNESDAY: "Mer",
+  THURSDAY: "Jeu",
+  FRIDAY: "Ven",
+  SATURDAY: "Sam",
+  SUNDAY: "Dim",
+};
+
+export default async function TeacherDashboardPage() {
+  const tenant = await requireSchoolContext();
+  const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
+
+  const teacherId = await teacherIdForUser(ctx);
+  const teacher = teacherId
+    ? await prisma.teacher.findUnique({
+        where: { id: teacherId },
+        select: { firstName: true, lastName: true },
+      })
+    : null;
+
+  if (!teacherId) {
+    return (
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="text-xl font-semibold tracking-tight text-zinc-900">
+          Espace enseignant
+        </div>
+        <p className="mt-2 text-sm text-zinc-600">
+          Votre compte n&#8217;est pas rattaché à une fiche enseignant dans cet
+          établissement. Contactez l&#8217;administration.
+        </p>
+      </div>
+    );
+  }
+
+  const today = new Date();
+  const dayStart = new Date(today);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  const ws = weekStart(today);
+  const we = new Date(ws.getTime() + 7 * 86400000);
+
+  const [sessionsToday, sessionsWeek, upcoming, schedules, toCall, toWrite] =
+    await Promise.all([
+      prisma.courseSession.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          date: { gte: dayStart, lt: dayEnd },
+          status: { not: "CANCELLED" },
+        },
+        orderBy: { startMin: "asc" },
+        select: {
+          id: true,
+          startMin: true,
+          endMin: true,
+          status: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+          room: { select: { name: true } },
+          _count: { select: { attendance: true } },
+        },
+      }),
+      prisma.courseSession.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          date: { gte: ws, lt: we },
+          status: { not: "CANCELLED" },
+        },
+        orderBy: [{ date: "asc" }, { startMin: "asc" }],
+        select: {
+          id: true,
+          date: true,
+          startMin: true,
+          endMin: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+        },
+      }),
+      prisma.courseSession.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          date: { gte: dayEnd },
+          status: "PLANNED",
+        },
+        orderBy: [{ date: "asc" }, { startMin: "asc" }],
+        take: 10,
+        select: {
+          id: true,
+          date: true,
+          startMin: true,
+          endMin: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+        },
+      }),
+      prisma.courseSchedule.findMany({
+        where: { schoolId: tenant.schoolId, teacherId, status: "ACTIVE" },
+        select: { classroom: { select: { id: true, name: true } } },
+      }),
+      prisma.courseSession.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          status: { in: ["PLANNED", "DONE"] },
+          date: { lte: dayEnd },
+          attendance: { none: {} },
+        },
+        orderBy: [{ date: "desc" }],
+        take: 10,
+        select: {
+          id: true,
+          date: true,
+          startMin: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+        },
+      }),
+      prisma.courseSession.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          teacherId,
+          status: { in: ["PLANNED", "DONE"] },
+          date: { lte: dayEnd },
+          content: null,
+        },
+        orderBy: [{ date: "desc" }],
+        take: 10,
+        select: {
+          id: true,
+          date: true,
+          startMin: true,
+          subject: { select: { name: true } },
+          classroom: { select: { name: true } },
+        },
+      }),
+    ]);
+
+  const classes = new Map(schedules.map((s) => [s.classroom.id, s.classroom.name]));
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="text-sm text-zinc-500">Espace enseignant</div>
+        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          {teacher ? `${teacher.lastName} ${teacher.firstName}` : ""}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Cours du jour ({sessionsToday.length})
+          </div>
+          {sessionsToday.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Aucune séance aujourd&#8217;hui.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {sessionsToday.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span>
+                    <span className="font-medium text-zinc-900">
+                      {s.subject?.name ?? "Cours"}
+                    </span>{" "}
+                    <span className="text-zinc-500">— {s.classroom.name}</span>
+                  </span>
+                  <span className="flex items-center gap-2 text-xs text-zinc-600">
+                    {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)}
+                    {s.room?.name ? ` · ${s.room.name}` : ""}
+                    <Link
+                      href={`/app/sessions/${s.id}`}
+                      className="rounded-lg border border-zinc-200 px-2 py-1 hover:bg-zinc-50"
+                    >
+                      Ouvrir
+                    </Link>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Cours de la semaine ({sessionsWeek.length})
+          </div>
+          {sessionsWeek.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucune séance matérialisée cette semaine.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {sessionsWeek.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subject?.name ?? "Cours"} — {s.classroom.name}
+                  </span>
+                  <span className="text-xs text-zinc-600">
+                    {s.date.toISOString().slice(0, 10)} ·{" "}
+                    {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Classes attribuées ({classes.size})
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[...classes.entries()].map(([cid, name]) => (
+              <Link
+                key={cid}
+                href={`/app/classrooms/${cid}`}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              >
+                {name}
+              </Link>
+            ))}
+            {classes.size === 0 ? (
+              <span className="text-sm text-zinc-600">
+                Aucune classe via les créneaux actifs.
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Prochaines séances
+          </div>
+          {upcoming.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Aucune séance à venir.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {upcoming.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subject?.name ?? "Cours"} — {s.classroom.name}
+                  </span>
+                  <span className="text-xs text-zinc-600">
+                    {DAY_LABEL[new Date(s.date).getDay() === 0 ? "SUNDAY" : ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"][new Date(s.date).getDay()-1]]}{" "}
+                    {s.date.toISOString().slice(0, 10)} ·{" "}
+                    {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Appels à effectuer ({toCall.length})
+          </div>
+          {toCall.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Aucun appel en attente.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {toCall.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subject?.name ?? "Cours"} — {s.classroom.name}
+                  </span>
+                  <Link
+                    href={`/app/sessions/${s.id}`}
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                  >
+                    Faire l&#8217;appel
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Cahier de textes à compléter ({toWrite.length})
+          </div>
+          {toWrite.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">Tout est renseigné.</p>
+          ) : (
+            <ul className="mt-3 space-y-1.5 text-sm">
+              {toWrite.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subject?.name ?? "Cours"} — {s.classroom.name}
+                  </span>
+                  <Link
+                    href={`/app/sessions/${s.id}`}
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                  >
+                    Compléter
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

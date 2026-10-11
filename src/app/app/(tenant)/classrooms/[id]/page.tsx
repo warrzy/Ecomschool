@@ -9,6 +9,29 @@ import {
   removeClassroomSubjectAction,
   setClassroomSubjectAction,
 } from "@/app/app/(tenant)/subjects/actions";
+import {
+  getWeekTimetable,
+  weekStart,
+  minutesToLabel,
+} from "@/lib/services/schedules";
+import { listAttendance, classroomStats } from "@/lib/services/attendance";
+
+const DAY_LABEL: Record<string, string> = {
+  MONDAY: "Lun",
+  TUESDAY: "Mar",
+  WEDNESDAY: "Mer",
+  THURSDAY: "Jeu",
+  FRIDAY: "Ven",
+  SATURDAY: "Sam",
+  SUNDAY: "Dim",
+};
+
+const SESS_LABEL: Record<string, string> = {
+  PLANNED: "Prévue",
+  DONE: "Réalisée",
+  CANCELLED: "Annulée",
+  POSTPONED: "Reportée",
+};
 
 export const instant = false;
 
@@ -18,10 +41,12 @@ const TABS = [
   { key: "teachers", label: "Enseignants" },
   { key: "subjects", label: "Matières" },
   { key: "timetable", label: "Emploi du temps" },
+  { key: "sessions", label: "Cours" },
+  { key: "absences", label: "Absences" },
+  { key: "stats", label: "Statistiques" },
   { key: "grades", label: "Notes" },
   { key: "results", label: "Résultats" },
   { key: "report-cards", label: "Bulletins" },
-  { key: "absences", label: "Absences" },
 ] as const;
 
 function PlannedTab({ label }: { label: string }) {
@@ -67,7 +92,23 @@ export default async function ClassroomDetailPage({
 
   const activeTab = TABS.some((t) => t.key === tab) ? tab : "general";
 
-  const [levels, teachers, enrollments, classSubjects, classTeachers, allSubjects] = await Promise.all([
+  const canViewTimetable = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "schedules.read",
+  });
+  const canPrint = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "schedules.print",
+  });
+  const canViewAttendance = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "attendance.read",
+  });
+
+  const [levels, teachers, enrollments, classSubjects, classTeachers, allSubjects, ttSlots, classSessions, classAbsences, stats] = await Promise.all([
     listLevels(ctx),
     prisma.teacher.findMany({
       where: { schoolId: tenant.schoolId, status: "ACTIVE" },
@@ -127,6 +168,38 @@ export default async function ClassroomDetailPage({
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
+    activeTab === "timetable" && canViewTimetable
+      ? getWeekTimetable(
+          { schoolId: tenant.schoolId },
+          { weekStart: weekStart(new Date()), classroomId: id },
+        )
+      : Promise.resolve([]),
+    activeTab === "sessions"
+      ? prisma.courseSession.findMany({
+          where: { classroomId: id, schoolId: tenant.schoolId },
+          orderBy: [{ date: "desc" }, { startMin: "desc" }],
+          take: 100,
+          select: {
+            id: true,
+            date: true,
+            startMin: true,
+            endMin: true,
+            status: true,
+            cancellationReason: true,
+            subject: { select: { name: true } },
+            teacher: { select: { firstName: true, lastName: true } },
+            room: { select: { name: true } },
+            content: { select: { id: true } },
+            _count: { select: { attendance: true } },
+          },
+        })
+      : Promise.resolve([]),
+    activeTab === "absences" && canViewAttendance
+      ? listAttendance(ctx, { classroomId: id, pageSize: 100 })
+      : Promise.resolve(null),
+    activeTab === "stats"
+      ? classroomStats(ctx, id)
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -564,6 +637,230 @@ export default async function ClassroomDetailPage({
               </div>
             </dl>
           )}
+        </div>
+      ) : activeTab === "timetable" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-sm font-medium text-zinc-900">
+              Emploi du temps — semaine en cours
+            </div>
+            <div className="flex gap-2 text-sm">
+              <Link
+                href={`/app/schedules?view=classroom&id=${id}`}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              >
+                Vue complète
+              </Link>
+              {canPrint ? (
+                <a
+                  href={`/app/schedules/pdf?view=classroom&id=${id}`}
+                  className="rounded-lg bg-zinc-900 px-3 py-1.5 font-medium text-white hover:bg-zinc-800"
+                >
+                  Exporter PDF
+                </a>
+              ) : null}
+            </div>
+          </div>
+          {ttSlots.length === 0 ? (
+            <p className="text-sm text-zinc-600">
+              Aucun cours planifié cette semaine.{" "}
+              <Link
+                href={`/app/schedules?view=classroom&id=${id}`}
+                className="underline"
+              >
+                Ajouter un créneau
+              </Link>
+            </p>
+          ) : (
+            <ul className="space-y-1.5 text-sm">
+              {ttSlots.map((s) => (
+                <li
+                  key={`${s.source}-${s.id}`}
+                  className={`flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2 ${s.status === "CANCELLED" ? "opacity-50 line-through" : ""}`}
+                >
+                  <span className="font-medium text-zinc-900">
+                    {s.subjectName ?? "Cours"}
+                  </span>
+                  <span className="text-xs text-zinc-600">
+                    {DAY_LABEL[s.weekday]} · {minutesToLabel(s.startMin)}–
+                    {minutesToLabel(s.endMin)} · {s.teacherName}
+                    {s.roomName ? ` · ${s.roomName}` : ""}
+                    {s.status === "CANCELLED"
+                      ? " · ANNULÉ"
+                      : s.status === "POSTPONED"
+                        ? " · REPORTÉ"
+                        : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : activeTab === "sessions" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-zinc-900">
+            Séances ({classSessions.length})
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                  <th className="py-2 pr-4">Date</th>
+                  <th className="py-2 pr-4">Horaire</th>
+                  <th className="py-2 pr-4">Matière</th>
+                  <th className="py-2 pr-4">Enseignant</th>
+                  <th className="py-2 pr-4">Salle</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2 pr-4">Appel</th>
+                  <th className="py-2 pr-4">Cahier</th>
+                  <th className="py-2 pr-4"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {classSessions.map((s) => (
+                  <tr key={s.id} className="border-b border-zinc-100">
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {s.date.toISOString().slice(0, 10)}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)}
+                    </td>
+                    <td className="py-2 pr-4 font-medium text-zinc-900">
+                      {s.subject?.name ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {s.teacher.lastName} {s.teacher.firstName}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {s.room?.name ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {SESS_LABEL[s.status] ?? s.status}
+                      {s.cancellationReason ? (
+                        <span className="text-xs text-zinc-500">
+                          {" "}
+                          ({s.cancellationReason})
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {s._count.attendance > 0
+                        ? `${s._count.attendance} marque(s)`
+                        : "—"}
+                    </td>
+                    <td className="py-2 pr-4 text-zinc-700">
+                      {s.content ? "Renseigné" : "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <Link
+                        href={`/app/sessions/${s.id}`}
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                      >
+                        Ouvrir
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+                {classSessions.length === 0 ? (
+                  <tr>
+                    <td className="py-6 text-zinc-500" colSpan={9}>
+                      Aucune séance. Les séances se créent depuis
+                      l&#8217;emploi du temps (clic sur un créneau) ou en
+                      séance ponctuelle.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "absences" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-3 text-sm font-medium text-zinc-900">
+            Absences et retards des élèves ({classAbsences?.total ?? 0})
+          </div>
+          {!classAbsences || classAbsences.items.length === 0 ? (
+            <p className="text-sm text-zinc-600">Aucun enregistrement.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-200 text-left text-zinc-500">
+                    <th className="py-2 pr-4">Date</th>
+                    <th className="py-2 pr-4">Élève</th>
+                    <th className="py-2 pr-4">Type</th>
+                    <th className="py-2 pr-4">Détails</th>
+                    <th className="py-2 pr-4">Justification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {classAbsences.items.map((r) => (
+                    <tr key={r.id} className="border-b border-zinc-100">
+                      <td className="py-2 pr-4 text-zinc-700">
+                        {r.date.toISOString().slice(0, 10)}
+                      </td>
+                      <td className="py-2 pr-4 text-zinc-900">
+                        <Link
+                          href={`/app/students/${r.student.id}`}
+                          className="hover:underline"
+                        >
+                          {r.student.lastName} {r.student.firstName}
+                        </Link>
+                      </td>
+                      <td className="py-2 pr-4 text-zinc-700">
+                        {r.status === "ABSENT"
+                          ? "Absence"
+                          : r.status === "LATE"
+                            ? "Retard"
+                            : r.status === "EXCUSED"
+                              ? "Excusé"
+                              : r.status}
+                      </td>
+                      <td className="py-2 pr-4 text-zinc-700">
+                        {r.status === "LATE" && r.durationMin != null
+                          ? `${r.durationMin} min`
+                          : r.session?.subject?.name ?? "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-zinc-700">
+                        {r.justification ?? (r.justifiedAt ? "Justifiée" : "—")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : activeTab === "stats" ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">Statistiques</div>
+          {stats ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-5">
+              {[
+                { label: "Cours prévus", value: stats.planned },
+                { label: "Cours réalisés", value: stats.done },
+                { label: "Cours annulés", value: stats.cancelled },
+                {
+                  label: "Taux de présence",
+                  value:
+                    stats.attendanceRate != null
+                      ? `${Math.round(stats.attendanceRate * 100)} %`
+                      : "—",
+                },
+                { label: "Retards", value: stats.lates },
+              ].map((kpi) => (
+                <div
+                  key={kpi.label}
+                  className="rounded-xl border border-zinc-100 p-4"
+                >
+                  <div className="text-xs text-zinc-500">{kpi.label}</div>
+                  <div className="mt-1 text-2xl font-semibold text-zinc-900">
+                    {kpi.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <PlannedTab
