@@ -144,8 +144,8 @@ export async function recordPayment(
     select: { firstName: true, lastName: true, email: true },
   });
 
-  try {
-    const payment = await prisma.$transaction(
+  const runTransaction = () =>
+    prisma.$transaction(
       async (tx) => {
         const seq = await tx.payment.count({
           where: { schoolId: ctx.schoolId, receiptNumber: { not: null } },
@@ -242,6 +242,34 @@ export async function recordPayment(
       },
       { isolationLevel: "Serializable" },
     );
+
+  try {
+    // Retry sur les conflits de sérialisation (encaissements simultanés).
+    let payment: { id: string; receiptNumber: string | null } | null = null;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 4 && !payment; attempt++) {
+      try {
+        payment = await runTransaction();
+      } catch (e) {
+        lastError = e;
+        const code = (e as { code?: string })?.code;
+        if (code === "P2002") {
+          // Course sur la même clé d'idempotence → le paiement concurrent a gagné
+          const existing = await prisma.payment.findFirst({
+            where: { schoolId: ctx.schoolId, idempotencyKey },
+            select: { id: true, receiptNumber: true },
+          });
+          if (existing?.receiptNumber) {
+            payment = { id: existing.id, receiptNumber: existing.receiptNumber };
+            break;
+          }
+          continue; // conflit de numéro de reçu → nouvelle tentative
+        }
+        // P2034 = échec de sérialisation → nouvelle tentative
+        if (code !== "P2034") throw e;
+      }
+    }
+    if (!payment) throw lastError;
 
     await logAudit({
       actorId: ctx.userId,

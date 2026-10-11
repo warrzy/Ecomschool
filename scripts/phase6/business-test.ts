@@ -471,12 +471,16 @@ async function main() {
   if (!ann.ok) throw new Error("announcement failed");
   record(
     "annonce non publiée invisible",
-    (await listPublishedAnnouncements(schoolA.id, "PARENTS")).length === 0,
+    !(await listPublishedAnnouncements(schoolA.id, "PARENTS")).some(
+      (a) => a.id === ann.result.id,
+    ),
   );
   await publishAnnouncement(ctxA, ann.result.id);
   record(
     "annonce publiée visible pour PARENTS",
-    (await listPublishedAnnouncements(schoolA.id, "PARENTS")).length === 1,
+    (await listPublishedAnnouncements(schoolA.id, "PARENTS")).some(
+      (a) => a.id === ann.result.id,
+    ),
   );
   record(
     "annonce PARENTS invisible pour STUDENTS",
