@@ -56,6 +56,14 @@ enum Gender {
   FEMALE
 }
 
+enum GuardianRelation {
+  FATHER
+  MOTHER
+  GUARDIAN
+  FINANCIAL
+  EMERGENCY
+}
+
 model School {
   id        String       @id @default(cuid())
   name      String
@@ -92,6 +100,8 @@ model School {
   subjects        Subject[]
   teachingAssignments TeachingAssignment[]
   students        Student[]
+  guardians       Guardian[]
+  studentGuardians StudentGuardian[]
 
   @@index([status])
 }
@@ -375,10 +385,55 @@ model Student {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  guardians StudentGuardian[]
+
   @@unique([schoolId, matricule])
   @@index([schoolId])
   @@index([schoolId, status])
   @@index([schoolId, lastName])
+}
+
+model Guardian {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  address   String?
+  status    RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  students StudentGuardian[]
+
+  @@index([schoolId])
+  @@index([schoolId, status])
+  @@index([schoolId, lastName])
+}
+
+model StudentGuardian {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  guardianId String
+  guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+
+  relation GuardianRelation
+
+  createdAt DateTime @default(now())
+
+  @@unique([studentId, guardianId, relation])
+  @@index([schoolId])
+  @@index([studentId])
+  @@index([guardianId])
 }
 
 model AuditLog {

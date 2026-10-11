@@ -75,7 +75,24 @@ export async function listStudents(
 export async function getStudent(ctx: SchoolCtx, studentId: string) {
   return prisma.student.findFirst({
     where: { id: studentId, schoolId: ctx.schoolId },
-    select: studentSelect,
+    select: {
+      ...studentSelect,
+      guardians: {
+        select: {
+          id: true,
+          relation: true,
+          guardian: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
   });
 }
 

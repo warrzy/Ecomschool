@@ -1,11 +1,25 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/db/prisma";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { getStudent } from "@/lib/services/students";
 import { updateStudentAction } from "@/app/app/(tenant)/students/actions";
+import {
+  createAndLinkGuardianAction,
+  linkGuardianAction,
+  unlinkGuardianAction,
+} from "@/app/app/(tenant)/guardians/actions";
 
 export const instant = false;
+
+const RELATIONS: Record<string, string> = {
+  FATHER: "Père",
+  MOTHER: "Mère",
+  GUARDIAN: "Tuteur",
+  FINANCIAL: "Responsable financier",
+  EMERGENCY: "Contact d'urgence",
+};
 
 function PendingSection({
   title,
@@ -48,6 +62,19 @@ export default async function StudentDetailPage({
     schoolId: tenant.schoolId,
     permissionKey: "student.manage",
   });
+  const canManageGuardians = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "guardian.manage",
+  });
+
+  const allGuardians = canManageGuardians
+    ? await prisma.guardian.findMany({
+        where: { schoolId: tenant.schoolId, status: "ACTIVE" },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        select: { id: true, firstName: true, lastName: true },
+      })
+    : [];
 
   const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "");
 
@@ -252,7 +279,159 @@ export default async function StudentDetailPage({
           title="Parcours scolaire / classe actuelle"
           module="Inscriptions"
         />
-        <PendingSection title="Parents et tuteurs" module="Parents" />
+
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="text-sm font-medium text-zinc-900">
+            Parents et tuteurs
+          </div>
+          {student.guardians.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              Aucun responsable rattaché.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {student.guardians.map((l) => (
+                <li
+                  key={l.id}
+                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                >
+                  <span>
+                    <Link
+                      href={`/app/guardians/${l.guardian.id}`}
+                      className="font-medium text-zinc-900 hover:underline"
+                    >
+                      {l.guardian.lastName} {l.guardian.firstName}
+                    </Link>{" "}
+                    <span className="text-zinc-500">
+                      — {RELATIONS[l.relation]}
+                      {l.guardian.phone ? ` · ${l.guardian.phone}` : ""}
+                    </span>
+                  </span>
+                  {canManageGuardians ? (
+                    <form action={unlinkGuardianAction}>
+                      <input type="hidden" name="linkId" value={l.id} />
+                      <input
+                        type="hidden"
+                        name="studentId"
+                        value={student.id}
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                      >
+                        Détacher
+                      </button>
+                    </form>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {canManageGuardians ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm font-medium text-zinc-800">
+                Rattacher un responsable existant
+              </summary>
+              <form action={linkGuardianAction} className="mt-3 space-y-3">
+                <input type="hidden" name="studentId" value={student.id} />
+                <div className="flex items-end gap-2">
+                  <select
+                    name="guardianId"
+                    required
+                    className="h-10 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    <option value="">Choisir…</option>
+                    {allGuardians.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.lastName} {g.firstName}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    name="relation"
+                    required
+                    className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    {Object.entries(RELATIONS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                  >
+                    Lier
+                  </button>
+                </div>
+              </form>
+            </details>
+          ) : null}
+
+          {canManageGuardians ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-sm font-medium text-zinc-800">
+                Créer et rattacher un nouveau responsable
+              </summary>
+              <form
+                action={createAndLinkGuardianAction}
+                className="mt-3 space-y-3"
+              >
+                <input type="hidden" name="studentId" value={student.id} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    name="lastName"
+                    placeholder="Nom"
+                    required
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                  <input
+                    name="firstName"
+                    placeholder="Prénom"
+                    required
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                  <input
+                    name="phone"
+                    placeholder="Téléphone"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                  <input
+                    name="email"
+                    type="email"
+                    placeholder="Email"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                  <input
+                    name="address"
+                    placeholder="Adresse"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  />
+                  <select
+                    name="relation"
+                    required
+                    className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+                  >
+                    {Object.entries(RELATIONS).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="submit"
+                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Créer et lier
+                </button>
+              </form>
+            </details>
+          ) : null}
+        </div>
+
         <PendingSection title="Notes" module="Notes" />
         <PendingSection title="Bulletins" module="Bulletins" />
         <PendingSection title="Absences et retards" module="Présences" />
