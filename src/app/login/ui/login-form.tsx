@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 
 export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
-  const [email, setEmail] = useState("admin@ecom-school.local");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +95,14 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             {loading ? "Connexion..." : "Se connecter"}
           </button>
 
+          <div className="text-center">
+            <a
+              href={"/reset-password" as never}
+              className="text-xs text-zinc-500 underline hover:text-zinc-700"
+            >
+              Mot de passe oublié ?
+            </a>
+          </div>
         </form>
       </div>
     </div>

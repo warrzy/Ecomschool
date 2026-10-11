@@ -28,8 +28,21 @@ export async function userHasPlatformRole(userId: string) {
 export async function getActiveUser(userId: string) {
   return prisma.user.findFirst({
     where: { id: userId, status: "ACTIVE" },
-    select: { id: true, schoolId: true, status: true },
+    select: { id: true, status: true },
   });
+}
+
+/**
+ * Rattachement effectif de l'utilisateur : première membership ACTIVE.
+ * Remplace la lecture de `User.schoolId` (champ legacy en cours de retrait).
+ */
+export async function getActiveSchoolId(userId: string) {
+  const m = await prisma.schoolMembership.findFirst({
+    where: { userId, status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
+    select: { schoolId: true },
+  });
+  return m?.schoolId ?? null;
 }
 
 export async function getActiveMembership(input: {

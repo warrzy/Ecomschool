@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { runDueJobs } from "@/lib/services/comm/queue";
 import {
   registerCommHandlers,
   runPlatformAutomations,
   runSchoolAutomations,
 } from "@/lib/services/comm/automations";
+import { purgeExpiredData } from "@/lib/services/retention";
 import { prisma } from "@/lib/db/prisma";
 
 /**
@@ -19,7 +21,12 @@ async function handle(req: NextRequest) {
   }
   const auth = req.headers.get("authorization");
   const alt = req.headers.get("x-cron-secret");
-  if (auth !== `Bearer ${secret}` && alt !== secret) {
+  // Comparaison en temps constant pour éviter un oracle temporel.
+  const eq = (a: string | null, b: string) =>
+    !!a &&
+    a.length === b.length &&
+    timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  if (!eq(auth, `Bearer ${secret}`) && !eq(alt, secret)) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
@@ -31,6 +38,11 @@ async function handle(req: NextRequest) {
   let schools = 0;
   if (scope === "all" || scope === "platform") {
     platform = await runPlatformAutomations();
+  }
+  if (scope === "all" || scope === "maintenance") {
+    // Purge de rétention : jobs/livraisons/invitations expirés selon la config.
+    const purged = await purgeExpiredData();
+    platform = { ...(typeof platform === "object" && platform ? platform : {}), purged };
   }
   if (scope === "all" || scope === "schools") {
     const list = await prisma.school.findMany({

@@ -3,7 +3,11 @@ import { prisma } from "@/lib/db/prisma";
 import { jobStats, listJobs } from "@/lib/services/comm/queue";
 import { listTaskRuns } from "@/lib/services/comm/automations";
 import { channelsStatus } from "@/lib/services/comm/providers";
-import { enqueueAutomationAction, runJobsAction } from "./actions";
+import {
+  enqueueAutomationAction,
+  runJobsAction,
+  runRetentionPurgeAction,
+} from "./actions";
 
 export const instant = false;
 
@@ -24,6 +28,7 @@ export default async function AutomationsPage() {
     channelsStatus(),
     prisma.messageDelivery.groupBy({
       by: ["channel", "status"],
+      where: { OR: [{ userId: { not: null } }, { guardianId: { not: null } }] },
       _count: true,
     }),
     prisma.messageDelivery.aggregate({
@@ -56,6 +61,14 @@ export default async function AutomationsPage() {
               className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white"
             >
               Planifier le sweep SaaS
+            </button>
+          </form>
+          <form action={runRetentionPurgeAction}>
+            <button
+              type="submit"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            >
+              Purge de rétention
             </button>
           </form>
         </div>

@@ -3,6 +3,7 @@
 import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { runDueJobs, enqueueJob } from "@/lib/services/comm/queue";
 import { registerCommHandlers } from "@/lib/services/comm/automations";
+import { purgeExpiredData } from "@/lib/services/retention";
 import { revalidatePath } from "next/cache";
 
 export async function runJobsAction() {
@@ -20,5 +21,12 @@ export async function enqueueAutomationAction() {
     payload: {},
     dedupKey: `automation.platform:${today}`,
   });
+  revalidatePath("/platform/automations");
+}
+
+/** Purge manuelle de rétention (jobs, livraisons, invitations expirées). */
+export async function runRetentionPurgeAction() {
+  await requirePlatformPermission("platform.monitoring.read");
+  await purgeExpiredData();
   revalidatePath("/platform/automations");
 }

@@ -1,7 +1,13 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/db/prisma";
-import { verifyPassword } from "@/lib/auth/password";
+import { verifyPassword, hashPassword } from "@/lib/auth/password";
+import {
+  isLocked,
+  recordLoginFailure,
+  resetLoginFailures,
+  throttleKey,
+} from "@/lib/auth/ratelimit";
 
 type AuthUser = {
   id: string;
@@ -10,10 +16,21 @@ type AuthUser = {
   schoolId: string | null;
 };
 
+// Hash factice : garantit un coût bcrypt constant quand l'utilisateur
+// n'existe pas (pas d'oracle temporel user-inconnu vs mauvais mot de passe).
+let DUMMY_HASH: string | null = null;
+async function dummyCompare(password: string) {
+  if (!DUMMY_HASH) DUMMY_HASH = await hashPassword("dummy-password");
+  await verifyPassword(password, DUMMY_HASH);
+}
+
 export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
   session: {
     strategy: "jwt",
+    // Session bornée à 12 h ; l'état réel (statut, membership) est re-vérifié
+    // en base à chaque requête — pas de révocation JWT côté serveur.
+    maxAge: 12 * 60 * 60,
   },
   providers: [
     CredentialsProvider({
@@ -28,27 +45,44 @@ export const authOptions: NextAuthOptions = {
 
         if (!email || !password) return null;
 
+        // Throttle mémoire par email (rafales) — indépendant de l'existence du compte.
+        if (!throttleKey(`login:${email}`)) return null;
+
         const user = await prisma.user.findFirst({
-          where: {
-            email,
-            status: "ACTIVE",
-          },
+          where: { status: "ACTIVE", email },
           select: {
             id: true,
             email: true,
             passwordHash: true,
-            schoolId: true,
             firstName: true,
             lastName: true,
           },
         });
 
-        if (!user) return null;
+        if (!user) {
+          await dummyCompare(password);
+          return null;
+        }
+
+        // Verrouillage persistant (comptes ACTIVE uniquement).
+        if (await isLocked(user.id)) return null;
 
         const ok = await verifyPassword(password, user.passwordHash);
-        if (!ok) return null;
+        if (!ok) {
+          await recordLoginFailure(user.id);
+          return null;
+        }
+        if (user.id) await resetLoginFailures(user.id).catch(() => null);
 
-        if (!user.schoolId) {
+        // Source de vérité du rattachement : SchoolMembership ACTIVE.
+        // `User.schoolId` n'est plus lu ici (bascule Phase 10).
+        const membership = await prisma.schoolMembership.findFirst({
+          where: { userId: user.id, status: "ACTIVE" },
+          orderBy: { createdAt: "asc" },
+          select: { schoolId: true },
+        });
+        const schoolId = membership?.schoolId ?? null;
+        if (!schoolId) {
           const hasPlatformRole = await prisma.userRole.count({
             where: { userId: user.id, role: { scope: "PLATFORM" } },
           });
@@ -59,7 +93,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: [user.firstName, user.lastName].filter(Boolean).join(" "),
-          schoolId: user.schoolId,
+          schoolId,
         };
 
         return authUser;

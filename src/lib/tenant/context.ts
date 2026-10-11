@@ -1,6 +1,7 @@
 import { getSession } from "@/lib/auth/session";
 import {
   getActiveMembership,
+  getActiveSchoolId,
   getActiveUser,
   userHasPlatformRole,
 } from "@/lib/permissions/rbac";
@@ -31,7 +32,9 @@ export async function requireSessionUser(): Promise<SessionUser> {
   const user = await getActiveUser(session.user.id);
   if (!user) redirect("/login" as never);
 
-  return { id: user.id, schoolId: user.schoolId };
+  // `schoolId` dérivé de la membership ACTIVE (User.schoolId legacy).
+  const schoolId = await getActiveSchoolId(user.id);
+  return { id: user.id, schoolId };
 }
 
 export async function requirePlatformContext(): Promise<PlatformContext> {

@@ -24,17 +24,17 @@ export default async function InvitePage(props: {
         {invite ? (
           <>
             <p className="mt-2 text-sm text-zinc-600">
-              {invite.school.name} — {invite.email}
+              {invite.school?.name ?? "ECOM-TOUCH"} — {invite.email}
             </p>
             <form action={acceptInviteAction} className="mt-4 space-y-3">
               <input type="hidden" name="token" value={token} />
               <label className="block space-y-1 text-sm text-zinc-700">
-                Nouveau mot de passe (8 caractères min.)
+                Nouveau mot de passe (10 caractères min., lettres et chiffres)
                 <input
                   type="password"
                   name="password"
                   required
-                  minLength={8}
+                  minLength={10}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                 />
               </label>
@@ -44,7 +44,7 @@ export default async function InvitePage(props: {
                   type="password"
                   name="confirm"
                   required
-                  minLength={8}
+                  minLength={10}
                   className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
                 />
               </label>
@@ -53,7 +53,7 @@ export default async function InvitePage(props: {
                   {error === "mismatch"
                     ? "Les mots de passe ne correspondent pas."
                     : error === "INVALID_INPUT"
-                      ? "Mot de passe trop court (8 caractères minimum)."
+                      ? "Mot de passe trop faible (10 caractères min., lettres et chiffres)."
                       : "Lien invalide ou expiré."}
                 </div>
               ) : null}
