@@ -39,7 +39,11 @@ export default function OnboardingSchoolForm() {
     setLoading(false);
 
     if (!res.ok) {
-      setError(res.error);
+      setError(
+        "message" in res && res.message
+          ? `${res.message}${"field" in res && res.field ? ` (champ : ${res.field})` : ""}`
+          : res.error,
+      );
       return;
     }
 
@@ -62,16 +66,18 @@ export default function OnboardingSchoolForm() {
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Nom</label>
+            <label htmlFor="school-name" className="text-sm font-medium text-zinc-800">Nom</label>
             <input
+              id="school-name"
               name="name"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               required
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Code</label>
+            <label htmlFor="school-code" className="text-sm font-medium text-zinc-800">Code</label>
             <input
+              id="school-code"
               name="code"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm uppercase outline-none focus:border-zinc-900"
               placeholder="WEND-PANGA"
@@ -79,8 +85,9 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Slug</label>
+            <label htmlFor="school-slug" className="text-sm font-medium text-zinc-800">Slug</label>
             <input
+              id="school-slug"
               name="slug"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               placeholder="wend-panga"
@@ -88,8 +95,9 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Ville</label>
+            <label htmlFor="school-city" className="text-sm font-medium text-zinc-800">Ville</label>
             <input
+              id="school-city"
               name="city"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               placeholder="Ouagadougou"
@@ -97,15 +105,17 @@ export default function OnboardingSchoolForm() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Téléphone</label>
+            <label htmlFor="school-phone" className="text-sm font-medium text-zinc-800">Téléphone</label>
             <input
+              id="school-phone"
               name="phone"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Email</label>
+            <label htmlFor="school-email" className="text-sm font-medium text-zinc-800">Email</label>
             <input
+              id="school-email"
               name="email"
               type="email"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -113,8 +123,9 @@ export default function OnboardingSchoolForm() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Année</label>
+            <label htmlFor="academic-year" className="text-sm font-medium text-zinc-800">Année</label>
             <input
+              id="academic-year"
               name="academicYearName"
               defaultValue="2026-2027"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -122,8 +133,9 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Périodes</label>
+            <label htmlFor="period-type" className="text-sm font-medium text-zinc-800">Périodes</label>
             <select
+              id="period-type"
               name="periodType"
               defaultValue="TRIMESTER"
               className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
@@ -134,8 +146,9 @@ export default function OnboardingSchoolForm() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Début</label>
+            <label htmlFor="start-date" className="text-sm font-medium text-zinc-800">Début</label>
             <input
+              id="start-date"
               name="startDate"
               type="date"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -143,8 +156,9 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Fin</label>
+            <label htmlFor="end-date" className="text-sm font-medium text-zinc-800">Fin</label>
             <input
+              id="end-date"
               name="endDate"
               type="date"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -153,10 +167,11 @@ export default function OnboardingSchoolForm() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">
+            <label htmlFor="admin-email" className="text-sm font-medium text-zinc-800">
               Email admin établissement
             </label>
             <input
+              id="admin-email"
               name="adminEmail"
               type="email"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -164,10 +179,11 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">
+            <label htmlFor="admin-password" className="text-sm font-medium text-zinc-800">
               Mot de passe admin
             </label>
             <input
+              id="admin-password"
               name="adminPassword"
               type="password"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
@@ -175,16 +191,18 @@ export default function OnboardingSchoolForm() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Prénom</label>
+            <label htmlFor="admin-first-name" className="text-sm font-medium text-zinc-800">Prénom</label>
             <input
+              id="admin-first-name"
               name="adminFirstName"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               required
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Nom</label>
+            <label htmlFor="admin-last-name" className="text-sm font-medium text-zinc-800">Nom</label>
             <input
+              id="admin-last-name"
               name="adminLastName"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               required

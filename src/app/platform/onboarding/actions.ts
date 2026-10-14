@@ -13,10 +13,32 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
 
   const parsed = onboardingCreateSchoolSchema.safeParse(raw);
   if (!parsed.success) {
-    return { ok: false as const, error: "INVALID_INPUT" as const };
+    const issue = parsed.error.issues[0];
+    return {
+      ok: false as const,
+      error: "INVALID_INPUT" as const,
+      field: String(issue?.path.join(".") ?? ""),
+      message: issue?.message ?? "Données invalides",
+    };
   }
 
   const input = parsed.data;
+
+  // Contrôles de doublons explicites (contraintes uniques en base).
+  const [codeTaken, slugTaken, emailTaken] = await Promise.all([
+    prisma.school.findFirst({ where: { code: input.code }, select: { id: true } }),
+    prisma.school.findFirst({ where: { slug: input.slug }, select: { id: true } }),
+    prisma.user.findUnique({ where: { email: input.adminEmail }, select: { id: true } }),
+  ]);
+  if (codeTaken) {
+    return { ok: false as const, error: "CODE_TAKEN" as const, field: "code", message: "Ce code est déjà utilisé par un établissement" };
+  }
+  if (slugTaken) {
+    return { ok: false as const, error: "SLUG_TAKEN" as const, field: "slug", message: "Ce slug est déjà utilisé par un établissement" };
+  }
+  if (emailTaken) {
+    return { ok: false as const, error: "EMAIL_TAKEN" as const, field: "adminEmail", message: "Cet email est déjà associé à un compte" };
+  }
 
   const adminPasswordHash = await hashPassword(input.adminPassword);
 
