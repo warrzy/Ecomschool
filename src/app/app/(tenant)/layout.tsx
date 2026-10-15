@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { appNav } from "@/app/app/(tenant)/ui/nav";
 import { requireSchoolContext } from "@/lib/tenant/context";
+import { getSchoolPermissionKeys } from "@/lib/permissions/rbac";
+import {
+  getEntitlements,
+  permissionCoveredByEntitlements,
+} from "@/lib/services/platform/modules";
 import { activeSupportSession } from "@/lib/services/platform/support";
 
 export const instant = false;
@@ -17,17 +22,32 @@ export default async function TenantLayout({
   if (tenant.roleName === "PARENT") redirect("/parent" as never);
   if (tenant.roleName === "STUDENT") redirect("/student" as never);
 
-  const [school, academicYear, supportSession] = await Promise.all([
-    prisma.school.findUnique({
-      where: { id: tenant.schoolId },
-      select: { name: true },
-    }),
-    prisma.academicYear.findFirst({
-      where: { schoolId: tenant.schoolId, isCurrent: true },
-      select: { name: true },
-    }),
-    activeSupportSession(tenant.schoolId),
-  ]);
+  const [school, academicYear, supportSession, permKeys, ent] =
+    await Promise.all([
+      prisma.school.findUnique({
+        where: { id: tenant.schoolId },
+        select: { name: true },
+      }),
+      prisma.academicYear.findFirst({
+        where: { schoolId: tenant.schoolId, isCurrent: true },
+        select: { name: true },
+      }),
+      activeSupportSession(tenant.schoolId),
+      getSchoolPermissionKeys({
+        userId: tenant.userId,
+        schoolId: tenant.schoolId,
+      }),
+      getEntitlements(tenant.schoolId),
+    ]);
+
+  // Menus = permissions effectives du rôle + couverture de l'abonnement,
+  // exactement comme les gardes `requireSchoolPermission` des pages.
+  const navItems = appNav.filter(
+    (item) =>
+      !item.permission ||
+      (permKeys.has(item.permission) &&
+        permissionCoveredByEntitlements(ent, item.permission)),
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -43,7 +63,7 @@ export default async function TenantLayout({
           </div>
 
           <nav className="space-y-1 text-sm">
-            {appNav.map((item) => (
+            {navItems.map((item) => (
               <a
                 key={item.href}
                 className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"

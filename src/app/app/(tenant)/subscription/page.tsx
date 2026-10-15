@@ -1,4 +1,5 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import {
   getCurrentSubscription,
@@ -54,7 +55,7 @@ export default async function SubscriptionPage(props: {
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
 
-  const [subscription, entitlements, usage, invoices, plans, pendingReq] =
+  const [subscription, entitlements, usage, invoices, plans, pendingReq, canRequestChange] =
     await Promise.all([
       getCurrentSubscription(tenant.schoolId),
       getEntitlements(tenant.schoolId),
@@ -64,6 +65,14 @@ export default async function SubscriptionPage(props: {
       prisma.subscriptionChangeRequest.findFirst({
         where: { schoolId: tenant.schoolId, status: "PENDING" },
         include: { requestedPlan: { select: { name: true } } },
+      }),
+      // Aligné sur le garde de `requestPlanChangeAction` ("school.manage") :
+      // le formulaire s'affiche pour tout rôle autorisé à gérer l'école,
+      // pas seulement ADMIN_SCHOOL.
+      userHasSchoolPermission({
+        userId: tenant.userId,
+        schoolId: tenant.schoolId,
+        permissionKey: "school.manage",
       }),
     ]);
 
@@ -167,7 +176,7 @@ export default async function SubscriptionPage(props: {
         </div>
       ) : null}
 
-      {tenant.roleName === "SCHOOL_ADMIN" && !pendingReq && plans.length > 0 ? (
+      {canRequestChange && !pendingReq && plans.length > 0 ? (
         <div className={card}>
           <div className="mb-2 text-sm font-medium text-zinc-900">Demander un changement d&apos;offre</div>
           <p className="mb-3 text-xs text-zinc-500">

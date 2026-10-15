@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { requirePlatformContext } from "@/lib/tenant/context";
+import { getPlatformPermissionKeys } from "@/lib/permissions/rbac";
 import { platformNav } from "@/app/platform/ui/nav";
 
 export const instant = false;
@@ -10,7 +11,12 @@ export default async function PlatformLayout({
   children: React.ReactNode;
 }) {
   cookies();
-  await requirePlatformContext();
+  const ctx = await requirePlatformContext();
+  const permKeys = await getPlatformPermissionKeys(ctx.userId);
+
+  const navItems = platformNav.filter(
+    (item) => !item.permission || permKeys.has(item.permission),
+  );
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -26,7 +32,7 @@ export default async function PlatformLayout({
           </div>
 
           <nav className="space-y-1 text-sm">
-            {platformNav.map((item) => (
+            {navItems.map((item) => (
               <a
                 key={item.href}
                 className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"

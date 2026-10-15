@@ -91,16 +91,24 @@ export default async function StudentAccountPage(props: {
             {account.student.firstName} {account.student.lastName}
             <span className="ml-2 font-mono text-sm font-normal text-zinc-500">{account.student.matricule}</span>
           </div>
-          <form method="GET">
-            <select name="year" defaultValue={yearId} className={input}>
-              {allYears.map((y) => (
-                <option key={y.id} value={y.id}>{y.name}</option>
-              ))}
-            </select>
-            <button type="submit" className="ml-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm">
-              Afficher
-            </button>
-          </form>
+          <div className="flex items-center gap-2">
+            <form method="GET">
+              <select name="year" defaultValue={yearId} className={input}>
+                {allYears.map((y) => (
+                  <option key={y.id} value={y.id}>{y.name}</option>
+                ))}
+              </select>
+              <button type="submit" className="ml-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+                Afficher
+              </button>
+            </form>
+            <Link
+              href="/app/fees/accounts"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            >
+              Retour
+            </Link>
+          </div>
         </div>
         <div className="mt-1 text-sm text-zinc-500">
           Classe : {account.student.classroomName ?? "—"}

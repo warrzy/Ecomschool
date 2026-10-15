@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireSchoolContext } from "@/lib/tenant/context";
 
@@ -15,6 +16,9 @@ export default async function TeacherLayout({
   children: React.ReactNode;
 }) {
   const tenant = await requireSchoolContext();
+  // Espace réservé au rôle enseignant : les autres membres de l'école
+  // (admin, finances, caisse) restent sur /app.
+  if (tenant.roleName !== "TEACHER") redirect("/app" as never);
 
   const school = await prisma.school.findUnique({
     where: { id: tenant.schoolId },

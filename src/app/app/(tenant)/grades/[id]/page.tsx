@@ -54,8 +54,16 @@ export default async function GradeEntryPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/grades" className="hover:underline">Évaluations</Link> / Saisie des notes
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
-          {assessment.title}
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+            {assessment.title}
+          </div>
+          <Link
+            href="/app/grades"
+            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Retour
+          </Link>
         </div>
         <div className="mt-1 text-sm text-zinc-500">
           {assessment.classroom.name} · {assessment.subject.name} ·{" "}

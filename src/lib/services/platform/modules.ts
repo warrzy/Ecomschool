@@ -164,16 +164,16 @@ export async function isModuleEnabled(schoolId: string, moduleCode: string) {
 }
 
 /**
- * Vérifie que la permission est couverte par l'abonnement.
+ * Version pure de la couverture abonnement : prend des entitlements déjà
+ * chargés (évite de re-requêter la base pour chaque permission, ex. menus).
  * - Permission non mappée → autorisée.
  * - Pas d'abonnement → autorisé (écoles historiques).
  * - Suspension/expiration → seules les lectures passent.
  */
-export async function isPermissionCoveredBySubscription(
-  schoolId: string,
+export function permissionCoveredByEntitlements(
+  ent: Awaited<ReturnType<typeof getEntitlements>>,
   permissionKey: string,
 ) {
-  const ent = await getEntitlements(schoolId);
   if (!ent.subscription) return true;
 
   const moduleCode = PERMISSION_MODULE[permissionKey];
@@ -187,6 +187,17 @@ export async function isPermissionCoveredBySubscription(
   }
   if (!moduleCode) return true;
   return ent.isModuleEnabled(moduleCode);
+}
+
+/**
+ * Vérifie que la permission est couverte par l'abonnement.
+ */
+export async function isPermissionCoveredBySubscription(
+  schoolId: string,
+  permissionKey: string,
+) {
+  const ent = await getEntitlements(schoolId);
+  return permissionCoveredByEntitlements(ent, permissionKey);
 }
 
 // ---------- Limites commerciales ----------

@@ -106,8 +106,16 @@ export default async function SessionDetailPage(props: {
           </Link>{" "}
           / Séance
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
-          {session.subject?.name ?? "Cours"} — {session.classroom.name}
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+            {session.subject?.name ?? "Cours"} — {session.classroom.name}
+          </div>
+          <Link
+            href="/app/schedules"
+            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Retour
+          </Link>
         </div>
         <div className="mt-1 text-sm text-zinc-600">
           {session.date.toISOString().slice(0, 10)} ·{" "}

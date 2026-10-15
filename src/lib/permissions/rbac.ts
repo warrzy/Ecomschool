@@ -115,6 +115,65 @@ export async function userHasSchoolPermission(input: {
   return count > 0;
 }
 
+/**
+ * Toutes les clés de permission de l'utilisateur dans l'école (requête unique).
+ * Utilisé pour filtrer les menus/boutons sans multiplier les COUNT.
+ */
+export async function getSchoolPermissionKeys(input: {
+  userId: string;
+  schoolId: string;
+}) {
+  const m = await prisma.schoolMembership.findFirst({
+    where: {
+      userId: input.userId,
+      schoolId: input.schoolId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      role: {
+        scope: "SCHOOL",
+        OR: [{ schoolId: null }, { schoolId: input.schoolId }],
+      },
+    },
+    select: {
+      role: {
+        select: {
+          rolePermissions: {
+            select: { permission: { select: { key: true } } },
+          },
+        },
+      },
+    },
+  });
+  return new Set(
+    (m?.role.rolePermissions ?? []).map((rp) => rp.permission.key),
+  );
+}
+
+/** Toutes les clés de permission plateforme de l'utilisateur (requête unique). */
+export async function getPlatformPermissionKeys(userId: string) {
+  const roles = await prisma.userRole.findMany({
+    where: {
+      userId,
+      user: { status: "ACTIVE" },
+      role: { scope: "PLATFORM" },
+    },
+    select: {
+      role: {
+        select: {
+          rolePermissions: {
+            select: { permission: { select: { key: true } } },
+          },
+        },
+      },
+    },
+  });
+  const keys = new Set<string>();
+  for (const r of roles) {
+    for (const rp of r.role.rolePermissions) keys.add(rp.permission.key);
+  }
+  return keys;
+}
+
 export async function getSchoolAssignableRole(input: {
   roleId: string;
   schoolId: string;

@@ -66,7 +66,10 @@ export async function createAssessmentAction(formData: FormData) {
 }
 
 export async function setAssessmentStatusAction(formData: FormData) {
-  const tenant = await requireSchoolPermission("assessments.read");
+  // Action d'écriture (transition de statut) : une permission d'écriture est
+  // exigée. Les non-titulaires de `assessments.manage` restent bornés à leurs
+  // affectations via `asTeacher` côté service.
+  const tenant = await requireSchoolPermission("assessments.create");
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "") as AssessmentStatus;
   if (!id || !status) redirect("/app/grades?error=INVALID_INPUT" as never);

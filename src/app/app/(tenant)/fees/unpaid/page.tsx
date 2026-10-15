@@ -53,8 +53,16 @@ export default async function UnpaidPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Impayés
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
-          Soldes restants & échéances dépassées ({unpaid.length})
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+            Soldes restants & échéances dépassées ({unpaid.length})
+          </div>
+          <Link
+            href="/app/fees"
+            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+          >
+            Retour
+          </Link>
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
