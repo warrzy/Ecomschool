@@ -6,6 +6,7 @@ import {
   onboardingCreateSchoolSchema,
   type OnboardingCreateSchoolInput,
 } from "@/lib/validations/onboarding";
+import { claimSignupRequestForConversion } from "@/lib/services/platform/signup-requests";
 import { hashPassword } from "@/lib/auth/password";
 
 export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
@@ -38,6 +39,28 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
   }
   if (emailTaken) {
     return { ok: false as const, error: "EMAIL_TAKEN" as const, field: "adminEmail", message: "Cet email est déjà associé à un compte" };
+  }
+
+  // Conversion d'une demande d'inscription : doit exister et être APPROVED.
+  let requestedPlan: { id: string; name: string } | null = null;
+  if (input.signupRequestId) {
+    const req = await prisma.schoolSignupRequest.findUnique({
+      where: { id: input.signupRequestId },
+      select: {
+        status: true,
+        requestedPlan: { select: { id: true, name: true } },
+      },
+    });
+    if (!req) {
+      return { ok: false as const, error: "REQUEST_NOT_FOUND" as const, field: "signupRequestId", message: "Demande d'inscription introuvable" };
+    }
+    if (req.status === "CONVERTED") {
+      return { ok: false as const, error: "ALREADY_CONVERTED" as const, field: "signupRequestId", message: "Cette demande a déjà été convertie en établissement" };
+    }
+    if (req.status !== "APPROVED") {
+      return { ok: false as const, error: "REQUEST_NOT_APPROVED" as const, field: "signupRequestId", message: "La demande doit être approuvée avant conversion" };
+    }
+    requestedPlan = req.requestedPlan;
   }
 
   const adminPasswordHash = await hashPassword(input.adminPassword);
@@ -133,13 +156,29 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
         select: { id: true },
       });
 
+      // Revendication atomique : si la demande a été convertie entre-temps,
+      // l'échec fait échouer la transaction → aucune école orpheline.
+      if (input.signupRequestId) {
+        const claimed = await claimSignupRequestForConversion(
+          tx,
+          input.signupRequestId,
+          school.id,
+        );
+        if (!claimed) throw new Error("REQUEST_ALREADY_CONVERTED");
+      }
+
       return { schoolId: school.id, adminUserId: adminUser.id };
     });
 
-    return { ok: true as const, result };
+    // requestedPlan : l'attribution reste manuelle depuis la fiche école —
+    // la demande conserve le plan souhaité jusqu'à la confirmation commerciale.
+    return { ok: true as const, result: { ...result, requestedPlan } };
   } catch (e) {
     if (e instanceof Error && e.message === "MISSING_SYSTEM_ROLE_ADMIN_SCHOOL") {
       return { ok: false as const, error: "MISSING_SYSTEM_ROLE" as const };
+    }
+    if (e instanceof Error && e.message === "REQUEST_ALREADY_CONVERTED") {
+      return { ok: false as const, error: "ALREADY_CONVERTED" as const, field: "signupRequestId" as const, message: "Cette demande a déjà été convertie en établissement" };
     }
     return { ok: false as const, error: "CREATE_FAILED" as const };
   }

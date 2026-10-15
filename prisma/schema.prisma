@@ -221,6 +221,7 @@ model School {
   platformCreditNotes      PlatformCreditNote[]
   supportSessions          SupportSession[]
   subscriptionChangeRequests SubscriptionChangeRequest[]
+  signupRequests             SchoolSignupRequest[]
 
   schoolMessages    SchoolMessage[]
 
@@ -1633,12 +1634,17 @@ model SubscriptionPlan {
   graceDays Int          @default(7)
   status    RecordStatus @default(ACTIVE)
 
+  // true = offre commercialisable affichée sur les pages publiques ;
+  // false = plan technique ou de test, réservé à l'administration.
+  commercial Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   modules       PlanModule[]
   subscriptions SchoolSubscription[]
   changeRequests SubscriptionChangeRequest[]
+  signupRequests SchoolSignupRequest[]
 }
 
 model PlanModule {
@@ -1733,6 +1739,47 @@ model SubscriptionChangeRequest {
   createdAt    DateTime @default(now())
 
   @@index([schoolId, status])
+}
+
+/**
+ * Demande d'inscription publique d'un établissement (site vitrine).
+ * Cycle : PENDING → CONTACTED → APPROVED → CONVERTED (ou REJECTED).
+ * Aucun User/School n'est créé à la soumission — la conversion passe par
+ * l'onboarding plateforme, qui rattache convertedSchoolId.
+ */
+model SchoolSignupRequest {
+  id String @id @default(cuid())
+
+  schoolName   String
+  city         String?
+  country      String?
+  phone        String?
+  email        String?
+  website      String?
+
+  contactName  String
+  contactEmail String
+  contactPhone String?
+
+  note String?
+
+  requestedPlanId String?
+  requestedPlan   SubscriptionPlan? @relation(fields: [requestedPlanId], references: [id], onDelete: SetNull)
+
+  status       SignupRequestStatus @default(PENDING)
+  reviewNote   String?
+  reviewedById String?
+  reviewedAt   DateTime?
+
+  convertedSchoolId String?  @unique
+  convertedSchool   School?  @relation(fields: [convertedSchoolId], references: [id], onDelete: SetNull)
+  convertedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
 }
 
 // ---------- Facturation SaaS (indépendante des finances scolaires) ----------
@@ -1901,6 +1948,14 @@ enum SubscriptionEventType {
 enum ChangeRequestStatus {
   PENDING
   APPROVED
+  REJECTED
+}
+
+enum SignupRequestStatus {
+  PENDING
+  CONTACTED
+  APPROVED
+  CONVERTED
   REJECTED
 }
 

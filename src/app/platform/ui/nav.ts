@@ -6,6 +6,7 @@ export type NavItem = {
 export const platformNav: NavItem[] = [
   { label: "Vue générale", href: "/platform" },
   { label: "Établissements", href: "/platform/schools" },
+  { label: "Demandes", href: "/platform/signup-requests" },
   { label: "Création établissement", href: "/platform/onboarding" },
   { label: "Administrateurs", href: "/platform/administrators" },
   { label: "Modules", href: "/platform/modules" },

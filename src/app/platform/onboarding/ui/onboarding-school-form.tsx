@@ -3,10 +3,31 @@
 import { useState } from "react";
 import { createSchoolOnboarding } from "@/app/platform/onboarding/actions";
 
-export default function OnboardingSchoolForm() {
+export type OnboardingDefaults = {
+  name?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+};
+
+export default function OnboardingSchoolForm(props: {
+  signupRequestId?: string;
+  defaults?: OnboardingDefaults;
+  prospect?: {
+    contactName: string;
+    contactEmail: string;
+    contactPhone: string | null;
+    planName: string | null;
+  };
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [converted, setConverted] = useState<{
+    schoolId: string;
+    planName: string | null;
+    planId: string | null;
+  } | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,6 +55,7 @@ export default function OnboardingSchoolForm() {
       adminPassword: String(form.get("adminPassword") ?? ""),
       adminFirstName: String(form.get("adminFirstName") ?? ""),
       adminLastName: String(form.get("adminLastName") ?? ""),
+      signupRequestId: props.signupRequestId,
     });
 
     setLoading(false);
@@ -48,6 +70,13 @@ export default function OnboardingSchoolForm() {
     }
 
     setSuccess("Établissement créé avec succès");
+    if (props.signupRequestId) {
+      setConverted({
+        schoolId: res.result.schoolId,
+        planName: res.result.requestedPlan?.name ?? null,
+        planId: res.result.requestedPlan?.id ?? null,
+      });
+    }
     (e.target as HTMLFormElement).reset();
   }
 
@@ -60,6 +89,31 @@ export default function OnboardingSchoolForm() {
         </div>
       </div>
 
+      {props.signupRequestId ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <div className="font-medium">
+            Conversion d’une demande d’inscription approuvée — l’établissement
+            créé sera automatiquement rattaché à la demande.
+          </div>
+          {props.prospect ? (
+            <div className="mt-1 text-emerald-700">
+              Contact prospect : {props.prospect.contactName} ·{" "}
+              {props.prospect.contactEmail}
+              {props.prospect.contactPhone
+                ? ` · ${props.prospect.contactPhone}`
+                : ""}
+              {props.prospect.planName
+                ? ` — formule demandée : ${props.prospect.planName}`
+                : ""}
+            </div>
+          ) : null}
+          <div className="mt-1 text-xs text-emerald-700">
+            Les identifiants du futur administrateur sont à définir ci-dessous
+            (ils peuvent différer du contact prospect).
+          </div>
+        </div>
+      ) : null}
+
       <form
         onSubmit={onSubmit}
         className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
@@ -70,6 +124,7 @@ export default function OnboardingSchoolForm() {
             <input
               id="school-name"
               name="name"
+              defaultValue={props.defaults?.name ?? ""}
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               required
             />
@@ -99,6 +154,7 @@ export default function OnboardingSchoolForm() {
             <input
               id="school-city"
               name="city"
+              defaultValue={props.defaults?.city ?? ""}
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
               placeholder="Ouagadougou"
             />
@@ -109,6 +165,7 @@ export default function OnboardingSchoolForm() {
             <input
               id="school-phone"
               name="phone"
+              defaultValue={props.defaults?.phone ?? ""}
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
             />
           </div>
@@ -117,6 +174,7 @@ export default function OnboardingSchoolForm() {
             <input
               id="school-email"
               name="email"
+              defaultValue={props.defaults?.email ?? ""}
               type="email"
               className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
             />
@@ -217,8 +275,23 @@ export default function OnboardingSchoolForm() {
         ) : null}
 
         {success ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {success}
+          <div className="mt-4 space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <div>{success}</div>
+            {converted ? (
+              <div>
+                Demande convertie.
+                {converted.planName
+                  ? ` Formule demandée par le prospect : ${converted.planName} — `
+                  : " "}
+                <a
+                  href={`/platform/schools/${converted.schoolId}${converted.planId ? `?plan=${converted.planId}` : ""}`}
+                  className="font-medium underline"
+                >
+                  attribuer l’abonnement depuis la fiche établissement
+                </a>
+                .
+              </div>
+            ) : null}
           </div>
         ) : null}
 

@@ -85,6 +85,9 @@ export default async function PlatformSchoolDetailPage(props: {
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  // Présélection du plan demandé lors d'une conversion de demande d'inscription
+  // (?plan=<id>) — l'attribution reste manuelle et confirmée par l'admin.
+  const preselectPlan = typeof sp.plan === "string" ? sp.plan : undefined;
 
   const school = await platformGetSchool(id);
   if (!school) redirect("/platform/schools");
@@ -428,7 +431,16 @@ export default async function PlatformSchoolDetailPage(props: {
             ) : (
               <form action={assignSubscriptionAction} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="schoolId" value={school.id} />
-                <select name="planId" required className={input}>
+                <select
+                  name="planId"
+                  required
+                  className={input}
+                  defaultValue={
+                    preselectPlan && plans.some((p) => p.id === preselectPlan)
+                      ? preselectPlan
+                      : ""
+                  }
+                >
                   {plans.map((p) => (
                     <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
                   ))}

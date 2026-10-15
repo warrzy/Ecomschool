@@ -32,6 +32,8 @@ export const onboardingCreateSchoolSchema = z.object({
   adminPassword: passwordSchema,
   adminFirstName: z.string().trim().min(2, "Prénom : 2 caractères minimum"),
   adminLastName: z.string().trim().min(2, "Nom : 2 caractères minimum"),
+  // Conversion d'une demande d'inscription publique (optionnel).
+  signupRequestId: z.string().trim().min(1).optional(),
 });
 
 export type OnboardingCreateSchoolInput = z.infer<
