@@ -11,6 +11,11 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   globalSetup: "./e2e/global-setup.ts",
+  expect: {
+    // Le serveur unique sert ~150 tests en série : bcrypt + accumulation
+    // mémoire peuvent dépasser le défaut de 5 s en fin de suite.
+    timeout: 15_000,
+  },
   use: {
     baseURL,
     screenshot: "only-on-failure",

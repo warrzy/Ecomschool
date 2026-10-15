@@ -69,8 +69,7 @@ test.describe("Isolation tenant et IDOR — admin école", () => {
 
   test("ne peut pas ouvrir /platform", async ({ page }) => {
     await page.goto("/platform");
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/platform");
+    await expect(page).not.toHaveURL(/\/platform/, { timeout: 15_000 });
   });
 
   test("PDF bulletin d'une autre école → 404", async ({ page }) => {
@@ -157,8 +156,7 @@ test.describe("Isolation tenant et IDOR — parent", () => {
 
   test("ne peut pas ouvrir /app/users", async ({ page }) => {
     await page.goto("/app/users");
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/app/users");
+    await expect(page).not.toHaveURL(/\/app\/users/, { timeout: 15_000 });
   });
 });
 
@@ -167,8 +165,7 @@ test.describe("Isolation — élève", () => {
 
   test("pas d'accès à la gestion des élèves", async ({ page }) => {
     await page.goto("/app/students");
-    await page.waitForTimeout(3_000);
-    expect(page.url()).not.toContain("/app/students");
+    await expect(page).not.toHaveURL(/\/app\/students/, { timeout: 15_000 });
   });
 });
 
