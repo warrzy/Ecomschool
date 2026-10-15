@@ -1,6 +1,17 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth/session";
-import { userHasPlatformRole } from "@/lib/permissions/rbac";
+import {
+  getActiveMembership,
+  getActiveSchoolId,
+  userHasPlatformRole,
+} from "@/lib/permissions/rbac";
+
+/** Portail par rôle école ; les autres rôles (admin, finance, caisse) → /app. */
+const ROLE_PORTAL: Record<string, string> = {
+  TEACHER: "/teacher",
+  PARENT: "/parent",
+  STUDENT: "/student",
+};
 
 /**
  * En-tête des pages publiques (/, /tarifs, /inscription).
@@ -8,9 +19,23 @@ import { userHasPlatformRole } from "@/lib/permissions/rbac";
  */
 export default async function PublicHeader() {
   const session = await getSession();
-  const homeHref = session
-    ? ((await userHasPlatformRole(session.user.id)) ? "/platform" : "/app")
-    : null;
+  let homeHref: string | null = null;
+  if (session) {
+    if (await userHasPlatformRole(session.user.id)) {
+      homeHref = "/platform";
+    } else {
+      const schoolId = await getActiveSchoolId(session.user.id);
+      const roleName = schoolId
+        ? (
+            await getActiveMembership({
+              userId: session.user.id,
+              schoolId,
+            })
+          )?.role.name
+        : null;
+      homeHref = (roleName && ROLE_PORTAL[roleName]) || "/app";
+    }
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/80 backdrop-blur">
