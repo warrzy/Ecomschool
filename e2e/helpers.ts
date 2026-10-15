@@ -14,6 +14,9 @@ export const ACCOUNTS = {
   demoParent: { email: "parent@demo.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
   demoStudent: { email: "eleve@demo.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
   demoTeacher: { email: "enseignant@demo.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
+  demoFinance: { email: "finance@demo.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
+  demoCashier: { email: "caissier@demo.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
+  platformSales: { email: "commercial@ecom-school.local", password: process.env.SEED_DEMO_PASSWORD ?? "Demo2026!" },
 } as const;
 
 /** Connexion via le formulaire réel (couvre CSRF + flux complet). */
