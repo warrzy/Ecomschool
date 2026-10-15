@@ -13,7 +13,8 @@ export const gradingPolicySchema = z.object({
   exemptPolicy: z.enum(["EXCLUDE", "ZERO"]).default("EXCLUDE"),
   tieRule: z.enum(["SHARED_RANK", "DENSE_RANK"]).default("SHARED_RANK"),
   perSubjectRank: z.coerce.boolean().default(true),
-  mentions: z.string().optional(), // JSON ou "Label:min;Label:min"
+  mentions: z.string().optional(), // "Label:min;Label:min"
+  annualWeights: z.string().optional(), // "Nom période:coef;…"
 });
 
 export const assessmentCreateSchema = z.object({

@@ -1,9 +1,72 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { prisma } from "@/lib/db/prisma";
 import { listPolicies } from "@/lib/services/grading/policy";
+import { DEFAULT_RULES } from "@/lib/services/grading/calculation";
 import { upsertPolicyAction } from "@/app/app/(tenant)/grading-policy/actions";
 
 export const instant = false;
+
+const ERROR_MESSAGES: Record<string, string> = {
+  INVALID_INPUT:
+    "Données invalides : vérifiez les valeurs numériques (barème, seuil, décimales) et le format des champs.",
+  INVALID_MENTIONS:
+    "Format des mentions invalide. Attendu : Libellé:seuil;Libellé:seuil — ex. Excellent:16;Très bien:14;Bien:12.",
+  INVALID_WEIGHTS:
+    "Pondération annuelle invalide : un nom de période ne correspond à aucune période de l'année choisie, ou un coefficient n'est pas un nombre positif.",
+  NOT_FOUND: "Année scolaire ou niveau introuvable dans cet établissement.",
+  UPDATE_FAILED: "L'enregistrement a échoué. Réessayez ; si le problème persiste, contactez le support.",
+};
+
+function Field(props: {
+  label: string;
+  name: string;
+  hint: string;
+  tooltip?: string;
+  children: React.ReactNode;
+}) {
+  const hintId = `${props.name}-hint`;
+  return (
+    <div className="space-y-1">
+      <label
+        htmlFor={props.name}
+        className="flex items-center gap-1.5 text-sm font-medium text-zinc-800"
+      >
+        {props.label}
+        {props.tooltip ? (
+          <span
+            title={props.tooltip}
+            aria-label={props.tooltip}
+            className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-zinc-300 text-[10px] font-semibold text-zinc-500"
+          >
+            ?
+          </span>
+        ) : null}
+      </label>
+      {props.children}
+      <p id={hintId} className="text-xs text-zinc-500">
+        {props.hint}
+      </p>
+    </div>
+  );
+}
+
+function Section(props: { title: string; description?: string; children: React.ReactNode }) {
+  return (
+    <fieldset className="border-t border-zinc-100 pt-4 first:border-t-0 first:pt-0">
+      <legend className="float-left w-full text-sm font-semibold text-zinc-900">
+        {props.title}
+      </legend>
+      {props.description ? (
+        <p className="mb-3 mt-1 text-xs text-zinc-500">{props.description}</p>
+      ) : (
+        <div className="mb-3" />
+      )}
+      <div className="clear-both grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {props.children}
+      </div>
+    </fieldset>
+  );
+}
 
 export default async function GradingPolicyPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -14,7 +77,7 @@ export default async function GradingPolicyPage(props: {
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
 
-  const [policies, years, levels] = await Promise.all([
+  const [policies, years, levels, periods] = await Promise.all([
     listPolicies(c),
     prisma.academicYear.findMany({
       where: { schoolId: tenant.schoolId },
@@ -26,125 +89,563 @@ export default async function GradingPolicyPage(props: {
       orderBy: { order: "asc" },
       select: { id: true, name: true },
     }),
+    prisma.academicPeriod.findMany({
+      where: { schoolId: tenant.schoolId },
+      orderBy: { number: "asc" },
+      select: { name: true, academicYear: { select: { name: true } } },
+    }),
   ]);
 
+  const periodsByYear = new Map<string, string[]>();
+  for (const p of periods) {
+    const list = periodsByYear.get(p.academicYear.name) ?? [];
+    list.push(p.name);
+    periodsByYear.set(p.academicYear.name, list);
+  }
+  const periodsHelp = [...periodsByYear.entries()]
+    .map(([y, names]) => `${y} : ${names.join(", ")}`)
+    .join(" · ");
+
   const inputCls =
-    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+  const described = (name: string) => ({ "aria-describedby": `${name}-hint` });
+  const policyLabel = (v: string) => (v === "ZERO" ? "Zéro" : "Exclue");
+  const defaultMentions = DEFAULT_RULES.mentions
+    .map((m) => `${m.label}:${m.min}`)
+    .join(";");
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="text-sm text-zinc-500">Configuration</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
-          Règles de notation
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-sm text-zinc-500">Configuration</div>
+            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+              Règles de notation
+            </div>
+            <p className="mt-1 max-w-2xl text-sm text-zinc-500">
+              Une politique par année scolaire, éventuellement spécifique à un
+              niveau. Toute modification crée une nouvelle version — les bulletins
+              publiés conservent leur snapshot et ne sont jamais altérés
+              rétroactivement.
+            </p>
+          </div>
+          <a
+            href="#notice"
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Comment fonctionnent les règles de notation ?
+          </a>
         </div>
-        <p className="mt-1 text-sm text-zinc-500">
-          Une politique par année scolaire, éventuellement spécifique à un niveau.
-          Toute modification crée une nouvelle version — les bulletins publiés
-          conservent leur snapshot et ne sont jamais altérés rétroactivement.
-        </p>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            Règles enregistrées.
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+          >
+            Règles enregistrées — la version a été incrémentée pour ce couple
+            année/niveau.
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+          >
+            {ERROR_MESSAGES[error] ??
+              "Une erreur est survenue. Vérifiez le formulaire et réessayez."}
           </div>
         ) : null}
       </div>
 
+      <details
+        id="notice"
+        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+      >
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
+          Notice — comment fonctionnent les règles de notation
+        </summary>
+        <div className="mt-4 space-y-4 text-sm text-zinc-700">
+          <div>
+            <div className="font-medium text-zinc-900">Portée et priorité</div>
+            <p className="mt-1">
+              Pour chaque classe, le système cherche d&apos;abord une politique
+              du <strong>niveau</strong> de la classe pour l&apos;année
+              scolaire, puis la politique <strong>par défaut de l&apos;année</strong>{" "}
+              (celle sans niveau), puis les <strong>règles par défaut</strong>{" "}
+              (barème /20, seuil 10, 2 décimales, mentions standard).
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Barème et coefficients</div>
+            <p className="mt-1">
+              Chaque évaluation garde son propre barème (ex. /40). Les notes sont
+              <strong> normalisées</strong> vers le barème de la politique :
+              note × barème politique ÷ barème évaluation. La moyenne de matière
+              est la moyenne pondérée par les <strong>coefficients
+              d&apos;évaluation</strong> ; la moyenne générale est pondérée par
+              les <strong>coefficients de matière</strong> (définis par classe,
+              sinon par niveau, sinon 1). La « note minimale » est la valeur
+              comptée lorsqu&apos;une règle « zéro » s&apos;applique.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Arrondi et décimales</div>
+            <p className="mt-1">
+              Les moyennes sont arrondies au nombre de décimales choisi, selon la
+              règle : demi-supérieur (13,445 → 13,45), inférieur ou supérieur.
+              Cela s&apos;applique aux moyennes calculées et aux statistiques de
+              classe.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">
+              Notes manquantes, absences et dispenses
+            </div>
+            <p className="mt-1">
+              Pour chaque cas (note non saisie, élève absent, élève dispensé) :
+              <strong> exclue</strong> = l&apos;évaluation ne compte ni en note ni
+              en coefficient, la moyenne se calcule sur les notes présentes et
+              le résultat est marqué <em>partiel</em> tant que des notes
+              manquent ; <strong>zéro</strong> = la note minimale est comptée
+              dans la moyenne avec le coefficient de l&apos;évaluation.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Seuil de réussite</div>
+            <p className="mt-1">
+              Utilisé pour le <strong>taux de réussite</strong> de la classe
+              (proportion des moyennes générales ≥ seuil) dans les résultats et
+              statistiques.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Classement et ex æquo</div>
+            <p className="mt-1">
+              <strong>Rang partagé</strong> : les ex æquo obtiennent le même rang
+              et les rangs suivants sautent (12, 12, 10 → 1er, 1er, 3e).
+              <strong> Rang dense</strong> : aucun rang n&apos;est sauté (1er,
+              1er, 2e). Le rang par matière ajoute un classement distinct dans
+              chaque matière.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Mentions</div>
+            <p className="mt-1">
+              Chaque mention définit un <strong>seuil minimum</strong> sur la
+              moyenne générale ; l&apos;élève obtient la plus haute mention dont
+              le seuil est atteint. Format de saisie :
+              <code className="mx-1 rounded bg-zinc-100 px-1">
+                Libellé:seuil;Libellé:seuil
+              </code>
+              — ex. <code className="rounded bg-zinc-100 px-1">{defaultMentions}</code>.
+              Laisser le champ vide conserve les mentions existantes ou applique
+              les mentions par défaut.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Pondération annuelle</div>
+            <p className="mt-1">
+              La moyenne annuelle est la moyenne pondérée des moyennes de
+              périodes (poids 1 par défaut pour toutes). Pour donner plus de
+              poids à une période :{" "}
+              <code className="rounded bg-zinc-100 px-1">
+                Nom de période:coefficient;…
+              </code>{" "}
+              — les noms doivent correspondre exactement aux périodes de
+              l&apos;année choisie. Périodes configurées :{" "}
+              {periodsHelp || "aucune période définie"}.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">Versions et historique</div>
+            <p className="mt-1">
+              Enregistrer pour un même couple année + niveau met à jour la
+              politique et incrémente son numéro de version — il n&apos;y a pas
+              de doublon. Les bulletins publiés conservent un
+              <strong> snapshot figé</strong> des règles en vigueur à leur
+              publication : aucun changement de politique ne les modifie
+              rétroactivement. Il n&apos;existe actuellement ni brouillon ni
+              archivage : une politique enregistrée est immédiatement active.
+            </p>
+          </div>
+        </div>
+      </details>
+
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-3 text-sm font-medium text-zinc-900">Nouvelle politique / mise à jour</div>
-        <form action={upsertPolicyAction} className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <select name="academicYearId" required className={inputCls}>
-            <option value="">Année scolaire…</option>
-            {years.map((y) => (
-              <option key={y.id} value={y.id}>{y.name}{y.isCurrent ? " (courante)" : ""}</option>
-            ))}
-          </select>
-          <select name="levelId" className={inputCls}>
-            <option value="">Tous niveaux (défaut)</option>
-            {levels.map((l) => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
-          </select>
-          <input name="maxScore" type="number" step="0.5" defaultValue="20" placeholder="Barème (max)" className={inputCls} />
-          <input name="minScore" type="number" step="0.5" defaultValue="0" placeholder="Note min" className={inputCls} />
-          <input name="precision" type="number" min="0" max="4" defaultValue="2" placeholder="Décimales" className={inputCls} />
-          <select name="rounding" defaultValue="HALF_UP" className={inputCls}>
-            <option value="HALF_UP">Arrondi demi-sup.</option>
-            <option value="FLOOR">Arrondi inf.</option>
-            <option value="CEIL">Arrondi sup.</option>
-          </select>
-          <input name="passMark" type="number" step="0.5" defaultValue="10" placeholder="Seuil de réussite" className={inputCls} />
-          <select name="missingGradePolicy" defaultValue="EXCLUDE" className={inputCls}>
-            <option value="EXCLUDE">Note manquante : exclue</option>
-            <option value="ZERO">Note manquante : zéro</option>
-          </select>
-          <select name="absentPolicy" defaultValue="EXCLUDE" className={inputCls}>
-            <option value="EXCLUDE">Absence : exclue</option>
-            <option value="ZERO">Absence : zéro</option>
-          </select>
-          <select name="exemptPolicy" defaultValue="EXCLUDE" className={inputCls}>
-            <option value="EXCLUDE">Dispense : exclue</option>
-            <option value="ZERO">Dispense : zéro</option>
-          </select>
-          <select name="tieRule" defaultValue="SHARED_RANK" className={inputCls}>
-            <option value="SHARED_RANK">Ex æquo : rang partagé</option>
-            <option value="DENSE_RANK">Ex æquo : rang dense</option>
-          </select>
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
-            <input type="checkbox" name="perSubjectRank" defaultChecked /> Rang par matière
-          </label>
-          <input
-            name="mentions"
-            placeholder="Mentions : Excellent:16;Très bien:14;Bien:12"
-            className={`${inputCls} col-span-2`}
-          />
-          <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
-            Enregistrer
-          </button>
+        <div className="mb-4 text-sm font-medium text-zinc-900">
+          Nouvelle politique / mise à jour
+        </div>
+        <form action={upsertPolicyAction} className="space-y-5">
+          <Section
+            title="Portée"
+            description="À quelle année scolaire et (optionnellement) à quel niveau ces règles s'appliquent."
+          >
+            <Field
+              label="Année scolaire"
+              name="academicYearId"
+              hint="Obligatoire. Les règles s'appliquent à toutes les classes de cette année, sauf si une politique de niveau existe."
+            >
+              <select
+                id="academicYearId"
+                name="academicYearId"
+                required
+                className={inputCls}
+                {...described("academicYearId")}
+              >
+                <option value="">Choisir une année…</option>
+                {years.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.name}
+                    {y.isCurrent ? " (courante)" : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field
+              label="Niveau"
+              name="levelId"
+              hint="Laisser vide pour la politique par défaut de l'année. Une politique de niveau prime sur le défaut."
+            >
+              <select
+                id="levelId"
+                name="levelId"
+                className={inputCls}
+                {...described("levelId")}
+              >
+                <option value="">Tous niveaux (défaut)</option>
+                {levels.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </Section>
+
+          <Section
+            title="Barème, seuil et arrondi"
+            description="Échelle de sortie des moyennes et règle d'arrondi."
+          >
+            <Field
+              label="Barème (note max)"
+              name="maxScore"
+              hint="Échelle finale des moyennes (classiquement 20). Les notes sont normalisées vers ce barème."
+              tooltip="Ex. barème 20 : une note de 14/40 devient 7/20."
+            >
+              <input
+                id="maxScore"
+                name="maxScore"
+                type="number"
+                step="0.5"
+                min="0.5"
+                max="1000"
+                defaultValue="20"
+                className={inputCls}
+                {...described("maxScore")}
+              />
+            </Field>
+            <Field
+              label="Note minimale"
+              name="minScore"
+              hint="Valeur comptée quand une règle « zéro » s'applique (généralement 0)."
+            >
+              <input
+                id="minScore"
+                name="minScore"
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue="0"
+                className={inputCls}
+                {...described("minScore")}
+              />
+            </Field>
+            <Field
+              label="Décimales"
+              name="precision"
+              hint="Nombre de décimales des moyennes (0 à 4 ; 2 = 14,50)."
+            >
+              <input
+                id="precision"
+                name="precision"
+                type="number"
+                min="0"
+                max="4"
+                defaultValue="2"
+                className={inputCls}
+                {...described("precision")}
+              />
+            </Field>
+            <Field
+              label="Règle d'arrondi"
+              name="rounding"
+              hint="Demi-supérieur : ,5 monte. Inférieur/supérieur : toujours vers le bas/haut."
+              tooltip="Ex. 13,445 avec 2 décimales → 13,45 (demi-sup.), 13,44 (inf.), 13,45 (sup.)."
+            >
+              <select
+                id="rounding"
+                name="rounding"
+                defaultValue="HALF_UP"
+                className={inputCls}
+                {...described("rounding")}
+              >
+                <option value="HALF_UP">Demi-supérieur (usuel)</option>
+                <option value="FLOOR">Inférieur</option>
+                <option value="CEIL">Supérieur</option>
+              </select>
+            </Field>
+            <Field
+              label="Seuil de réussite"
+              name="passMark"
+              hint="Moyenne minimale pour compter une réussite dans les statistiques de classe. Devrait rester ≤ barème."
+            >
+              <input
+                id="passMark"
+                name="passMark"
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue="10"
+                className={inputCls}
+                {...described("passMark")}
+              />
+            </Field>
+          </Section>
+
+          <Section
+            title="Notes non saisies"
+            description="Traitement des cas particuliers : note non saisie, élève absent, élève dispensé."
+          >
+            <Field
+              label="Note manquante"
+              name="missingGradePolicy"
+              hint="Exclue : ignorée du calcul (moyenne partielle). Zéro : la note minimale compte."
+              tooltip="Exclue = la moyenne se fait sur les notes présentes et le résultat est signalé « partiel » tant que des notes manquent."
+            >
+              <select
+                id="missingGradePolicy"
+                name="missingGradePolicy"
+                defaultValue="EXCLUDE"
+                className={inputCls}
+                {...described("missingGradePolicy")}
+              >
+                <option value="EXCLUDE">Exclue du calcul</option>
+                <option value="ZERO">Comptée comme zéro</option>
+              </select>
+            </Field>
+            <Field
+              label="Absence à une évaluation"
+              name="absentPolicy"
+              hint="Même logique : exclue de la moyenne ou comptée comme zéro."
+            >
+              <select
+                id="absentPolicy"
+                name="absentPolicy"
+                defaultValue="EXCLUDE"
+                className={inputCls}
+                {...described("absentPolicy")}
+              >
+                <option value="EXCLUDE">Exclue du calcul</option>
+                <option value="ZERO">Comptée comme zéro</option>
+              </select>
+            </Field>
+            <Field
+              label="Dispense (ex. sport)"
+              name="exemptPolicy"
+              hint="Même logique : exclue de la moyenne ou comptée comme zéro."
+            >
+              <select
+                id="exemptPolicy"
+                name="exemptPolicy"
+                defaultValue="EXCLUDE"
+                className={inputCls}
+                {...described("exemptPolicy")}
+              >
+                <option value="EXCLUDE">Exclue du calcul</option>
+                <option value="ZERO">Comptée comme zéro</option>
+              </select>
+            </Field>
+          </Section>
+
+          <Section
+            title="Classement"
+            description="Règles d'attribution des rangs."
+          >
+            <Field
+              label="Ex æquo"
+              name="tieRule"
+              hint="Partagé : rangs suivants sautés (1,1,3). Dense : aucun saut (1,1,2)."
+            >
+              <select
+                id="tieRule"
+                name="tieRule"
+                defaultValue="SHARED_RANK"
+                className={inputCls}
+                {...described("tieRule")}
+              >
+                <option value="SHARED_RANK">Rang partagé (1er, 1er, 3e)</option>
+                <option value="DENSE_RANK">Rang dense (1er, 1er, 2e)</option>
+              </select>
+            </Field>
+            <Field
+              label="Rang par matière"
+              name="perSubjectRank"
+              hint="Ajoute un classement des élèves dans chaque matière, en plus du rang général."
+            >
+              <label className="flex h-[38px] items-center gap-2 text-sm text-zinc-700">
+                <input
+                  id="perSubjectRank"
+                  type="checkbox"
+                  name="perSubjectRank"
+                  defaultChecked
+                  className="h-4 w-4"
+                  {...described("perSubjectRank")}
+                />
+                Calculer aussi un rang par matière
+              </label>
+            </Field>
+          </Section>
+
+          <Section
+            title="Mentions et pondération annuelle"
+            description="Optionnel — laisser vide conserve la valeur existante ou applique les défauts."
+          >
+            <Field
+              label="Mentions"
+              name="mentions"
+              hint={`Format Libellé:seuil séparés par « ; ». Défaut : ${defaultMentions}`}
+              tooltip="La plus haute mention dont le seuil est atteint par la moyenne générale."
+            >
+              <input
+                id="mentions"
+                name="mentions"
+                placeholder="Excellent:16;Très bien:14;Bien:12;Assez bien:10"
+                className={inputCls}
+                {...described("mentions")}
+              />
+            </Field>
+            <Field
+              label="Pondération annuelle"
+              name="annualWeights"
+              hint={`Format Nom de période:coefficient séparés par « ; ». Périodes : ${periodsHelp || "aucune"}. Poids 1 par défaut.`}
+              tooltip="Ex. « Trimestre 3:2 » double le poids du 3e trimestre dans la moyenne annuelle."
+            >
+              <input
+                id="annualWeights"
+                name="annualWeights"
+                placeholder="Trimestre 3:2"
+                className={inputCls}
+                {...described("annualWeights")}
+              />
+            </Field>
+          </Section>
+
+          <div>
+            <button
+              type="submit"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Enregistrer (nouvelle version)
+            </button>
+          </div>
         </form>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2 pr-3">Année</th>
-              <th className="py-2 pr-3">Niveau</th>
-              <th className="py-2 pr-3">Barème</th>
-              <th className="py-2 pr-3">Seuil</th>
-              <th className="py-2 pr-3">Manquantes</th>
-              <th className="py-2 pr-3">Absences</th>
-              <th className="py-2 pr-3">Ex æquo</th>
-              <th className="py-2">Version</th>
-            </tr>
-          </thead>
-          <tbody>
-            {policies.map((p) => (
-              <tr key={p.id} className="border-b border-zinc-100">
-                <td className="py-2 pr-3">{p.academicYear.name}</td>
-                <td className="py-2 pr-3">{p.level?.name ?? "Tous"}</td>
-                <td className="py-2 pr-3">/{p.maxScore}</td>
-                <td className="py-2 pr-3">{p.passMark}</td>
-                <td className="py-2 pr-3">{p.missingGradePolicy === "ZERO" ? "Zéro" : "Exclues"}</td>
-                <td className="py-2 pr-3">{p.absentPolicy === "ZERO" ? "Zéro" : "Exclues"}</td>
-                <td className="py-2 pr-3">{p.tieRule === "DENSE_RANK" ? "Dense" : "Partagé"}</td>
-                <td className="py-2">v{p.version}</td>
+        <div className="mb-3 text-sm font-medium text-zinc-900">
+          Politiques configurées
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+                <th className="py-2 pr-3">Année</th>
+                <th className="py-2 pr-3">Niveau</th>
+                <th className="py-2 pr-3">Barème</th>
+                <th className="py-2 pr-3">Seuil</th>
+                <th className="py-2 pr-3">Cas particuliers</th>
+                <th className="py-2 pr-3">Ex æquo</th>
+                <th className="py-2 pr-3">Mentions</th>
+                <th className="py-2 pr-3">Version</th>
+                <th className="py-2">Statut</th>
               </tr>
-            ))}
-            {policies.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="py-6 text-center text-zinc-500">
-                  Aucune politique — les règles par défaut (barème /20, seuil 10) s&apos;appliquent.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {policies.map((p) => {
+                const mentions = Array.isArray(p.mentions)
+                  ? (p.mentions as { label: string; min: number }[])
+                  : null;
+                const weighted =
+                  p.annualWeights &&
+                  typeof p.annualWeights === "object" &&
+                  Object.keys(p.annualWeights as object).length > 0;
+                return (
+                  <tr key={p.id} className="border-b border-zinc-100 align-top">
+                    <td className="py-2 pr-3">{p.academicYear.name}</td>
+                    <td className="py-2 pr-3">
+                      {p.level?.name ?? (
+                        <span className="text-zinc-500">Tous (défaut)</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      /{p.maxScore} · {p.precision} déc. ·{" "}
+                      {p.rounding === "HALF_UP"
+                        ? "½ sup."
+                        : p.rounding === "FLOOR"
+                          ? "inf."
+                          : "sup."}
+                    </td>
+                    <td className="py-2 pr-3">{p.passMark}</td>
+                    <td className="py-2 pr-3 text-xs leading-5">
+                      Manq. {policyLabel(p.missingGradePolicy).toLowerCase()}
+                      <br />
+                      Abs. {policyLabel(p.absentPolicy).toLowerCase()}
+                      <br />
+                      Disp. {policyLabel(p.exemptPolicy).toLowerCase()}
+                    </td>
+                    <td className="py-2 pr-3">
+                      {p.tieRule === "DENSE_RANK" ? "Dense" : "Partagé"}
+                      {p.perSubjectRank ? (
+                        <div className="text-xs text-zinc-500">+ par matière</div>
+                      ) : null}
+                    </td>
+                    <td className="max-w-52 py-2 pr-3 text-xs leading-5">
+                      {mentions && mentions.length > 0
+                        ? mentions.map((m) => `${m.label} ≥ ${m.min}`).join(", ")
+                        : "Défaut"}
+                      {weighted ? (
+                        <div className="mt-0.5 text-zinc-500">
+                          Année pondérée par période
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-3">v{p.version}</td>
+                    <td className="py-2">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                          p.status === "ACTIVE"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {p.status === "ACTIVE" ? "Active" : "Archivée"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {policies.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-6 text-center text-zinc-500">
+                    Aucune politique — les règles par défaut s&apos;appliquent :
+                    barème /20, seuil 10, 2 décimales, arrondi demi-supérieur,
+                    cas particuliers exclus, ex æquo partagés, mentions standard.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
