@@ -13,6 +13,15 @@ export async function listPlans(includeArchived = false) {
   });
 }
 
+/** Offres commercialisables affichées sur les pages publiques (/tarifs, /, /inscription). */
+export async function listPublicPlans() {
+  return prisma.subscriptionPlan.findMany({
+    where: { status: "ACTIVE", commercial: true },
+    include: { modules: { include: { module: { select: { code: true, name: true } } } } },
+    orderBy: { monthlyPrice: "asc" },
+  });
+}
+
 export async function getPlan(id: string) {
   return prisma.subscriptionPlan.findUnique({
     where: { id },
