@@ -24,3 +24,95 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---------- Animations marketing (/, /tarifs, /inscription) ---------- */
+
+/* Apparition au scroll — activée par .is-visible (IntersectionObserver). */
+.reveal {
+  opacity: 0;
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal--up {
+  transform: translateY(28px);
+}
+.reveal--left {
+  transform: translateX(-40px);
+}
+.reveal--right {
+  transform: translateX(40px);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Entrée du hero au chargement de la page. */
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-in {
+  animation: hero-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Transition du panneau d'onglets personas. */
+@keyframes panel-fade {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.persona-panel {
+  animation: panel-fade 0.45s ease-out both;
+}
+
+/* Flottement discret des visuels du hero. */
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+
+/* Carrousel : masquage de la scrollbar (scroll-snap natif conservé). */
+.carousel-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .hero-in,
+  .persona-panel,
+  .float-soft {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .carousel-track {
+    scroll-behavior: auto;
+  }
+}

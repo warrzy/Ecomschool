@@ -13,6 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "http://localhost:3000",
+  ),
   title: "ECOM-SCHOOL",
   description: "Logiciel de gestion scolaire développé par ECOM-TOUCH.",
 };
