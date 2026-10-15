@@ -58,12 +58,26 @@ export default async function GradeEntryPage(props: {
           <div className="text-xl font-semibold tracking-tight text-zinc-900">
             {assessment.title}
           </div>
-          <Link
-            href="/app/grades"
-            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            Retour
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <a
+              href={`/app/grades/export?assessment=${id}&format=xlsx`}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            >
+              Exporter XLSX
+            </a>
+            <a
+              href={`/app/grades/export?assessment=${id}&format=csv`}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            >
+              Exporter CSV
+            </a>
+            <Link
+              href="/app/grades"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            >
+              Retour
+            </Link>
+          </div>
         </div>
         <div className="mt-1 text-sm text-zinc-500">
           {assessment.classroom.name} · {assessment.subject.name} ·{" "}

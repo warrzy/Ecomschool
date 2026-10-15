@@ -209,6 +209,60 @@ export default async function GradesPage(props: {
           </button>
         </form>
 
+        <form
+          method="GET"
+          action="/app/grades/export"
+          className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3"
+        >
+          <span className="text-xs font-semibold uppercase text-zinc-500">
+            Exporter les notes
+          </span>
+          <select name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
+            <option value="">Toutes les années</option>
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>{y.name}</option>
+            ))}
+          </select>
+          <select name="period" defaultValue={filters.academicPeriodId ?? ""} className={inputCls}>
+            <option value="">Toutes les périodes</option>
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <select name="classroom" defaultValue={filters.classroomId ?? ""} className={inputCls}>
+            <option value="">Toutes les classes</option>
+            {classrooms.map((cl) => (
+              <option key={cl.id} value={cl.id}>{cl.name}</option>
+            ))}
+          </select>
+          <select name="subject" className={inputCls}>
+            <option value="">Toutes les matières</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          {canManage ? (
+            <select name="teacher" className={inputCls}>
+              <option value="">Tous les enseignants</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>{t.lastName} {t.firstName}</option>
+              ))}
+            </select>
+          ) : null}
+          <select name="format" defaultValue="xlsx" className={inputCls}>
+            <option value="xlsx">Excel (.xlsx)</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button type="submit" className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm hover:bg-zinc-100">
+            Télécharger
+          </button>
+          <p className="w-full text-xs text-zinc-500">
+            Notes détaillées par élève et par évaluation — statuts (saisie,
+            manquante, absent, dispensé, annulée), barèmes et coefficients
+            inclus. Les moyennes s&apos;exportent depuis la page Moyennes.
+          </p>
+        </form>
+
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">

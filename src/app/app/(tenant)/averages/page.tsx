@@ -130,6 +130,22 @@ export default async function AveragesPage(props: {
           <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
             Afficher
           </button>
+          {classroomId && periodId ? (
+            <>
+              <a
+                href={`/app/results/export?period=${periodId}&classroom=${classroomId}&format=xlsx`}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              >
+                Exporter XLSX
+              </a>
+              <a
+                href={`/app/results/export?period=${periodId}&classroom=${classroomId}&format=csv`}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              >
+                Exporter CSV
+              </a>
+            </>
+          ) : null}
           {canCalculate && classroomId && periodId ? (
             <button
               type="submit"
@@ -233,6 +249,23 @@ export default async function AveragesPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">Résultats annuels</div>
+          <div className="flex items-center gap-2">
+          {yearId ? (
+            <>
+              <a
+                href={`/app/results/export?year=${yearId}&format=xlsx`}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              >
+                Exporter XLSX
+              </a>
+              <a
+                href={`/app/results/export?year=${yearId}&format=csv`}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              >
+                Exporter CSV
+              </a>
+            </>
+          ) : null}
           {canCalculate && yearId ? (
             <form action={computeAnnualAction}>
               <input type="hidden" name="academicYearId" value={yearId} />
@@ -241,6 +274,7 @@ export default async function AveragesPage(props: {
               </button>
             </form>
           ) : null}
+          </div>
         </div>
         {annualResults.length > 0 ? (
           <table className="w-full text-left text-sm">
