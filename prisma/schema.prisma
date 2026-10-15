@@ -51,6 +51,12 @@ enum RecordStatus {
   ARCHIVED
 }
 
+enum GradingPolicyStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -1171,15 +1177,15 @@ model GradingPolicy {
   mentions      Json? // [{ label, min }]
   annualWeights Json? // { periodId: coefficient }
 
-  version Int          @default(1)
-  status  RecordStatus @default(ACTIVE)
+  version Int                @default(1)
+  status  GradingPolicyStatus @default(ACTIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([academicYearId, levelId])
+  // Unicité par périmètre garantie en base par des index partiels manuels :
+  // 1 ACTIVE max + 1 DRAFT max par (academicYearId, levelId) ; ARCHIVED illimitées.
   @@index([schoolId])
-  // Index partiel manuel : une seule politique par défaut par année (levelId IS NULL)
 }
 
 model AssessmentType {

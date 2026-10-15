@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { prisma } from "./helpers";
 
 /**
  * P3 — interface des règles de notation.
@@ -66,7 +67,7 @@ test.describe("Règles de notation — interface", () => {
     await page.goto("/app/grading-policy");
     await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
     await page.getByLabel(/^mentions/i).fill("format-incorrect-sans-deux-points");
-    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.getByRole("button", { name: /enregistrer et activer|enregistrer \(nouvelle version\)/i }).click();
     await page.waitForURL(/error=INVALID_MENTIONS/);
     await expect(
       page.getByText(/format des mentions invalide/i),
@@ -79,7 +80,7 @@ test.describe("Règles de notation — interface", () => {
     await page.goto("/app/grading-policy");
     await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
     await page.getByLabel(/pondération annuelle/i).fill("Période inexistante:2");
-    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.getByRole("button", { name: /enregistrer et activer|enregistrer \(nouvelle version\)/i }).click();
     await page.waitForURL(/error=INVALID_WEIGHTS/);
     await expect(page.getByText(/pondération annuelle invalide/i)).toBeVisible();
   });
@@ -91,7 +92,7 @@ test.describe("Règles de notation — interface", () => {
     await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
     await page.getByLabel(/^barème/i).fill("20");
     await page.getByLabel(/seuil de réussite/i).fill("25");
-    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.getByRole("button", { name: /enregistrer et activer|enregistrer \(nouvelle version\)/i }).click();
     await page.waitForURL(/error=SEUIL_RANGE/);
     await expect(
       page.getByText(/seuil de réussite incohérent/i),
@@ -103,7 +104,7 @@ test.describe("Règles de notation — interface", () => {
     await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
     await page.getByLabel(/^barème/i).fill("20");
     await page.getByLabel(/note minimale/i).fill("20");
-    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.getByRole("button", { name: /enregistrer et activer|enregistrer \(nouvelle version\)/i }).click();
     await page.waitForURL(/error=MIN_GE_MAX/);
     await expect(page.getByText(/barème incohérent/i)).toBeVisible();
   });
@@ -129,28 +130,44 @@ test.describe("Règles de notation — interface", () => {
     page,
   }) => {
     await page.goto("/app/grading-policy");
-    const editLink = page.getByRole("link", { name: /^modifier$/i }).first();
+    const activeRow = page.locator("tbody tr", {
+      has: page.locator("span", { hasText: /^Active$/ }),
+    }).first();
+    const editLink = activeRow.getByRole("link", { name: /^modifier$/i });
     if ((await editLink.count()) === 0) test.skip();
     await editLink.click();
-    await page.waitForURL(/edit=/);
-    // Bandeau d'édition + formulaire prérempli
+    await page.waitForURL(/edit=(.+)/);
+    const policyId = new URL(page.url()).searchParams.get("edit")!;
+    const policy = await prisma.gradingPolicy.findUniqueOrThrow({
+      where: { id: policyId },
+    });
+    // Bandeau d'édition + formulaire prérempli avec les valeurs réelles
     await expect(page.getByText(/chargée \(v\d+\)/)).toBeVisible();
-    await expect(page.getByLabel(/^barème/i)).toHaveValue("20");
-    await expect(page.getByLabel(/seuil de réussite/i)).toHaveValue("10");
-    await expect(page.getByLabel(/année scolaire/i)).not.toHaveValue("");
+    await expect(page.getByLabel(/^barème/i)).toHaveValue(
+      String(policy.maxScore),
+    );
+    await expect(page.getByLabel(/seuil de réussite/i)).toHaveValue(
+      String(policy.passMark),
+    );
+    await expect(page.getByLabel(/année scolaire/i)).toHaveValue(
+      policy.academicYearId,
+    );
   });
 
   test("enregistrer sans changement → aucune nouvelle version", async ({
     page,
   }) => {
     await page.goto("/app/grading-policy");
-    const editLink = page.getByRole("link", { name: /^modifier$/i }).first();
+    const activeRow = page.locator("tbody tr", {
+      has: page.locator("span", { hasText: /^Active$/ }),
+    }).first();
+    const editLink = activeRow.getByRole("link", { name: /^modifier$/i });
     if ((await editLink.count()) === 0) test.skip();
     await editLink.click();
     await page.waitForURL(/edit=/);
     // Capturer la version affichée puis soumettre sans rien changer
     const banner = await page.getByText(/chargée \(v\d+\)/).textContent();
-    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.getByRole("button", { name: /enregistrer et activer|enregistrer \(nouvelle version\)/i }).click();
     await page.waitForURL(/ok=unchanged/);
     await expect(
       page.getByText(/aucune modification détectée/i),
@@ -159,6 +176,138 @@ test.describe("Règles de notation — interface", () => {
     await editLink.click();
     await page.waitForURL(/edit=/);
     await expect(page.getByText(/chargée \(v\d+\)/)).toHaveText(banner ?? "");
+  });
+
+  test("cycle de vie : brouillon → activation avec remplacement → archivage → réactivation", async ({
+    page,
+  }) => {
+    await page.goto("/app/grading-policy");
+
+    // Le périmètre de la politique existante (première ligne du tableau)
+    if ((await page.getByRole("link", { name: /modifier|consulter/i }).count()) === 0) {
+      test.skip();
+    }
+    const firstRow = page.locator("tbody tr").first();
+    const yearCell = (await firstRow.locator("td").first().textContent())?.trim() ?? "";
+    const levelCell =
+      (await firstRow.locator("td").nth(1).textContent())?.trim() ?? "";
+    const isDefault = /tous/i.test(levelCell);
+
+    // École du compte connecté (admin@demo.local)
+    const admin = await prisma.user.findUniqueOrThrow({
+      where: { email: "admin@demo.local" },
+      select: { id: true },
+    });
+    const schoolId = (
+      await prisma.schoolMembership.findFirstOrThrow({
+        where: { userId: admin.id },
+        select: { schoolId: true },
+      })
+    ).schoolId;
+    const year = await prisma.academicYear.findFirstOrThrow({
+      where: { name: yearCell, schoolId },
+      select: { id: true },
+    });
+    const level = isDefault
+      ? null
+      : await prisma.level.findFirstOrThrow({
+          where: { name: levelCell, schoolId },
+          select: { id: true },
+        });
+    const scope = {
+      schoolId,
+      academicYearId: year.id,
+      levelId: level?.id ?? null,
+    };
+
+    // 1. Créer un brouillon sur le même périmètre
+    const yearSelect = page.getByLabel(/année scolaire/i);
+    const yearOption = await yearSelect
+      .locator("option")
+      .evaluateAll(
+        (opts, name) =>
+          opts
+            .find((o) => o.textContent?.trim().startsWith(name))
+            ?.getAttribute("value") ?? "",
+        yearCell,
+      );
+    await yearSelect.selectOption(yearOption);
+    if (!isDefault) {
+      await page.getByLabel(/niveau/i).selectOption({ label: levelCell });
+    }
+    await page.getByLabel(/seuil de réussite/i).fill("11");
+    await page
+      .getByRole("button", { name: /enregistrer comme brouillon/i })
+      .click();
+    await page.waitForURL(/ok=draft/);
+    await expect(
+      page.getByText(/brouillon enregistré/i),
+    ).toBeVisible();
+
+    const draft = await prisma.gradingPolicy.findFirstOrThrow({
+      where: { ...scope, status: "DRAFT" },
+    });
+    const activeBefore = await prisma.gradingPolicy.findFirstOrThrow({
+      where: { ...scope, status: "ACTIVE" },
+    });
+    expect(draft.id).not.toBe(activeBefore.id);
+
+    // 2. Activer le brouillon → confirmation nommant la politique remplacée
+    const draftRow = page.locator("tbody tr", { hasText: "Brouillon" }).first();
+    await draftRow.getByRole("button", { name: /^activer$/i }).click();
+    await page.waitForURL(/confirm=activate/);
+    await expect(
+      page.getByText(/archivera la politique actuellement active/i),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: /confirmer l.activation/i })
+      .click();
+    await page.waitForURL(/ok=activated/);
+
+    // Unicité : l'ancienne est archivée, une seule active reste
+    const counts = await prisma.gradingPolicy.groupBy({
+      by: ["status"],
+      where: scope,
+      _count: true,
+    });
+    const byStatus = Object.fromEntries(counts.map((c) => [c.status, c._count]));
+    expect(byStatus.ACTIVE).toBe(1);
+    expect((await prisma.gradingPolicy.findUnique({ where: { id: activeBefore.id } }))?.status).toBe("ARCHIVED");
+
+    // 3. Archiver → confirmation avec règle de relais
+    const activeRow = page.locator("tbody tr", {
+      has: page.locator("span", { hasText: /^Active$/ }),
+    }).first();
+    await activeRow.getByRole("link", { name: /archiver/i }).click();
+    await page.waitForURL(/confirm=archive/);
+    await expect(
+      page.locator("li", { hasText: /règle qui prendra le relais/i }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: /confirmer l.archivage/i })
+      .click();
+    await page.waitForURL(/ok=archived/);
+    expect(
+      (await prisma.gradingPolicy.findUnique({ where: { id: draft.id } }))?.status,
+    ).toBe("ARCHIVED");
+
+    // 4. Réactiver la politique d'origine (restauration). On passe par le
+    // panneau de confirmation ciblé par id : plusieurs lignes archivées
+    // peuvent partager le même numéro de version.
+    await page.goto(
+      `/app/grading-policy?confirm=activate&id=${activeBefore.id}`,
+    );
+    await expect(
+      page.getByText(/confirmer l.activation/i).first(),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: /confirmer l.activation/i })
+      .click();
+    await page.waitForURL(/ok=activated/);
+    expect(
+      (await prisma.gradingPolicy.findUnique({ where: { id: activeBefore.id } }))
+        ?.status,
+    ).toBe("ACTIVE");
   });
 });
 

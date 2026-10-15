@@ -1,8 +1,17 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { prisma } from "@/lib/db/prisma";
-import { listPolicies } from "@/lib/services/grading/policy";
+import {
+  listPolicies,
+  activationPreview,
+  archivePreview,
+  describePolicy,
+} from "@/lib/services/grading/policy";
 import { DEFAULT_RULES } from "@/lib/services/grading/calculation";
-import { upsertPolicyAction } from "@/app/app/(tenant)/grading-policy/actions";
+import {
+  upsertPolicyAction,
+  activatePolicyAction,
+  archivePolicyAction,
+} from "@/app/app/(tenant)/grading-policy/actions";
 
 export const instant = false;
 
@@ -20,6 +29,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   SEUIL_RANGE:
     "Seuil de réussite incohérent : il doit être compris entre la note minimale et la note maximale (barème).",
   NOT_FOUND: "Année scolaire ou niveau introuvable dans cet établissement.",
+  INVALID_STATE:
+    "Action impossible pour cette politique : son statut ne le permet pas (ou elle est déjà active/archivée).",
+  CONFLICT:
+    "Une politique active existe déjà pour cette année et ce niveau.",
+  ALREADY_EXISTS:
+    "Un brouillon ou une politique existe déjà pour cette année et ce niveau.",
+  SCOPE_LOCKED:
+    "La portée (année/niveau) d'une politique active ne peut pas être déplacée. Créez plutôt un brouillon pour le nouveau périmètre puis activez-le.",
   UPDATE_FAILED: "L'enregistrement a échoué. Réessayez ; si le problème persiste, contactez le support.",
 };
 
@@ -83,6 +100,8 @@ export default async function GradingPolicyPage(props: {
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
   const editId = typeof sp.edit === "string" ? sp.edit : undefined;
+  const confirmKind = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
 
   const [policies, years, levels, periods] = await Promise.all([
     listPolicies(c),
@@ -105,6 +124,16 @@ export default async function GradingPolicyPage(props: {
 
   const periodNameById = new Map(periods.map((p) => [p.id, p.name] as const));
   const editing = editId ? policies.find((p) => p.id === editId) : undefined;
+
+  // Panneaux de confirmation (activation/remplacement et archivage).
+  const confirmActivate =
+    confirmKind === "activate" && confirmId
+      ? await activationPreview(c, confirmId)
+      : undefined;
+  const confirmArchive =
+    confirmKind === "archive" && confirmId
+      ? await archivePreview(c, confirmId)
+      : undefined;
 
   const periodsByYear = new Map<string, string[]>();
   for (const p of periods) {
@@ -191,13 +220,18 @@ export default async function GradingPolicyPage(props: {
             Comment fonctionnent les règles de notation ?
           </a>
         </div>
-        {ok === "saved" ? (
+        {ok === "saved" || ok === "activated" || ok === "archived" || ok === "draft" ? (
           <div
             role="status"
             className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
           >
-            Règles enregistrées — la version a été incrémentée pour ce couple
-            année/niveau.
+            {ok === "saved"
+              ? "Règles enregistrées — la version a été incrémentée pour ce couple année/niveau."
+              : ok === "activated"
+                ? "Politique activée — elle s'applique désormais aux calculs. L'éventuelle politique précédente a été archivée."
+                : ok === "archived"
+                  ? "Politique archivée — elle n'est plus appliquée mais reste consultable dans l'historique."
+                  : "Brouillon enregistré — il n'est pas appliqué aux calculs tant qu'il n'est pas activé."}
           </div>
         ) : null}
         {ok === "unchanged" ? (
@@ -326,22 +360,130 @@ export default async function GradingPolicyPage(props: {
             <div className="font-medium text-zinc-900">Versions et historique</div>
             <p className="mt-1">
               Enregistrer pour un même couple année + niveau met à jour la
-              politique et incrémente son numéro de version — il n&apos;y a pas
-              de doublon. Enregistrer sans modifier aucun paramètre ne crée
-              aucune nouvelle version. Les bulletins publiés conservent un
+              politique et incrémente son numéro de version. Enregistrer sans
+              modifier aucun paramètre ne crée aucune nouvelle version. Les
+              bulletins publiés conservent un
               <strong> snapshot figé</strong> des règles en vigueur à leur
               publication : aucun changement de politique ne les modifie
-              rétroactivement. Il n&apos;existe actuellement ni brouillon ni
-              archivage : une politique enregistrée est immédiatement active.
+              rétroactivement.
+            </p>
+          </div>
+          <div>
+            <div className="font-medium text-zinc-900">
+              Brouillons, activation et archivage
+            </div>
+            <p className="mt-1">
+              Trois états : <strong>brouillon</strong> (enregistré, jamais
+              appliqué aux calculs tant qu&apos;il n&apos;est pas activé),
+              <strong> active</strong> (une seule par année + niveau),
+              <strong> archivée</strong> (historique consultable, non
+              appliquée). Activer un brouillon ou réactiver une archivée
+              remplace la politique active du même périmètre — qui est alors
+              archivée, après une confirmation qui la nomme explicitement.
+              Archiver une politique demande une confirmation indiquant la
+              règle qui prendra le relais et le nombre de bulletins non publiés
+              de l&apos;année concernée.
             </p>
           </div>
         </div>
       </details>
 
+      {confirmActivate && !("error" in confirmActivate) ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
+          <div className="text-sm font-semibold text-amber-900">
+            Confirmer l&apos;activation
+          </div>
+          <p className="mt-2 text-sm text-amber-900">
+            Activer {describePolicy(confirmActivate.target)}
+            {confirmActivate.replaced ? (
+              <>
+                {" "}
+                <strong>
+                  archivera la politique actuellement active{" "}
+                  {describePolicy(confirmActivate.replaced)}
+                </strong>{" "}
+                — les prochains calculs utiliseront les nouveaux paramètres.
+              </>
+            ) : (
+              " appliquera immédiatement ces règles aux calculs."
+            )}{" "}
+            Les bulletins déjà publiés ne sont jamais modifiés.
+          </p>
+          <div className="mt-4 flex gap-3">
+            <form action={activatePolicyAction}>
+              <input type="hidden" name="policyId" value={confirmId} />
+              <input type="hidden" name="confirmed" value="1" />
+              <button
+                type="submit"
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Confirmer l&apos;activation
+              </button>
+            </form>
+            <a
+              href="/app/grading-policy"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Annuler
+            </a>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmArchive && !("error" in confirmArchive) ? (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-6 shadow-sm">
+          <div className="text-sm font-semibold text-amber-900">
+            Confirmer l&apos;archivage
+          </div>
+          <p className="mt-2 text-sm text-amber-900">
+            Archiver {describePolicy(confirmArchive.target)} :
+          </p>
+          <ul className="mt-2 list-inside list-disc text-sm text-amber-900">
+            <li>
+              Règle qui prendra le relais : {confirmArchive.fallback}
+            </li>
+            {confirmArchive.changesScale ? (
+              <li className="font-semibold">
+                ⚠ Attention : le barème ou le seuil changera pour les prochains
+                calculs.
+              </li>
+            ) : null}
+            <li>
+              {confirmArchive.unpublishedCount > 0
+                ? `${confirmArchive.unpublishedCount} bulletin(s) de cette année ne sont pas encore publiés — leurs prochains recalculs utiliseront la règle de relais.`
+                : "Aucun bulletin non publié sur cette année."}
+            </li>
+            <li>Les bulletins déjà publiés conservent leur snapshot.</li>
+            <li>La politique restera consultable et pourra être réactivée.</li>
+          </ul>
+          <div className="mt-4 flex gap-3">
+            <form action={archivePolicyAction}>
+              <input type="hidden" name="policyId" value={confirmId} />
+              <button
+                type="submit"
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              >
+                Confirmer l&apos;archivage
+              </button>
+            </form>
+            <a
+              href="/app/grading-policy"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              Annuler
+            </a>
+          </div>
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-medium text-zinc-900">
-            {editing ? "Modifier la politique" : "Nouvelle politique / mise à jour"}
+            {editing
+              ? editing.status === "DRAFT"
+                ? "Modifier le brouillon"
+                : "Modifier la politique"
+              : "Nouvelle politique"}
           </div>
           {editing ? (
             <a
@@ -353,12 +495,28 @@ export default async function GradingPolicyPage(props: {
           ) : null}
         </div>
         {editing ? (
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Politique « {editing.academicYear.name} /{" "}
-            {editing.level?.name ?? "tous niveaux"} » chargée (v
-            {editing.version}) — l&apos;enregistrement créera la v
-            {editing.version + 1} si au moins un paramètre change. Les
-            bulletins déjà publiés ne sont jamais affectés.
+          <div
+            className={`mb-4 rounded-xl border px-3 py-2 text-sm ${
+              editing.status === "DRAFT"
+                ? "border-sky-200 bg-sky-50 text-sky-900"
+                : "border-amber-200 bg-amber-50 text-amber-900"
+            }`}
+          >
+            {editing.status === "DRAFT" ? (
+              <>
+                Brouillon « {editing.academicYear.name} /{" "}
+                {editing.level?.name ?? "tous niveaux"} » — non appliqué aux
+                calculs tant qu&apos;il n&apos;est pas activé.
+              </>
+            ) : (
+              <>
+                Politique « {editing.academicYear.name} /{" "}
+                {editing.level?.name ?? "tous niveaux"} » chargée (v
+                {editing.version}) — l&apos;enregistrement créera la v
+                {editing.version + 1} si au moins un paramètre change. Les
+                bulletins déjà publiés ne sont jamais affectés.
+              </>
+            )}
           </div>
         ) : null}
         <form action={upsertPolicyAction} className="space-y-5">
@@ -630,13 +788,70 @@ export default async function GradingPolicyPage(props: {
             </Field>
           </Section>
 
-          <div>
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-            >
-              Enregistrer (nouvelle version)
-            </button>
+          {editing ? (
+            <input type="hidden" name="policyId" value={editing.id} />
+          ) : null}
+          <div className="flex flex-wrap gap-3">
+            {editing?.status === "DRAFT" ? (
+              <>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="draft"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Enregistrer le brouillon
+                </button>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="activate"
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Activer la politique
+                </button>
+              </>
+            ) : editing ? (
+              <>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="activate"
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  {editing.status === "ARCHIVED"
+                    ? "Réactiver la politique"
+                    : "Enregistrer (nouvelle version)"}
+                </button>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="draft"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Copier comme brouillon
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="activate"
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Enregistrer et activer
+                </button>
+                <button
+                  type="submit"
+                  name="intent"
+                  value="draft"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Enregistrer comme brouillon
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
@@ -716,19 +931,46 @@ export default async function GradingPolicyPage(props: {
                         className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                           p.status === "ACTIVE"
                             ? "bg-emerald-100 text-emerald-800"
-                            : "bg-zinc-100 text-zinc-600"
+                            : p.status === "DRAFT"
+                              ? "bg-sky-100 text-sky-800"
+                              : "bg-zinc-100 text-zinc-600"
                         }`}
                       >
-                        {p.status === "ACTIVE" ? "Active" : "Archivée"}
+                        {p.status === "ACTIVE"
+                          ? "Active"
+                          : p.status === "DRAFT"
+                            ? "Brouillon"
+                            : "Archivée"}
                       </span>
                     </td>
                     <td className="py-2">
-                      <a
-                        href={`/app/grading-policy?edit=${p.id}`}
-                        className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
-                      >
-                        Modifier
-                      </a>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                        <a
+                          href={`/app/grading-policy?edit=${p.id}`}
+                          className="font-medium text-zinc-700 underline-offset-2 hover:underline"
+                        >
+                          {p.status === "ARCHIVED" ? "Consulter" : "Modifier"}
+                        </a>
+                        {p.status === "DRAFT" || p.status === "ARCHIVED" ? (
+                          <form action={activatePolicyAction}>
+                            <input type="hidden" name="policyId" value={p.id} />
+                            <button
+                              type="submit"
+                              className="font-medium text-emerald-700 underline-offset-2 hover:underline"
+                            >
+                              {p.status === "DRAFT" ? "Activer" : "Réactiver"}
+                            </button>
+                          </form>
+                        ) : null}
+                        {p.status !== "ARCHIVED" ? (
+                          <a
+                            href={`/app/grading-policy?confirm=archive&id=${p.id}`}
+                            className="font-medium text-red-700 underline-offset-2 hover:underline"
+                          >
+                            Archiver
+                          </a>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );
