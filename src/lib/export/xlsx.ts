@@ -17,7 +17,7 @@ export interface ExportSheet {
   rows: (string | number | Date | null | undefined)[][];
 }
 
-const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+const FORMULA_PREFIX = /^[\s]*[=+\-@]/;
 const safeString = (s: string) =>
   FORMULA_PREFIX.test(s) ? `'${s}` : s;
 

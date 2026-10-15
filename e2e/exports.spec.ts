@@ -101,9 +101,37 @@ test.describe("Exports notes — admin", () => {
         observation: '=HYPERLINK("https://exemple.test")',
       },
     });
+    // Variante avec espace préfixe sur un autre élève.
+    const enr2 = await prisma.enrollment.findFirstOrThrow({
+      where: {
+        schoolId: school.id,
+        classroomId: assessment.classroomId,
+        status: "ENROLLED",
+        studentId: { not: enr.studentId },
+      },
+      select: { studentId: true },
+    });
+    await prisma.grade.upsert({
+      where: {
+        assessmentId_studentId: {
+          assessmentId: assessment.id,
+          studentId: enr2.studentId,
+        },
+      },
+      update: { observation: "   =1+1", status: "ENTERED", value: 8 },
+      create: {
+        schoolId: school.id,
+        assessmentId: assessment.id,
+        studentId: enr2.studentId,
+        value: 8,
+        status: "ENTERED",
+        observation: "   =1+1",
+      },
+    });
     const csv = await csvOf(request, `assessment=${assessment.id}`);
     expect(csv).toContain("'=HYPERLINK");
     expect(csv).not.toContain(';"=HYPERLINK');
+    expect(csv).toContain("'   =1+1");
   });
 
   test("XLSX : feuille nommée, en-têtes, filtre auto", async ({ request }) => {

@@ -10,7 +10,8 @@
 
 type Cell = string | number | null | undefined;
 
-const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+/** Préfixe dangereux : espaces/caractères de contrôle puis = + - @. */
+const FORMULA_PREFIX = /^[\s]*[=+\-@]/;
 
 export function csvCell(v: Cell): string {
   if (v == null) return "";
