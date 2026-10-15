@@ -104,13 +104,14 @@ export async function buildGradesExport(
   }>
 > {
   let pairs: Set<string> | null = null;
-  let teacherId = filters.teacherId;
+  const teacherId = filters.teacherId;
   if (opts.asTeacher) {
     const tid = await teacherIdForUser(ctx);
     if (!tid) return { ok: false, error: "FORBIDDEN" };
     pairs = await teacherAllowedPairs(ctx, tid);
     if (teacherId && teacherId !== tid) return { ok: false, error: "FORBIDDEN" };
-    teacherId = tid;
+    // Le périmètre est assuré par `pairs` (classe×matière) — pas par
+    // assessment.teacherId, qui masquerait les violations de filtres.
   }
 
   const assessments = await prisma.assessment.findMany({
@@ -148,6 +149,11 @@ export async function buildGradesExport(
   const scoped = assessments
     .filter((a) => inScope(pairs, a.classroomId, a.subjectId))
     .slice(0, MAX_ASSESSMENTS);
+  if (opts.asTeacher && assessments.length > 0 && scoped.length === 0) {
+    // Les filtres désignent des données réelles de l'établissement mais
+    // entièrement hors périmètre : refus explicite plutôt qu'un fichier vide.
+    return { ok: false, error: "FORBIDDEN" };
+  }
   if (scoped.length === 0) {
     return { ok: true, result: { rows: [], truncated: false, assessments: 0 } };
   }

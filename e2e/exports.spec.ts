@@ -284,6 +284,40 @@ test.describe("Exports — périmètre enseignant", () => {
     expect(res.status()).toBe(403);
   });
 
+  test("notes : subject=<hors affectation> → refus explicite", async ({
+    request,
+  }) => {
+    const { school } = await demoCtx();
+    const teacher = await teacherIds(school.id);
+    const [ta, cs] = await Promise.all([
+      prisma.teachingAssignment.findMany({
+        where: { schoolId: school.id, teacherId: teacher.id },
+        select: { subjectId: true },
+      }),
+      prisma.classroomSubject.findMany({
+        where: { schoolId: school.id, teacherId: teacher.id },
+        select: { subjectId: true },
+      }),
+    ]);
+    if (ta.some((a) => a.subjectId === null)) test.skip(); // wildcard = tout en périmètre
+    const assigned = new Set(
+      [...ta, ...cs].map((a) => a.subjectId).filter(Boolean),
+    );
+    const foreign = await prisma.subject.findFirst({
+      where: {
+        schoolId: school.id,
+        id: { notIn: [...assigned] as string[] },
+        assessments: { some: { schoolId: school.id } },
+      },
+    });
+    if (!foreign) test.skip();
+    const res = await request.get(
+      `/app/grades/export?format=csv&subject=${foreign!.id}`,
+      { maxRedirects: 0 },
+    );
+    expect(res.status()).toBe(403);
+  });
+
   test("moyennes : classe hors affectation → refus", async ({ request }) => {
     const { school, period } = await demoCtx();
     const teacher = await teacherIds(school.id);
