@@ -103,6 +103,42 @@ function assertDemoEnvironment() {
 
 const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD;
 
+/** Comptes démo gérés par ce script (réutilisés s'ils existent). */
+const DEMO_ACCOUNT_EMAILS = [
+  "admin@demo.local",
+  "enseignant@demo.local",
+  "parent@demo.local",
+  "eleve@demo.local",
+  "finance@demo.local",
+  "caissier@demo.local",
+  "commercial@ecom-school.local",
+];
+
+/**
+ * Préflight : si des comptes démo doivent être créés, SEED_DEMO_PASSWORD
+ * est exigé AVANT toute écriture (échec net au lieu d'un seed partiel).
+ * Les comptes existants sont réutilisés tels quels — jamais de reset.
+ */
+async function assertPasswordReady() {
+  const existing = await prisma.user.findMany({
+    where: { email: { in: DEMO_ACCOUNT_EMAILS } },
+    select: { email: true },
+  });
+  const missing = DEMO_ACCOUNT_EMAILS.filter(
+    (e) => !existing.some((u) => u.email === e),
+  );
+  if (missing.length === 0) {
+    console.log("Les 7 comptes démo existent — mots de passe conservés.");
+    return;
+  }
+  if (!DEMO_PASSWORD) {
+    throw new Error(
+      `SEED_DEMO_PASSWORD requis : ${missing.length} compte(s) à créer (${missing.join(", ")}).`,
+    );
+  }
+  console.log(`${missing.length} compte(s) démo à créer : ${missing.join(", ")}`);
+}
+
 type Ctx = { userId: string; schoolId: string };
 
 /** Utilisateur école : réutilise l'existant (jamais de reset), crée sinon. */
@@ -195,6 +231,7 @@ async function platformUser(email: string, roleName: string, firstName: string, 
 async function main() {
   const dbName = assertDemoEnvironment();
   console.log(`Seed démo autorisé sur '${dbName}' — données fictives uniquement.`);
+  await assertPasswordReady();
 
   // ---------- École ----------
   const school = await prisma.school.upsert({
