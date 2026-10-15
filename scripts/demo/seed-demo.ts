@@ -238,8 +238,8 @@ async function main() {
       where: { code: "PREMIUM", status: "ACTIVE" },
       select: { id: true },
     });
-    const owner = await prisma.user.findUniqueOrThrow({
-      where: { email: "admin@ecom-school.local" },
+    const owner = await prisma.user.findFirstOrThrow({
+      where: { userRoles: { some: { role: { name: "PLATFORM_OWNER" } } } },
       select: { id: true },
     });
     const sub = await assignSubscription(owner.id, {
