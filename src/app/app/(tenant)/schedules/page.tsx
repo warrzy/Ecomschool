@@ -240,6 +240,18 @@ export default async function SchedulesPage(props: {
             >
               Sem. suivante →
             </a>
+            <a
+              href={`/app/schedules/export?format=csv&${baseQuery({ week: fmtDate(ws) }).slice(1)}`}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+            >
+              CSV
+            </a>
+            <a
+              href={`/app/schedules/export?format=xlsx&${baseQuery({ week: fmtDate(ws) }).slice(1)}`}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+            >
+              Excel
+            </a>
             {canPrint ? (
               <a
                 href={`/app/schedules/pdf${baseQuery({ week: fmtDate(ws) })}`}

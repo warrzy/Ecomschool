@@ -52,12 +52,26 @@ export default async function UsersPage(props: {
               Utilisateurs
             </div>
           </div>
-          <Link
-            href="/app/users/new"
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
-          >
-            Nouvel utilisateur
-          </Link>
+          <div className="flex items-center gap-2">
+            <a
+              href="/app/users/export?format=csv"
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
+            >
+              Exporter CSV
+            </a>
+            <a
+              href="/app/users/export?format=xlsx"
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
+            >
+              Exporter Excel
+            </a>
+            <Link
+              href="/app/users/new"
+              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            >
+              Nouvel utilisateur
+            </Link>
+          </div>
         </div>
 
         {error ? (

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/db/prisma";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listTeachers } from "@/lib/services/teachers";
@@ -18,16 +19,30 @@ export default async function TeachersPage(props: {
   const q = typeof sp.q === "string" ? sp.q : undefined;
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
 
-  const canManage = await userHasSchoolPermission({
-    userId: tenant.userId,
-    schoolId: tenant.schoolId,
-    permissionKey: "teacher.manage",
-  });
+  const [canManage, canReadUsers] = await Promise.all([
+    userHasSchoolPermission({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+      permissionKey: "teacher.manage",
+    }),
+    userHasSchoolPermission({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+      permissionKey: "user.read",
+    }),
+  ]);
 
-  const { items, total, pageSize } = await listTeachers(
-    { userId: tenant.userId, schoolId: tenant.schoolId },
-    { status, q, page },
-  );
+  const [{ items, total, pageSize }, years] = await Promise.all([
+    listTeachers(
+      { userId: tenant.userId, schoolId: tenant.schoolId },
+      { status, q, page },
+    ),
+    prisma.academicYear.findMany({
+      where: { schoolId: tenant.schoolId },
+      orderBy: { startDate: "desc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const pageHref = (p: number) => {
@@ -89,6 +104,74 @@ export default async function TeachersPage(props: {
             Filtrer
           </button>
         </form>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mb-3 text-sm font-medium text-zinc-900">
+          Exporter les enseignants et affectations
+        </div>
+        <form
+          method="GET"
+          action="/app/teachers/export"
+          className="flex flex-wrap items-end gap-3"
+        >
+          <select
+            name="year"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="">Toutes les années (affectations)</option>
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>{y.name}</option>
+            ))}
+          </select>
+          <select
+            name="status"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="">Tous statuts</option>
+            <option value="ACTIVE">Actifs</option>
+            <option value="ARCHIVED">Archivés</option>
+          </select>
+          <select
+            name="format"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+          </select>
+          {canManage ? (
+            <label className="flex h-10 items-center gap-2 text-sm text-zinc-700">
+              <input type="checkbox" name="full" value="1" />
+              Coordonnées incluses
+            </label>
+          ) : null}
+          <button
+            type="submit"
+            className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
+          >
+            Exporter
+          </button>
+          {canReadUsers ? (
+            <>
+              <a
+                href="/app/users/export?format=csv"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+              >
+                Personnel CSV
+              </a>
+              <a
+                href="/app/users/export?format=xlsx"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+              >
+                Personnel Excel
+              </a>
+            </>
+          ) : null}
+        </form>
+        <p className="mt-2 text-xs text-zinc-500">
+          L&#8217;export standard ne contient que l&#8217;identité et les affectations.
+          Les coordonnées sont réservées aux administrateurs.
+        </p>
       </div>
 
       {canManage ? (

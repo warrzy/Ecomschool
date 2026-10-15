@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { teacherIdForUser } from "@/lib/services/attendance";
+import { inScope, teacherAllowedPairs } from "@/lib/export/scope";
 import type { GradeStatus } from "@prisma/client";
 
 /**
@@ -55,37 +56,7 @@ export const GRADES_HEADERS = [
   "observation",
 ] as const;
 
-/** Paires classe|matière couvertes par les affectations d'un enseignant. */
-async function teacherAllowedPairs(
-  ctx: SchoolCtx,
-  teacherId: string,
-): Promise<Set<string>> {
-  const [assignments, classSubjects] = await Promise.all([
-    prisma.teachingAssignment.findMany({
-      where: { schoolId: ctx.schoolId, teacherId },
-      select: { classroomId: true, subjectId: true },
-    }),
-    prisma.classroomSubject.findMany({
-      where: { schoolId: ctx.schoolId, teacherId },
-      select: { classroomId: true, subjectId: true },
-    }),
-  ]);
-  const pairs = new Set<string>();
-  for (const a of assignments)
-    pairs.add(`${a.classroomId}|${a.subjectId ?? "*"}`);
-  for (const c of classSubjects)
-    pairs.add(`${c.classroomId}|${c.subjectId}`);
-  return pairs;
-}
-
-const inScope = (
-  pairs: Set<string> | null,
-  classroomId: string,
-  subjectId: string,
-) =>
-  !pairs ||
-  pairs.has(`${classroomId}|${subjectId}`) ||
-  pairs.has(`${classroomId}|*`);
+/** Paires classe|matière : voir src/lib/export/scope.ts (mutualisé P5a/P5b). */
 
 /**
  * Construit les lignes de l'export notes. `asTeacher` restreint

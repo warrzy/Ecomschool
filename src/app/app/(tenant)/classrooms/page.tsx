@@ -144,6 +144,18 @@ export default async function ClassroomsPage(props: {
           >
             Filtrer
           </button>
+          <a
+            href={`/app/classrooms/export?format=csv${yearId ? `&year=${yearId}` : ""}${levelId ? `&level=${levelId}` : ""}&status=${status}`}
+            className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+          >
+            Exporter CSV
+          </a>
+          <a
+            href={`/app/classrooms/export?format=xlsx${yearId ? `&year=${yearId}` : ""}${levelId ? `&level=${levelId}` : ""}&status=${status}`}
+            className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+          >
+            Exporter Excel
+          </a>
         </form>
       </div>
 

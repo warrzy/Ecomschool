@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { prisma } from "@/lib/db/prisma";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listStudents } from "@/lib/services/students";
@@ -21,16 +22,35 @@ export default async function StudentsPage(props: {
   const q = typeof sp.q === "string" ? sp.q : undefined;
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
 
-  const canManage = await userHasSchoolPermission({
-    userId: tenant.userId,
-    schoolId: tenant.schoolId,
-    permissionKey: "student.manage",
-  });
+  const [canManage, canReadEnrollments] = await Promise.all([
+    userHasSchoolPermission({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+      permissionKey: "student.manage",
+    }),
+    userHasSchoolPermission({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+      permissionKey: "enrollment.read",
+    }),
+  ]);
 
-  const { items, total, pageSize } = await listStudents(
-    { userId: tenant.userId, schoolId: tenant.schoolId },
-    { status, q, page },
-  );
+  const [{ items, total, pageSize }, years, classrooms] = await Promise.all([
+    listStudents(
+      { userId: tenant.userId, schoolId: tenant.schoolId },
+      { status, q, page },
+    ),
+    prisma.academicYear.findMany({
+      where: { schoolId: tenant.schoolId },
+      orderBy: { startDate: "desc" },
+      select: { id: true, name: true },
+    }),
+    prisma.classroom.findMany({
+      where: { schoolId: tenant.schoolId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
+  ]);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const pageHref = (p: number) => {
@@ -57,12 +77,6 @@ export default async function StudentsPage(props: {
               Élèves
             </div>
           </div>
-          <Link
-            href="/app/students/export"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
-          >
-            Exporter CSV
-          </Link>
         </div>
         {importSummary ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -107,6 +121,84 @@ export default async function StudentsPage(props: {
             Filtrer
           </button>
         </form>
+      </div>
+
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="mb-3 text-sm font-medium text-zinc-900">
+          Exporter les élèves et les inscriptions
+        </div>
+        <form
+          method="GET"
+          action="/app/students/export"
+          className="flex flex-wrap items-end gap-3"
+        >
+          <select
+            name="year"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="">Toutes les années</option>
+            {years.map((y) => (
+              <option key={y.id} value={y.id}>{y.name}</option>
+            ))}
+          </select>
+          <select
+            name="classroom"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="">Toutes les classes</option>
+            {classrooms.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <select
+            name="status"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="">Tous statuts</option>
+            <option value="ACTIVE">Actifs</option>
+            <option value="ARCHIVED">Archivés</option>
+          </select>
+          <select
+            name="format"
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+          >
+            <option value="csv">CSV</option>
+            <option value="xlsx">Excel (.xlsx)</option>
+          </select>
+          {canManage ? (
+            <label className="flex h-10 items-center gap-2 text-sm text-zinc-700">
+              <input type="checkbox" name="full" value="1" />
+              Fiche complète
+            </label>
+          ) : null}
+          <button
+            type="submit"
+            className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
+          >
+            Exporter
+          </button>
+          {canReadEnrollments ? (
+            <>
+              <a
+                href="/app/enrollments/export?format=csv"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+              >
+                Inscriptions CSV
+              </a>
+              <a
+                href="/app/enrollments/export?format=xlsx"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+              >
+                Inscriptions Excel
+              </a>
+            </>
+          ) : null}
+        </form>
+        <p className="mt-2 text-xs text-zinc-500">
+          L&#8217;export standard ne contient que les données pédagogiques
+          (matricule, identité, classe). La fiche complète est réservée
+          aux administrateurs.
+        </p>
       </div>
 
       {canManage ? (
