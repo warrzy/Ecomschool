@@ -11,8 +11,14 @@ const ERROR_MESSAGES: Record<string, string> = {
     "Données invalides : vérifiez les valeurs numériques (barème, seuil, décimales) et le format des champs.",
   INVALID_MENTIONS:
     "Format des mentions invalide. Attendu : Libellé:seuil;Libellé:seuil — ex. Excellent:16;Très bien:14;Bien:12.",
+  MENTION_RANGE:
+    "Mentions : un seuil doit rester dans l'échelle du barème (entre la note minimale et la note maximale).",
   INVALID_WEIGHTS:
     "Pondération annuelle invalide : un nom de période ne correspond à aucune période de l'année choisie, ou un coefficient n'est pas un nombre positif.",
+  MIN_GE_MAX:
+    "Barème incohérent : la note minimale doit être strictement inférieure à la note maximale.",
+  SEUIL_RANGE:
+    "Seuil de réussite incohérent : il doit être compris entre la note minimale et la note maximale (barème).",
   NOT_FOUND: "Année scolaire ou niveau introuvable dans cet établissement.",
   UPDATE_FAILED: "L'enregistrement a échoué. Réessayez ; si le problème persiste, contactez le support.",
 };
@@ -76,6 +82,7 @@ export default async function GradingPolicyPage(props: {
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const editId = typeof sp.edit === "string" ? sp.edit : undefined;
 
   const [policies, years, levels, periods] = await Promise.all([
     listPolicies(c),
@@ -92,9 +99,12 @@ export default async function GradingPolicyPage(props: {
     prisma.academicPeriod.findMany({
       where: { schoolId: tenant.schoolId },
       orderBy: { number: "asc" },
-      select: { name: true, academicYear: { select: { name: true } } },
+      select: { id: true, name: true, academicYear: { select: { name: true } } },
     }),
   ]);
+
+  const periodNameById = new Map(periods.map((p) => [p.id, p.name] as const));
+  const editing = editId ? policies.find((p) => p.id === editId) : undefined;
 
   const periodsByYear = new Map<string, string[]>();
   for (const p of periods) {
@@ -113,6 +123,50 @@ export default async function GradingPolicyPage(props: {
   const defaultMentions = DEFAULT_RULES.mentions
     .map((m) => `${m.label}:${m.min}`)
     .join(";");
+
+  // Valeurs préremplies : politique en cours d'édition ou défauts du moteur.
+  const v = editing
+    ? {
+        academicYearId: editing.academicYearId,
+        levelId: editing.levelId ?? "",
+        maxScore: editing.maxScore,
+        minScore: editing.minScore,
+        precision: editing.precision,
+        rounding: editing.rounding,
+        passMark: editing.passMark,
+        missingGradePolicy: editing.missingGradePolicy,
+        absentPolicy: editing.absentPolicy,
+        exemptPolicy: editing.exemptPolicy,
+        tieRule: editing.tieRule,
+        perSubjectRank: editing.perSubjectRank,
+        mentions: Array.isArray(editing.mentions)
+          ? (editing.mentions as { label: string; min: number }[])
+              .map((m) => `${m.label}:${m.min}`)
+              .join(";")
+          : "",
+        annualWeights:
+          editing.annualWeights && typeof editing.annualWeights === "object"
+            ? Object.entries(editing.annualWeights as Record<string, number>)
+                .map(([pid, coef]) => `${periodNameById.get(pid) ?? pid}:${coef}`)
+                .join(";")
+            : "",
+      }
+    : {
+        academicYearId: "",
+        levelId: "",
+        maxScore: 20,
+        minScore: 0,
+        precision: 2,
+        rounding: "HALF_UP" as const,
+        passMark: 10,
+        missingGradePolicy: "EXCLUDE" as const,
+        absentPolicy: "EXCLUDE" as const,
+        exemptPolicy: "EXCLUDE" as const,
+        tieRule: "SHARED_RANK" as const,
+        perSubjectRank: true,
+        mentions: "",
+        annualWeights: "",
+      };
 
   return (
     <div className="space-y-4">
@@ -137,13 +191,22 @@ export default async function GradingPolicyPage(props: {
             Comment fonctionnent les règles de notation ?
           </a>
         </div>
-        {ok ? (
+        {ok === "saved" ? (
           <div
             role="status"
             className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
           >
             Règles enregistrées — la version a été incrémentée pour ce couple
             année/niveau.
+          </div>
+        ) : null}
+        {ok === "unchanged" ? (
+          <div
+            role="status"
+            className="mt-4 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800"
+          >
+            Aucune modification détectée — la politique et sa version sont
+            inchangées.
           </div>
         ) : null}
         {error ? (
@@ -253,7 +316,10 @@ export default async function GradingPolicyPage(props: {
               </code>{" "}
               — les noms doivent correspondre exactement aux périodes de
               l&apos;année choisie. Périodes configurées :{" "}
-              {periodsHelp || "aucune période définie"}.
+              {periodsHelp || "aucune période définie"}. Si une période est
+              ensuite supprimée, son coefficient est simplement ignoré (poids 1
+              appliqué aux autres) ; si elle est renommée, le poids reste
+              attaché à la période.
             </p>
           </div>
           <div>
@@ -261,7 +327,8 @@ export default async function GradingPolicyPage(props: {
             <p className="mt-1">
               Enregistrer pour un même couple année + niveau met à jour la
               politique et incrémente son numéro de version — il n&apos;y a pas
-              de doublon. Les bulletins publiés conservent un
+              de doublon. Enregistrer sans modifier aucun paramètre ne crée
+              aucune nouvelle version. Les bulletins publiés conservent un
               <strong> snapshot figé</strong> des règles en vigueur à leur
               publication : aucun changement de politique ne les modifie
               rétroactivement. Il n&apos;existe actuellement ni brouillon ni
@@ -272,9 +339,28 @@ export default async function GradingPolicyPage(props: {
       </details>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-4 text-sm font-medium text-zinc-900">
-          Nouvelle politique / mise à jour
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-medium text-zinc-900">
+            {editing ? "Modifier la politique" : "Nouvelle politique / mise à jour"}
+          </div>
+          {editing ? (
+            <a
+              href="/app/grading-policy"
+              className="text-xs text-zinc-500 underline hover:text-zinc-700"
+            >
+              Annuler la modification
+            </a>
+          ) : null}
         </div>
+        {editing ? (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Politique « {editing.academicYear.name} /{" "}
+            {editing.level?.name ?? "tous niveaux"} » chargée (v
+            {editing.version}) — l&apos;enregistrement créera la v
+            {editing.version + 1} si au moins un paramètre change. Les
+            bulletins déjà publiés ne sont jamais affectés.
+          </div>
+        ) : null}
         <form action={upsertPolicyAction} className="space-y-5">
           <Section
             title="Portée"
@@ -289,6 +375,7 @@ export default async function GradingPolicyPage(props: {
                 id="academicYearId"
                 name="academicYearId"
                 required
+                defaultValue={v.academicYearId}
                 className={inputCls}
                 {...described("academicYearId")}
               >
@@ -309,6 +396,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="levelId"
                 name="levelId"
+                defaultValue={v.levelId}
                 className={inputCls}
                 {...described("levelId")}
               >
@@ -339,7 +427,7 @@ export default async function GradingPolicyPage(props: {
                 step="0.5"
                 min="0.5"
                 max="1000"
-                defaultValue="20"
+                defaultValue={v.maxScore}
                 className={inputCls}
                 {...described("maxScore")}
               />
@@ -355,7 +443,7 @@ export default async function GradingPolicyPage(props: {
                 type="number"
                 step="0.5"
                 min="0"
-                defaultValue="0"
+                defaultValue={v.minScore}
                 className={inputCls}
                 {...described("minScore")}
               />
@@ -371,7 +459,7 @@ export default async function GradingPolicyPage(props: {
                 type="number"
                 min="0"
                 max="4"
-                defaultValue="2"
+                defaultValue={v.precision}
                 className={inputCls}
                 {...described("precision")}
               />
@@ -385,7 +473,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="rounding"
                 name="rounding"
-                defaultValue="HALF_UP"
+                defaultValue={v.rounding}
                 className={inputCls}
                 {...described("rounding")}
               >
@@ -405,7 +493,7 @@ export default async function GradingPolicyPage(props: {
                 type="number"
                 step="0.5"
                 min="0"
-                defaultValue="10"
+                defaultValue={v.passMark}
                 className={inputCls}
                 {...described("passMark")}
               />
@@ -425,7 +513,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="missingGradePolicy"
                 name="missingGradePolicy"
-                defaultValue="EXCLUDE"
+                defaultValue={v.missingGradePolicy}
                 className={inputCls}
                 {...described("missingGradePolicy")}
               >
@@ -441,7 +529,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="absentPolicy"
                 name="absentPolicy"
-                defaultValue="EXCLUDE"
+                defaultValue={v.absentPolicy}
                 className={inputCls}
                 {...described("absentPolicy")}
               >
@@ -457,7 +545,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="exemptPolicy"
                 name="exemptPolicy"
-                defaultValue="EXCLUDE"
+                defaultValue={v.exemptPolicy}
                 className={inputCls}
                 {...described("exemptPolicy")}
               >
@@ -479,7 +567,7 @@ export default async function GradingPolicyPage(props: {
               <select
                 id="tieRule"
                 name="tieRule"
-                defaultValue="SHARED_RANK"
+                defaultValue={v.tieRule}
                 className={inputCls}
                 {...described("tieRule")}
               >
@@ -497,7 +585,7 @@ export default async function GradingPolicyPage(props: {
                   id="perSubjectRank"
                   type="checkbox"
                   name="perSubjectRank"
-                  defaultChecked
+                  defaultChecked={v.perSubjectRank}
                   className="h-4 w-4"
                   {...described("perSubjectRank")}
                 />
@@ -519,6 +607,7 @@ export default async function GradingPolicyPage(props: {
               <input
                 id="mentions"
                 name="mentions"
+                defaultValue={v.mentions}
                 placeholder="Excellent:16;Très bien:14;Bien:12;Assez bien:10"
                 className={inputCls}
                 {...described("mentions")}
@@ -533,6 +622,7 @@ export default async function GradingPolicyPage(props: {
               <input
                 id="annualWeights"
                 name="annualWeights"
+                defaultValue={v.annualWeights}
                 placeholder="Trimestre 3:2"
                 className={inputCls}
                 {...described("annualWeights")}
@@ -567,7 +657,8 @@ export default async function GradingPolicyPage(props: {
                 <th className="py-2 pr-3">Ex æquo</th>
                 <th className="py-2 pr-3">Mentions</th>
                 <th className="py-2 pr-3">Version</th>
-                <th className="py-2">Statut</th>
+                <th className="py-2 pr-3">Statut</th>
+                <th className="py-2">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -631,12 +722,20 @@ export default async function GradingPolicyPage(props: {
                         {p.status === "ACTIVE" ? "Active" : "Archivée"}
                       </span>
                     </td>
+                    <td className="py-2">
+                      <a
+                        href={`/app/grading-policy?edit=${p.id}`}
+                        className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
+                      >
+                        Modifier
+                      </a>
+                    </td>
                   </tr>
                 );
               })}
               {policies.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-6 text-center text-zinc-500">
+                  <td colSpan={10} className="py-6 text-center text-zinc-500">
                     Aucune politique — les règles par défaut s&apos;appliquent :
                     barème /20, seuil 10, 2 décimales, arrondi demi-supérieur,
                     cas particuliers exclus, ex æquo partagés, mentions standard.

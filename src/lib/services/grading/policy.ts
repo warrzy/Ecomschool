@@ -45,7 +45,7 @@ export async function listPolicies(ctx: SchoolCtx) {
 export async function upsertPolicy(
   ctx: SchoolCtx,
   input: PolicyInput,
-): Promise<GradingPolicyResult<{ id: string }>> {
+): Promise<GradingPolicyResult<{ id: string; unchanged?: boolean }>> {
   const year = await prisma.academicYear.findFirst({
     where: { id: input.academicYearId, schoolId: ctx.schoolId },
     select: { id: true },
@@ -85,6 +85,36 @@ export async function upsertPolicy(
         schoolId: ctx.schoolId,
       },
     });
+    // Enregistrer sans aucun changement effectif ne crée pas de nouvelle
+    // version (évite des incréments vides). Comparaison champ à champ, JSON
+    // inclus (pondérations comparées clés triées, ordre insensible).
+    const canon = (o: unknown) =>
+      o == null || typeof o !== "object"
+        ? (o ?? null)
+        : Object.fromEntries(
+            Object.entries(o as Record<string, unknown>).sort(([a], [b]) =>
+              a.localeCompare(b),
+            ),
+          );
+    // mentions/annualWeights non saisis = conservation de la valeur existante ;
+    // la comparaison porte donc sur les valeurs effectivement résultantes.
+    const unchanged =
+      existing != null &&
+      existing.maxScore === data.maxScore &&
+      existing.minScore === data.minScore &&
+      existing.precision === data.precision &&
+      existing.rounding === data.rounding &&
+      existing.passMark === data.passMark &&
+      existing.missingGradePolicy === data.missingGradePolicy &&
+      existing.absentPolicy === data.absentPolicy &&
+      existing.exemptPolicy === data.exemptPolicy &&
+      existing.tieRule === data.tieRule &&
+      existing.perSubjectRank === data.perSubjectRank &&
+      JSON.stringify(existing.mentions ?? null) ===
+        JSON.stringify(data.mentions ?? existing.mentions ?? null) &&
+      JSON.stringify(canon(existing.annualWeights)) ===
+        JSON.stringify(canon(data.annualWeights ?? existing.annualWeights));
+    if (unchanged) return { ok: true, result: { id: existing.id, unchanged: true } };
     const policy = existing
       ? await prisma.gradingPolicy.update({
           where: { id: existing.id },

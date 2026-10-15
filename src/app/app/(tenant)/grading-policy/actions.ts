@@ -82,22 +82,37 @@ export async function upsertPolicyAction(formData: FormData) {
   });
   if (!parsed.success) return redirect(failUrl("INVALID_INPUT"));
 
-  const m = parseMentions(parsed.data.mentions);
+  // Cohérences inter-champs (la formule de calcul n'est pas modifiée).
+  const d = parsed.data;
+  if (d.minScore >= d.maxScore) return redirect(failUrl("MIN_GE_MAX"));
+  if (d.passMark < d.minScore || d.passMark > d.maxScore) {
+    return redirect(failUrl("SEUIL_RANGE"));
+  }
+
+  const m = parseMentions(d.mentions);
   if (m.invalid) return redirect(failUrl("INVALID_MENTIONS"));
+  if (
+    m.mentions?.some((x) => x.min < d.minScore || x.min > d.maxScore)
+  ) {
+    return redirect(failUrl("MENTION_RANGE"));
+  }
   const w = await parseAnnualWeights(
     tenant.schoolId,
-    parsed.data.academicYearId,
-    parsed.data.annualWeights,
+    d.academicYearId,
+    d.annualWeights,
   );
   if (w.invalid) return redirect(failUrl("INVALID_WEIGHTS"));
 
   const res = await upsertPolicy(ctx(tenant), {
-    ...parsed.data,
-    levelId: parsed.data.levelId ?? null,
+    ...d,
+    levelId: d.levelId ?? null,
     mentions: m.mentions,
     annualWeights: w.weights,
   });
+  if (!res.ok) return redirect(failUrl(res.error));
   redirect(
-    (res.ok ? "/app/grading-policy?ok=saved" : `/app/grading-policy?error=${res.error}`) as never,
+    (res.result.unchanged
+      ? "/app/grading-policy?ok=unchanged"
+      : "/app/grading-policy?ok=saved") as never,
   );
 }

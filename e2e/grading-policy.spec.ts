@@ -84,6 +84,30 @@ test.describe("Règles de notation — interface", () => {
     await expect(page.getByText(/pondération annuelle invalide/i)).toBeVisible();
   });
 
+  test("seuil de réussite > barème → message compréhensible", async ({
+    page,
+  }) => {
+    await page.goto("/app/grading-policy");
+    await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
+    await page.getByLabel(/^barème/i).fill("20");
+    await page.getByLabel(/seuil de réussite/i).fill("25");
+    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.waitForURL(/error=SEUIL_RANGE/);
+    await expect(
+      page.getByText(/seuil de réussite incohérent/i),
+    ).toBeVisible();
+  });
+
+  test("note minimale ≥ barème → message compréhensible", async ({ page }) => {
+    await page.goto("/app/grading-policy");
+    await page.getByLabel(/année scolaire/i).selectOption({ index: 1 });
+    await page.getByLabel(/^barème/i).fill("20");
+    await page.getByLabel(/note minimale/i).fill("20");
+    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.waitForURL(/error=MIN_GE_MAX/);
+    await expect(page.getByText(/barème incohérent/i)).toBeVisible();
+  });
+
   test("la liste affiche les politiques avec statut et version", async ({
     page,
   }) => {
@@ -99,6 +123,42 @@ test.describe("Règles de notation — interface", () => {
     } else {
       await expect(empty).toBeVisible();
     }
+  });
+
+  test("« Modifier » préremplit le formulaire avec la politique existante", async ({
+    page,
+  }) => {
+    await page.goto("/app/grading-policy");
+    const editLink = page.getByRole("link", { name: /^modifier$/i }).first();
+    if ((await editLink.count()) === 0) test.skip();
+    await editLink.click();
+    await page.waitForURL(/edit=/);
+    // Bandeau d'édition + formulaire prérempli
+    await expect(page.getByText(/chargée \(v\d+\)/)).toBeVisible();
+    await expect(page.getByLabel(/^barème/i)).toHaveValue("20");
+    await expect(page.getByLabel(/seuil de réussite/i)).toHaveValue("10");
+    await expect(page.getByLabel(/année scolaire/i)).not.toHaveValue("");
+  });
+
+  test("enregistrer sans changement → aucune nouvelle version", async ({
+    page,
+  }) => {
+    await page.goto("/app/grading-policy");
+    const editLink = page.getByRole("link", { name: /^modifier$/i }).first();
+    if ((await editLink.count()) === 0) test.skip();
+    await editLink.click();
+    await page.waitForURL(/edit=/);
+    // Capturer la version affichée puis soumettre sans rien changer
+    const banner = await page.getByText(/chargée \(v\d+\)/).textContent();
+    await page.getByRole("button", { name: /enregistrer/i }).click();
+    await page.waitForURL(/ok=unchanged/);
+    await expect(
+      page.getByText(/aucune modification détectée/i),
+    ).toBeVisible();
+    // La version n'a pas bougé
+    await editLink.click();
+    await page.waitForURL(/edit=/);
+    await expect(page.getByText(/chargée \(v\d+\)/)).toHaveText(banner ?? "");
   });
 });
 
