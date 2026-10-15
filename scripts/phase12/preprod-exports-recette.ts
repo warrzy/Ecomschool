@@ -45,7 +45,7 @@ async function login(ctx: BrowserContext, email: string) {
 }
 
 const get = (ctx: BrowserContext, path: string) =>
-  ctx.request.get(`${BASE}${path}`);
+  ctx.request.get(`${BASE}${path}`, { maxRedirects: 0 });
 
 const statusOf = async (r: APIResponse) => r.status();
 const csvText = async (r: APIResponse) => (await r.body()).toString("utf8");
