@@ -12,6 +12,9 @@ import {
 } from "@/app/app/(tenant)/grades/actions";
 import type { AssessmentStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -45,6 +48,9 @@ export default async function GradesPage(props: {
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const ok = str("ok");
   const error = str("error");
+  const confirm = str("confirm");
+  const confirmId = str("id");
+  const confirmTo = str("to") as AssessmentStatus | undefined;
 
   const canCreate = await userHasSchoolPermission({
     userId: tenant.userId,
@@ -105,8 +111,37 @@ export default async function GradesPage(props: {
   const inputCls =
     "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
 
+  const confirmAssessment = items.find((a) => a.id === confirmId);
+  const CONFIRM_TEXT: Partial<Record<AssessmentStatus, { title: string; body: string }>> = {
+    PUBLISHED: {
+      title: "Confirmer la publication",
+      body: "rendra les notes visibles sur les portails parents et élèves. Une évaluation publiée ne peut plus être modifiée ni annulée.",
+    },
+    CANCELLED: {
+      title: "Confirmer l'annulation",
+      body: "marque l'évaluation comme annulée : elle est exclue des moyennes et des bulletins.",
+    },
+  };
+
   return (
     <div className="space-y-4">
+      {confirm === "status" && confirmAssessment && confirmTo && CONFIRM_TEXT[confirmTo] ? (
+        <ConfirmPanel
+          title={CONFIRM_TEXT[confirmTo]!.title}
+          tone={confirmTo === "PUBLISHED" ? "danger" : "warning"}
+          action={setAssessmentStatusAction}
+          fields={{ id: confirmAssessment.id, status: confirmTo }}
+          confirmLabel={confirmTo === "PUBLISHED" ? "Publier l'évaluation" : "Annuler l'évaluation"}
+          cancelHref="/app/grades"
+        >
+          {confirmTo === "PUBLISHED" ? "Publier " : "Annuler "} l&apos;évaluation{" "}
+          <strong>{confirmAssessment.title}</strong> (
+          {confirmAssessment.classroom.name} — {confirmAssessment.subject.name},{" "}
+          {confirmAssessment._count.grades} note
+          {confirmAssessment._count.grades > 1 ? "s" : ""}){" "}
+          {CONFIRM_TEXT[confirmTo]!.body}
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Évaluations</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -114,7 +149,7 @@ export default async function GradesPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "created" ? "Évaluation créée." : ok === "status" ? "Statut mis à jour." : ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -178,9 +213,9 @@ export default async function GradesPage(props: {
             <input name="maxScore" type="number" step="0.5" min="1" defaultValue="20" placeholder="Barème" className={inputCls} />
             <input name="coefficient" type="number" step="0.5" min="0.5" defaultValue="1" placeholder="Coefficient" className={inputCls} />
             <input name="description" placeholder="Description" className={inputCls} />
-            <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+            <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
               Créer
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : null}
@@ -264,6 +299,7 @@ export default async function GradesPage(props: {
           </p>
         </form>
 
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -313,18 +349,29 @@ export default async function GradesPage(props: {
                       </Link>
                     )}
                     {(canManage || canCreate) &&
-                      (NEXT_STATUS[a.status] ?? []).map((t) => (
-                        <form key={t.to} action={setAssessmentStatusAction}>
-                          <input type="hidden" name="id" value={a.id} />
-                          <input type="hidden" name="status" value={t.to} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                      (NEXT_STATUS[a.status] ?? []).map((t) =>
+                        t.to === "PUBLISHED" || t.to === "CANCELLED" ? (
+                          <Link
+                            key={t.to}
+                            href={`/app/grades?confirm=status&id=${a.id}&to=${t.to}`}
+                            className={`rounded-lg border px-2 py-1 text-xs ${
+                              t.to === "CANCELLED"
+                                ? "border-red-200 text-red-700 hover:bg-red-50"
+                                : "border-zinc-300 hover:bg-zinc-50"
+                            }`}
                           >
                             {t.label}
-                          </button>
-                        </form>
-                      ))}
+                          </Link>
+                        ) : (
+                          <form key={t.to} action={setAssessmentStatusAction}>
+                            <input type="hidden" name="id" value={a.id} />
+                            <input type="hidden" name="status" value={t.to} />
+                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                              {t.label}
+                            </SubmitButton>
+                          </form>
+                        ),
+                      )}
                   </div>
                 </td>
               </tr>
@@ -338,6 +385,7 @@ export default async function GradesPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

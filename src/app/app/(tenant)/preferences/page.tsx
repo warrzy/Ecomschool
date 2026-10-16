@@ -7,6 +7,7 @@ import { channelsStatus } from "@/lib/services/comm/providers";
 import { setPreferenceAction } from "./actions";
 import type { CommTopic, MessageChannel } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -63,6 +64,7 @@ export default async function PreferencesPage(props: {
             </span>
           ))}
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-zinc-500">
@@ -90,8 +92,8 @@ export default async function PreferencesPage(props: {
                           name="enabled"
                           value={String(!on)}
                         />
-                        <button
-                          type="submit"
+                        <SubmitButton
+                          pendingLabel="…"
                           className={`rounded-full px-3 py-1 text-xs font-medium ${
                             on
                               ? "bg-emerald-100 text-emerald-700"
@@ -99,7 +101,7 @@ export default async function PreferencesPage(props: {
                           }`}
                         >
                           {on ? "Activé" : "Désactivé"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </td>
                   );
@@ -108,6 +110,7 @@ export default async function PreferencesPage(props: {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">

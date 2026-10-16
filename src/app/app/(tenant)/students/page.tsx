@@ -8,6 +8,8 @@ import {
 } from "@/app/app/(tenant)/students/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -66,7 +68,7 @@ export default async function StudentsPage(props: {
   const importSummary =
     ok === "import"
       ? `Import : ${sp.created ?? 0} créés, ${sp.updated ?? 0} mis à jour, ${sp.failed ?? 0} en échec`
-      : ok;
+      : okMessage(ok);
 
   return (
     <div className="space-y-4">
@@ -311,12 +313,11 @@ export default async function StudentsPage(props: {
                   />
                 </div>
               </div>
-              <button
-                type="submit"
+              <SubmitButton
                 className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Créer
-              </button>
+              </SubmitButton>
             </form>
           </div>
 

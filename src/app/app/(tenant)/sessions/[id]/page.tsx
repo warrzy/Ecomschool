@@ -16,6 +16,8 @@ import {
   saveSessionAttendanceAction,
 } from "@/app/app/(tenant)/sessions/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -132,7 +134,7 @@ export default async function SessionDetailPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -173,12 +175,11 @@ export default async function SessionDetailPage(props: {
                   className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                 />
               </div>
-              <button
-                type="submit"
+              <SubmitButton
                 className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Déplacer
-              </button>
+              </SubmitButton>
             </form>
           </div>
 
@@ -200,12 +201,11 @@ export default async function SessionDetailPage(props: {
                   </option>
                 ))}
               </select>
-              <button
-                type="submit"
+              <SubmitButton
                 className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Remplacer
-              </button>
+              </SubmitButton>
             </form>
           </div>
 
@@ -229,12 +229,11 @@ export default async function SessionDetailPage(props: {
                 placeholder="Motif (annulation/report)"
                 className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
               />
-              <button
-                type="submit"
+              <SubmitButton
                 className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Appliquer
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </div>
@@ -284,12 +283,11 @@ export default async function SessionDetailPage(props: {
                 </tbody>
               </table>
             </div>
-            <button
-              type="submit"
+            <SubmitButton
               className="mt-4 h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Enregistrer l&#8217;appel
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : null}
@@ -344,12 +342,11 @@ export default async function SessionDetailPage(props: {
               rows={2}
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
             />
-            <button
-              type="submit"
+            <SubmitButton
               className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Enregistrer le cahier
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : content ? (

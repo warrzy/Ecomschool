@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { listReminders, listUnpaid } from "@/lib/services/finance/payments";
 import { remindAction } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -67,7 +69,7 @@ export default async function UnpaidPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "reminded" ? "Relance interne enregistrée." : ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -115,6 +117,7 @@ export default async function UnpaidPage(props: {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">En retard par classe</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {[...byClassroom.entries()].map(([k, v]) => (
@@ -126,9 +129,11 @@ export default async function UnpaidPage(props: {
               {byClassroom.size === 0 ? <tr><td className="py-2 text-zinc-500">Aucun retard.</td></tr> : null}
             </tbody>
           </table>
+          </div>
         </div>
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">En retard par niveau</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {[...byLevel.entries()].map(([k, v]) => (
@@ -140,10 +145,12 @@ export default async function UnpaidPage(props: {
               {byLevel.size === 0 ? <tr><td className="py-2 text-zinc-500">Aucun retard.</td></tr> : null}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
       <div className={card}>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -177,7 +184,7 @@ export default async function UnpaidPage(props: {
                     <input type="hidden" name="studentId" value={u.student.id} />
                     <input type="hidden" name="installmentId" value={u.id} />
                     <input name="note" placeholder="Message de relance" required className="w-40 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
-                    <button type="submit" className="text-xs text-zinc-700 underline">Relancer</button>
+                    <SubmitButton className="text-xs text-zinc-700 underline">Relancer</SubmitButton>
                   </form>
                 </td>
               </tr>
@@ -187,10 +194,12 @@ export default async function UnpaidPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Historique des relances</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -212,6 +221,7 @@ export default async function UnpaidPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

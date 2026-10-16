@@ -7,14 +7,14 @@ import { purgeExpiredData } from "@/lib/services/retention";
 import { revalidatePath } from "next/cache";
 
 export async function runJobsAction() {
-  await requirePlatformPermission("platform.monitoring.read");
+  await requirePlatformPermission("platform.monitoring.manage");
   registerCommHandlers();
   await runDueJobs({ limit: 50 });
   revalidatePath("/platform/automations");
 }
 
 export async function enqueueAutomationAction() {
-  await requirePlatformPermission("platform.monitoring.read");
+  await requirePlatformPermission("platform.monitoring.manage");
   const today = new Date().toISOString().slice(0, 10);
   await enqueueJob({
     type: "automation.platform",
@@ -26,7 +26,7 @@ export async function enqueueAutomationAction() {
 
 /** Purge manuelle de rétention (jobs, livraisons, invitations expirées). */
 export async function runRetentionPurgeAction() {
-  await requirePlatformPermission("platform.monitoring.read");
+  await requirePlatformPermission("platform.monitoring.manage");
   await purgeExpiredData();
   revalidatePath("/platform/automations");
 }

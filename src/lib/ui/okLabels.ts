@@ -1,0 +1,90 @@
+/**
+ * Dictionnaire central des codes de succès métier → messages français
+ * destinés aux bannières `?ok=…`.
+ *
+ * Symétrique de `errorLabels.ts` : les codes internes et les paramètres
+ * d'URL restent inchangés ; tout code inconnu reçoit un message
+ * générique — jamais de valeur technique brute à l'écran.
+ */
+
+const OK_LABELS: Record<string, string> = {
+  // Générique
+  created: "Création enregistrée.",
+  updated: "Modification enregistrée.",
+  saved: "Enregistrement effectué.",
+  removed: "Élément supprimé.",
+  cancelled: "Annulation enregistrée.",
+  unchanged: "Aucune modification : tout était déjà à jour.",
+  status: "Statut mis à jour.",
+  draft: "Brouillon enregistré.",
+
+  // Élèves / inscriptions / parents / utilisateurs
+  enrolled: "Inscription enregistrée.",
+  transferred: "Transfert enregistré.",
+  linked: "Association enregistrée.",
+  unlinked: "Dissociation enregistrée.",
+  consent: "Consentement enregistré.",
+  teacher: "Enseignant enregistré.",
+  admin: "Administrateur créé.",
+  reset: "Mot de passe réinitialisé.",
+  invite: "Invitation envoyée.",
+  access: "Accès accordé.",
+
+  // Scolarité / pédagogie
+  current: "Année courante mise à jour.",
+  closed: "Clôture enregistrée.",
+  level: "Coefficient enregistré.",
+  subject: "Matière enregistrée.",
+  session: "Séance enregistrée.",
+  moved: "Séance déplacée.",
+  started: "Séance ouverte.",
+  ended: "Séance terminée.",
+  attendance: "Appel enregistré.",
+  justified: "Justification enregistrée.",
+  assigned: "Affectation enregistrée.",
+  content: "Contenu enregistré.",
+
+  // Notes / résultats / bulletins
+  computed: "Moyennes calculées.",
+  validated: "Résultats validés.",
+  published: "Résultats publiés — bulletins consultables.",
+  annual: "Résultats annuels calculés.",
+  generated: "Bulletins générés.",
+  rectified: "Bulletin rectifié.",
+  appreciation: "Appréciation enregistrée.",
+  annotations: "Annotations enregistrées.",
+  archived: "Archivage effectué.",
+  activated: "Activation effectuée.",
+
+  // Finances
+  payment: "Paiement encaissé.",
+  recorded: "Paiement enregistré.",
+  payment_cancelled: "Paiement annulé.",
+  charges: "Frais générés.",
+  tariff: "Tarif enregistré.",
+  category: "Catégorie enregistrée.",
+  discount: "Remise enregistrée.",
+  discount_archived: "Remise archivée.",
+  installment: "Échéance mise à jour.",
+  credit: "Avoir enregistré.",
+  reminded: "Relance envoyée.",
+  account: "Compte enregistré.",
+
+  // Communication / plateforme
+  sent: "Envoi lancé.",
+  reviewed: "Demande traitée.",
+  subscription: "Abonnement enregistré.",
+  suspended: "Suspension effectuée.",
+  reactivated: "Réactivation effectuée.",
+  renewed: "Renouvellement enregistré.",
+  trial: "Essai prolongé.",
+  plan: "Offre modifiée.",
+  module: "Module mis à jour.",
+  sweep: "Traitement exécuté.",
+};
+
+/** Message français d'un code de succès — générique si inconnu. */
+export function okMessage(code: string | null | undefined): string {
+  if (!code) return "";
+  return OK_LABELS[code] ?? "Opération effectuée.";
+}

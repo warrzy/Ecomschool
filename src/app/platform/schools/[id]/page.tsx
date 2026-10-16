@@ -31,6 +31,9 @@ import {
 } from "@/app/platform/schools/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -90,10 +93,16 @@ export default async function PlatformSchoolDetailPage(props: {
   // Présélection du plan demandé lors d'une conversion de demande d'inscription
   // (?plan=<id>) — l'attribution reste manuelle et confirmée par l'admin.
   const preselectPlan = typeof sp.plan === "string" ? sp.plan : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const selfHref = `/platform/schools/${id}`;
 
   const school = await platformGetSchool(id);
   if (!school) redirect("/platform/schools");
 
+  const canManageSchool = await userHasPlatformPermission({
+    userId: tenant.userId,
+    permissionKey: "platform.schools.manage",
+  });
   const canSubs = await userHasPlatformPermission({
     userId: tenant.userId,
     permissionKey: "platform.subscriptions.manage",
@@ -140,6 +149,82 @@ export default async function PlatformSchoolDetailPage(props: {
 
   return (
     <div className="space-y-4">
+      {canManageSchool && confirm === "school-status" ? (
+        <ConfirmPanel
+          title={
+            school.status === "ACTIVE"
+              ? "Confirmer la suspension de l'établissement"
+              : "Confirmer la réactivation de l'établissement"
+          }
+          tone={school.status === "ACTIVE" ? "danger" : "warning"}
+          action={setSchoolStatusAction}
+          fields={{
+            id: school.id,
+            status: school.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+          }}
+          confirmLabel={
+            school.status === "ACTIVE"
+              ? "Suspendre l'établissement"
+              : "Réactiver l'établissement"
+          }
+          cancelHref={selfHref}
+        >
+          {school.status === "ACTIVE" ? (
+            <>
+              Suspendre <strong>{school.name}</strong> ({school.code}) coupe
+              l&apos;accès de{" "}
+              <strong>{school._count.memberships} membre(s)</strong> à tous les
+              espaces de l&apos;établissement. Les données sont conservées ; la
+              réactivation reste possible.
+            </>
+          ) : (
+            <>
+              Réactiver <strong>{school.name}</strong> ({school.code}) rend
+              l&apos;accès à ses {school._count.memberships} membre(s).
+            </>
+          )}
+        </ConfirmPanel>
+      ) : null}
+      {canSubs && confirm === "sub-suspend" && subscription ? (
+        <ConfirmPanel
+          title="Confirmer la suspension de l'abonnement"
+          tone="danger"
+          action={suspendSubscriptionAction}
+          fields={{
+            subscriptionId: subscription.id,
+            schoolId: school.id,
+            note: "Suspension manuelle ECOM-TOUCH",
+          }}
+          confirmLabel="Suspendre l'abonnement"
+          cancelHref={selfHref}
+        >
+          Suspendre l&apos;abonnement <strong>{subscription.plan.name}</strong> de{" "}
+          <strong>{school.name}</strong> bloque les fonctionnalités souscrites
+          pour l&apos;ensemble de l&apos;établissement (les lectures restent
+          possibles). Réversible via « Réactiver ».
+        </ConfirmPanel>
+      ) : null}
+      {canSubs && confirm === "sub-cancel" && subscription ? (
+        <ConfirmPanel
+          title="Confirmer la résiliation de l'abonnement"
+          tone="danger"
+          action={cancelSubscriptionAction}
+          fields={{
+            subscriptionId: subscription.id,
+            schoolId: school.id,
+            note: "Résiliation ECOM-TOUCH",
+          }}
+          confirmLabel="Résilier l'abonnement"
+          cancelHref={selfHref}
+          requireText="RÉSILIER"
+        >
+          Résilier l&apos;abonnement <strong>{subscription.plan.name}</strong> de{" "}
+          <strong>{school.name}</strong> met fin à la facturation et coupe
+          l&apos;accès aux modules souscrits.{" "}
+          <strong>Cette action est définitive</strong> : une nouvelle
+          souscription serait nécessaire.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -152,15 +237,9 @@ export default async function PlatformSchoolDetailPage(props: {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <form action={setSchoolStatusAction}>
-              <input type="hidden" name="id" value={school.id} />
-              <input
-                type="hidden"
-                name="status"
-                value={school.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"}
-              />
-              <button
-                type="submit"
+            {canManageSchool ? (
+              <Link
+                href={`${selfHref}?confirm=school-status`}
                 className={
                   school.status === "ACTIVE"
                     ? "rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
@@ -168,8 +247,8 @@ export default async function PlatformSchoolDetailPage(props: {
                 }
               >
                 {school.status === "ACTIVE" ? "Suspendre" : "Activer"}
-              </button>
-            </form>
+              </Link>
+            ) : null}
             <Link
               href="/platform/schools"
               className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -181,7 +260,7 @@ export default async function PlatformSchoolDetailPage(props: {
 
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -259,12 +338,11 @@ export default async function PlatformSchoolDetailPage(props: {
               </select>
             </div>
           </div>
-          <button
-            type="submit"
+          <SubmitButton
             className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
           >
             Enregistrer
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -321,12 +399,11 @@ export default async function PlatformSchoolDetailPage(props: {
             <Field label="Prénom" name="firstName" required />
             <Field label="Nom" name="lastName" required />
           </div>
-          <button
-            type="submit"
+          <SubmitButton
             className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
           >
             Créer l&apos;administrateur
-          </button>
+          </SubmitButton>
         </form>
       </div>
 
@@ -382,7 +459,7 @@ export default async function PlatformSchoolDetailPage(props: {
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="schoolId" value={school.id} />
                   <input name="days" type="number" min="1" max="365" defaultValue="7" className={`${input} w-16`} />
-                  <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">+ jours essai</button>
+                  <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">+ jours essai</SubmitButton>
                 </form>
               ) : null}
               {["TRIALING", "ACTIVE", "PAST_DUE", "GRACE"].includes(subscription.status) ? (
@@ -390,28 +467,30 @@ export default async function PlatformSchoolDetailPage(props: {
                   <form action={renewSubscriptionAction}>
                     <input type="hidden" name="subscriptionId" value={subscription.id} />
                     <input type="hidden" name="schoolId" value={school.id} />
-                    <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Renouveler</button>
+                    <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Renouveler</SubmitButton>
                   </form>
-                  <form action={suspendSubscriptionAction}>
-                    <input type="hidden" name="subscriptionId" value={subscription.id} />
-                    <input type="hidden" name="schoolId" value={school.id} />
-                    <button name="note" value="Suspension manuelle ECOM-TOUCH" className="rounded-lg border border-amber-300 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50">Suspendre</button>
-                  </form>
+                  <Link
+                    href={`${selfHref}?confirm=sub-suspend`}
+                    className="rounded-lg border border-amber-300 px-3 py-2 text-sm text-amber-800 hover:bg-amber-50"
+                  >
+                    Suspendre
+                  </Link>
                 </>
               ) : null}
               {subscription.status === "SUSPENDED" ? (
                 <form action={reactivateSubscriptionAction}>
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="schoolId" value={school.id} />
-                  <button className="rounded-lg border border-emerald-300 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-50">Réactiver</button>
+                  <SubmitButton className="rounded-lg border border-emerald-300 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-50">Réactiver</SubmitButton>
                 </form>
               ) : null}
               {subscription.status !== "CANCELLED" && subscription.status !== "EXPIRED" ? (
-                <form action={cancelSubscriptionAction}>
-                  <input type="hidden" name="subscriptionId" value={subscription.id} />
-                  <input type="hidden" name="schoolId" value={school.id} />
-                  <button name="note" value="Résiliation ECOM-TOUCH" className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50">Résilier</button>
-                </form>
+                <Link
+                  href={`${selfHref}?confirm=sub-cancel`}
+                  className="rounded-lg border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                >
+                  Résilier
+                </Link>
               ) : null}
             </div>
           ) : null}
@@ -428,7 +507,7 @@ export default async function PlatformSchoolDetailPage(props: {
                     <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
                   ))}
                 </select>
-                <button className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Changer d&apos;offre</button>
+                <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Changer d&apos;offre</SubmitButton>
               </form>
             ) : (
               <form action={assignSubscriptionAction} className="flex flex-wrap items-end gap-2">
@@ -454,7 +533,7 @@ export default async function PlatformSchoolDetailPage(props: {
                 <label className="flex items-center gap-1 text-sm">
                   <input type="checkbox" name="startTrial" defaultChecked /> Essai
                 </label>
-                <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Attribuer</button>
+                <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Attribuer</SubmitButton>
               </form>
             )}
           </div>

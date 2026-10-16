@@ -4,6 +4,8 @@ import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { listSignupRequests } from "@/lib/services/platform/signup-requests";
 import { reviewSignupRequestAction } from "@/app/platform/signup-requests/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -90,7 +92,7 @@ export default async function SignupRequestsPage(props: {
 
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            Demande mise à jour ({STATUS_LABEL[ok.toUpperCase()] ?? ok}).
+            Demande mise à jour ({statusLabel("signupRequest", ok.toUpperCase())}).
           </div>
         ) : null}
         {error ? (
@@ -177,31 +179,28 @@ export default async function SignupRequestsPage(props: {
                     />
                     <div className="flex flex-wrap justify-end gap-2">
                       {r.status === "PENDING" ? (
-                        <button
-                          type="submit"
+                        <SubmitButton
                           name="action"
                           value="CONTACTED"
                           className="rounded-lg border border-sky-300 px-3 py-1.5 text-sm text-sky-800 hover:bg-sky-50"
                         >
                           Marquer contacté
-                        </button>
+                        </SubmitButton>
                       ) : null}
-                      <button
-                        type="submit"
+                      <SubmitButton
                         name="action"
                         value="APPROVED"
                         className="rounded-lg border border-emerald-300 bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700"
                       >
                         Approuver
-                      </button>
-                      <button
-                        type="submit"
+                      </SubmitButton>
+                      <SubmitButton
                         name="action"
                         value="REJECTED"
                         className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
                       >
                         Rejeter
-                      </button>
+                      </SubmitButton>
                     </div>
                   </form>
                   {r.status === "APPROVED" ? (

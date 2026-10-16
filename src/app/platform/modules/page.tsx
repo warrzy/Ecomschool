@@ -30,6 +30,7 @@ export default async function ModulesPage() {
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -57,6 +58,7 @@ export default async function ModulesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,9 @@ import {
   updateTariffAmountAction,
 } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -27,6 +30,8 @@ export default async function FeeSettingsPage(props: {
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
 
   const canManage = await userHasSchoolPermission({
     userId: tenant.userId,
@@ -64,8 +69,23 @@ export default async function FeeSettingsPage(props: {
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
+  const confirmCategory = categories.find((cat) => cat.id === confirmId);
+
   return (
     <div className="space-y-4">
+      {confirm === "archive-category" && confirmCategory ? (
+        <ConfirmPanel
+          title="Confirmer l'archivage de la catégorie"
+          action={archiveCategoryAction}
+          fields={{ id: confirmCategory.id }}
+          confirmLabel="Archiver la catégorie"
+          cancelHref="/app/fees/settings"
+        >
+          Archiver la catégorie <strong>{confirmCategory.label}</strong> (
+          {confirmCategory.code}) la retire des nouveaux tarifs et de la
+          génération de frais. Les créances existantes sont conservées.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Configuration
@@ -83,7 +103,7 @@ export default async function FeeSettingsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "category" ? "Catégorie créée." : ok === "tariff" ? "Tarif enregistré." : "Catégorie archivée."}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -99,10 +119,11 @@ export default async function FeeSettingsPage(props: {
           <input name="code" placeholder="Code" required className={input} />
           <input name="label" placeholder="Libellé" required className={input} />
           <input name="description" placeholder="Description" className={input} />
-          <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+          <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
             Ajouter
-          </button>
+          </SubmitButton>
         </form>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -120,18 +141,19 @@ export default async function FeeSettingsPage(props: {
                 <td className="py-2">{cat.status === "ACTIVE" ? "Actif" : "Archivé"}</td>
                 <td className="py-2 text-right">
                   {cat.status === "ACTIVE" ? (
-                    <form action={archiveCategoryAction} className="inline">
-                      <input type="hidden" name="id" value={cat.id} />
-                      <button type="submit" className="text-xs text-red-600 hover:underline">
-                        Archiver
-                      </button>
-                    </form>
+                    <Link
+                      href={`/app/fees/settings?confirm=archive-category&id=${cat.id}`}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Archiver
+                    </Link>
                   ) : null}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className={card}>
@@ -179,12 +201,13 @@ export default async function FeeSettingsPage(props: {
             <label className="flex items-center gap-1 text-sm">
               <input type="checkbox" name="mandatory" defaultChecked /> Obligatoire
             </label>
-            <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+            <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
               Ajouter le tarif
-            </button>
+            </SubmitButton>
           </form>
         ) : null}
 
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -213,9 +236,9 @@ export default async function FeeSettingsPage(props: {
                     <form action={updateTariffAmountAction} className="flex items-center justify-end gap-2">
                       <input type="hidden" name="id" value={t.id} />
                       <input name="amount" type="number" min="0" placeholder="Nouveau montant" className="w-32 rounded-lg border border-zinc-300 px-2 py-1 text-xs" />
-                      <button type="submit" className="text-xs text-zinc-600 hover:underline" title="Crée une nouvelle version du tarif (l'ancien est archivé)">
+                      <SubmitButton className="text-xs text-zinc-600 hover:underline" title="Crée une nouvelle version du tarif (l'ancien est archivé)">
                         Réviser
-                      </button>
+                      </SubmitButton>
                     </form>
                   ) : null}
                 </td>
@@ -226,6 +249,7 @@ export default async function FeeSettingsPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
         <p className="mt-3 text-xs text-zinc-500">
           Réviser un montant archive l&apos;ancien tarif : l&apos;historique est conservé et les créances déjà générées ne changent pas.
         </p>

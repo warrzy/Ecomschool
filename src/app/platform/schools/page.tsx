@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { requirePlatformPermission } from "@/lib/permissions/guard";
+import { userHasPlatformPermission } from "@/lib/permissions/rbac";
 import { platformListSchools } from "@/lib/services/schools";
 import { setSchoolStatusAction } from "@/app/platform/schools/actions";
 import type { SchoolStatus } from "@prisma/client";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
 export default async function PlatformSchoolsPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePlatformPermission("platform.schools.read");
+  const ctx = await requirePlatformPermission("platform.schools.read");
+  const canManage = await userHasPlatformPermission({
+    userId: ctx.userId,
+    permissionKey: "platform.schools.manage",
+  });
 
   const sp = (await props.searchParams) ?? {};
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
@@ -19,6 +25,8 @@ export default async function PlatformSchoolsPage(props: {
       ? (sp.status as SchoolStatus)
       : undefined;
   const page = Number(typeof sp.page === "string" ? sp.page : "1") || 1;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
 
   const { rows: schools, total, pageSize } = await platformListSchools({
     q: q || undefined,
@@ -35,8 +43,48 @@ export default async function PlatformSchoolsPage(props: {
     return `/platform/schools?${params.toString()}`;
   };
 
+  const confirmSchool = schools.find((s) => s.id === confirmId);
+
   return (
     <div className="space-y-4">
+      {canManage && confirm === "status" && confirmSchool ? (
+        <ConfirmPanel
+          title={
+            confirmSchool.status === "ACTIVE"
+              ? "Confirmer la suspension de l'établissement"
+              : "Confirmer la réactivation de l'établissement"
+          }
+          tone={confirmSchool.status === "ACTIVE" ? "danger" : "warning"}
+          action={setSchoolStatusAction}
+          fields={{
+            id: confirmSchool.id,
+            status:
+              confirmSchool.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
+          }}
+          confirmLabel={
+            confirmSchool.status === "ACTIVE"
+              ? "Suspendre l'établissement"
+              : "Réactiver l'établissement"
+          }
+          cancelHref="/platform/schools"
+        >
+          {confirmSchool.status === "ACTIVE" ? (
+            <>
+              Suspendre <strong>{confirmSchool.name}</strong> (
+              {confirmSchool.code}) coupe l&apos;accès de{" "}
+              <strong>{confirmSchool._count.memberships} membre(s)</strong> à
+              tous les espaces de l&apos;établissement. Les données sont
+              conservées ; la réactivation reste possible.
+            </>
+          ) : (
+            <>
+              Réactiver <strong>{confirmSchool.name}</strong> (
+              {confirmSchool.code}) rend l&apos;accès à ses{" "}
+              {confirmSchool._count.memberships} membre(s).
+            </>
+          )}
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -112,15 +160,9 @@ export default async function PlatformSchoolsPage(props: {
                       >
                         Fiche
                       </Link>
-                      <form action={setSchoolStatusAction}>
-                        <input type="hidden" name="id" value={s.id} />
-                        <input
-                          type="hidden"
-                          name="status"
-                          value={s.status === "ACTIVE" ? "INACTIVE" : "ACTIVE"}
-                        />
-                        <button
-                          type="submit"
+                      {canManage ? (
+                        <Link
+                          href={`/platform/schools?confirm=status&id=${s.id}`}
                           className={
                             s.status === "ACTIVE"
                               ? "rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
@@ -128,8 +170,8 @@ export default async function PlatformSchoolsPage(props: {
                           }
                         >
                           {s.status === "ACTIVE" ? "Suspendre" : "Activer"}
-                        </button>
-                      </form>
+                        </Link>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

@@ -67,6 +67,7 @@ export default async function SubscriptionsPage(props: {
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Demandes de changement d&apos;offre ({requests.length})
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {requests.map((r) => (
@@ -89,10 +90,12 @@ export default async function SubscriptionsPage(props: {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
       <div className={card}>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -128,6 +131,7 @@ export default async function SubscriptionsPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ const PLATFORM_KEYS = [
   "platform.payments.manage",
   "platform.modules.manage",
   "platform.monitoring.read",
+  "platform.monitoring.manage",
 ];
 
 export const MODULE_CATALOG = [

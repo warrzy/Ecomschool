@@ -29,6 +29,9 @@ import {
 import type { AttendanceStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 const DAY_LABEL: Record<string, string> = {
   MONDAY: "Lun",
@@ -87,6 +90,8 @@ export default async function StudentDetailPage({
   const sp = (await searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmLinkId = typeof sp.link === "string" ? sp.link : undefined;
 
   const student = await getStudent(
     { userId: tenant.userId, schoolId: tenant.schoolId },
@@ -230,8 +235,32 @@ export default async function StudentDetailPage({
 
   const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "");
 
+  const confirmLink = student.guardians.find((l) => l.id === confirmLinkId);
+  const selfHref = `/app/students/${student.id}`;
+
   return (
     <div className="space-y-4">
+      {canManageGuardians && confirm === "unlink" && confirmLink ? (
+        <ConfirmPanel
+          title="Confirmer la dissociation du responsable"
+          tone="danger"
+          action={unlinkGuardianAction}
+          fields={{ linkId: confirmLink.id, studentId: student.id }}
+          confirmLabel="Détacher le responsable"
+          cancelHref={selfHref}
+        >
+          Détacher{" "}
+          <strong>
+            {confirmLink.guardian.lastName} {confirmLink.guardian.firstName}
+          </strong>{" "}
+          ({RELATIONS[confirmLink.relation]}) de{" "}
+          <strong>
+            {student.lastName} {student.firstName}
+          </strong>{" "}
+          lui retire la visibilité et les notifications concernant cet élève.
+          Réversible en rattachant à nouveau ci-dessous.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -255,7 +284,7 @@ export default async function StudentDetailPage({
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -391,12 +420,11 @@ export default async function StudentDetailPage({
                 </select>
               </div>
             </div>
-            <button
-              type="submit"
+            <SubmitButton
               className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Enregistrer
-            </button>
+            </SubmitButton>
           </form>
         ) : (
           <dl className="mt-4 grid gap-4 md:grid-cols-3">
@@ -496,20 +524,12 @@ export default async function StudentDetailPage({
                     </span>
                   </span>
                   {canManageGuardians ? (
-                    <form action={unlinkGuardianAction}>
-                      <input type="hidden" name="linkId" value={l.id} />
-                      <input
-                        type="hidden"
-                        name="studentId"
-                        value={student.id}
-                      />
-                      <button
-                        type="submit"
-                        className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                      >
-                        Détacher
-                      </button>
-                    </form>
+                    <Link
+                      href={`${selfHref}?confirm=unlink&link=${l.id}`}
+                      className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                    >
+                      Détacher
+                    </Link>
                   ) : null}
                 </li>
               ))}
@@ -547,12 +567,11 @@ export default async function StudentDetailPage({
                       </option>
                     ))}
                   </select>
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
                   >
                     Lier
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             </details>
@@ -609,12 +628,11 @@ export default async function StudentDetailPage({
                     ))}
                   </select>
                 </div>
-                <button
-                  type="submit"
+                <SubmitButton
                   className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
                 >
                   Créer et lier
-                </button>
+                </SubmitButton>
               </form>
             </details>
           ) : null}
@@ -654,9 +672,9 @@ export default async function StudentDetailPage({
                         <form action={resendInviteAction}>
                           <input type="hidden" name="studentId" value={student.id} />
                           <input type="hidden" name="userId" value={access.student.user.id} />
-                          <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
                             Renvoyer l&apos;invitation
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : null}
                       <form action={setPortalAccessAction}>
@@ -667,9 +685,9 @@ export default async function StudentDetailPage({
                           name="status"
                           value={access.student.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
                         />
-                        <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                        <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
                           {access.student.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
-                        </button>
+                        </SubmitButton>
                       </form>
                     </>
                   ) : (
@@ -682,9 +700,9 @@ export default async function StudentDetailPage({
                         placeholder="Email du compte"
                         className="h-8 w-44 rounded-lg border border-zinc-200 px-2 text-xs"
                       />
-                      <button type="submit" className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                      <SubmitButton className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
                         Activer le compte
-                      </button>
+                      </SubmitButton>
                     </form>
                   )}
                 </span>
@@ -718,9 +736,9 @@ export default async function StudentDetailPage({
                           <form action={resendInviteAction}>
                             <input type="hidden" name="studentId" value={student.id} />
                             <input type="hidden" name="userId" value={g.guardian.user.id} />
-                            <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
                               Renvoyer
-                            </button>
+                            </SubmitButton>
                           </form>
                         ) : null}
                         <form action={setPortalAccessAction}>
@@ -731,9 +749,9 @@ export default async function StudentDetailPage({
                             name="status"
                             value={g.guardian.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
                           />
-                          <button type="submit" className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
                             {g.guardian.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
-                          </button>
+                          </SubmitButton>
                         </form>
                       </>
                     ) : (
@@ -748,9 +766,9 @@ export default async function StudentDetailPage({
                           defaultValue={g.guardian.email ?? ""}
                           className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"
                         />
-                        <button type="submit" className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                        <SubmitButton className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
                           Inviter
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                   </span>

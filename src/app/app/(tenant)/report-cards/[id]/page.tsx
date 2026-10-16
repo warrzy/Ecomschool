@@ -188,6 +188,7 @@ export default async function ReportCardDetailPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="mb-3 text-sm font-semibold text-zinc-900">Historique des versions</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -206,6 +207,7 @@ export default async function ReportCardDetailPage(props: {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

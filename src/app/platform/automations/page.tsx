@@ -1,4 +1,5 @@
 import { requirePlatformPermission } from "@/lib/permissions/guard";
+import { userHasPlatformPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { jobStats, listJobs } from "@/lib/services/comm/queue";
 import { listTaskRuns } from "@/lib/services/comm/automations";
@@ -9,6 +10,7 @@ import {
   runRetentionPurgeAction,
 } from "./actions";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -20,8 +22,16 @@ const JOB_STATUS: Record<string, string> = {
   DEAD: "Mort",
 };
 
-export default async function AutomationsPage() {
-  await requirePlatformPermission("platform.monitoring.read");
+export default async function AutomationsPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const ctx = await requirePlatformPermission("platform.monitoring.read");
+  const sp = (await props.searchParams) ?? {};
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const canRun = await userHasPlatformPermission({
+    userId: ctx.userId,
+    permissionKey: "platform.monitoring.manage",
+  });
   const [stats, jobs, runs, channels, deliveries, smsCost] = await Promise.all([
     jobStats(),
     listJobs({ take: 30 }),
@@ -47,33 +57,75 @@ export default async function AutomationsPage() {
             Automatisations &amp; file de jobs
           </div>
         </div>
-        <div className="flex gap-2">
-          <form action={runJobsAction}>
-            <button
-              type="submit"
+        {canRun ? (
+          <div className="flex gap-2">
+            <a
+              href="/platform/automations?confirm=jobs"
               className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
             >
               Exécuter les jobs dus
-            </button>
-          </form>
-          <form action={enqueueAutomationAction}>
-            <button
-              type="submit"
+            </a>
+            <a
+              href="/platform/automations?confirm=sweep"
               className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white"
             >
               Planifier le sweep SaaS
-            </button>
-          </form>
-          <form action={runRetentionPurgeAction}>
-            <button
-              type="submit"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            </a>
+            <a
+              href="/platform/automations?confirm=purge"
+              className="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
             >
               Purge de rétention
-            </button>
-          </form>
-        </div>
+            </a>
+          </div>
+        ) : null}
       </div>
+
+      {canRun && confirm === "jobs" ? (
+        <ConfirmPanel
+          title="Confirmer l'exécution des jobs"
+          action={runJobsAction}
+          fields={{}}
+          confirmLabel="Exécuter maintenant"
+          cancelHref="/platform/automations"
+        >
+          Exécute immédiatement tous les jobs en attente (notifications,
+          livraisons, automatisations). Les jobs déjà planifiés du cron
+          continuent normalement — cette action force simplement un passage.
+        </ConfirmPanel>
+      ) : null}
+
+      {canRun && confirm === "sweep" ? (
+        <ConfirmPanel
+          title="Confirmer la planification du sweep"
+          action={enqueueAutomationAction}
+          fields={{}}
+          confirmLabel="Planifier le sweep"
+          cancelHref="/platform/automations"
+        >
+          Planifie le sweep quotidien des automatisations plateforme
+          (rappels d&apos;abonnement, purge de rétention). Un même sweep n&apos;est
+          planifié qu&apos;une fois par jour — un second clic est ignoré.
+        </ConfirmPanel>
+      ) : null}
+
+      {canRun && confirm === "purge" ? (
+        <ConfirmPanel
+          title="Confirmer la purge de rétention"
+          tone="danger"
+          action={runRetentionPurgeAction}
+          fields={{}}
+          confirmLabel="Purger définitivement"
+          cancelHref="/platform/automations"
+          requireText="PURGER"
+        >
+          La purge supprime <strong>définitivement</strong> les données dont la
+          durée de rétention est expirée : livraisons de messages, notifications,
+          journaux d&apos;audit anciens, invitations et jobs terminés. Cette
+          action est <strong>irréversible</strong> et concerne tous les
+          établissements.
+        </ConfirmPanel>
+      ) : null}
 
       <div className="grid gap-3 md:grid-cols-4">
         {[

@@ -11,6 +11,8 @@ import {
 } from "@/app/app/(tenant)/subjects/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -26,6 +28,8 @@ export default async function SubjectDetailPage({
   const sp = (await searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmLinkId = typeof sp.link === "string" ? sp.link : undefined;
 
   const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
   const subject = await getSubject(ctx, id);
@@ -42,9 +46,27 @@ export default async function SubjectDetailPage({
     subject.levelAssignments.map((l) => l.level.id),
   );
   const availableLevels = levels.filter((l) => !assignedLevelIds.has(l.id));
+  const confirmLevel = subject.levelAssignments.find(
+    (a) => a.id === confirmLinkId,
+  );
+  const selfHref = `/app/subjects/${subject.id}`;
 
   return (
     <div className="space-y-4">
+      {canManage && confirm === "remove-coef" && confirmLevel ? (
+        <ConfirmPanel
+          title="Confirmer le retrait du coefficient"
+          action={removeLevelCoefficientAction}
+          fields={{ linkId: confirmLevel.id, subjectId: subject.id }}
+          confirmLabel="Retirer le coefficient"
+          cancelHref={selfHref}
+        >
+          Retirer la matière <strong>{subject.name}</strong> du niveau{" "}
+          <strong>{confirmLevel.level.name}</strong> (coefficient{" "}
+          {confirmLevel.coefficient}) la fait disparaître des calculs de
+          moyennes pour ce niveau. Réversible en redéfinissant le coefficient.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -66,7 +88,7 @@ export default async function SubjectDetailPage({
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -148,20 +170,12 @@ export default async function SubjectDetailPage({
                     </td>
                     {canManage ? (
                       <td className="py-2 pr-4">
-                        <form action={removeLevelCoefficientAction}>
-                          <input type="hidden" name="linkId" value={a.id} />
-                          <input
-                            type="hidden"
-                            name="subjectId"
-                            value={subject.id}
-                          />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                          >
-                            Retirer
-                          </button>
-                        </form>
+                        <Link
+                          href={`${selfHref}?confirm=remove-coef&link=${a.id}`}
+                          className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                        >
+                          Retirer
+                        </Link>
                       </td>
                     ) : null}
                   </tr>

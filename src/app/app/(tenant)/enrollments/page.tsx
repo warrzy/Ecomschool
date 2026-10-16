@@ -10,6 +10,9 @@ import {
 } from "@/app/app/(tenant)/enrollments/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -22,6 +25,9 @@ export default async function EnrollmentsPage(props: {
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
+  const confirmTo = typeof sp.to === "string" ? sp.to : undefined;
 
   const yearId = typeof sp.year === "string" ? sp.year : undefined;
   const classroomId = typeof sp.classroom === "string" ? sp.classroom : undefined;
@@ -75,6 +81,8 @@ export default async function EnrollmentsPage(props: {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentYear = years.find((y) => y.isCurrent);
+  const confirmEnrollment = items.find((e) => e.id === confirmId);
+  const confirmTargetClass = classrooms.find((c) => c.id === confirmTo);
 
   const pageHref = (p: number) => {
     const params = new URLSearchParams();
@@ -88,6 +96,53 @@ export default async function EnrollmentsPage(props: {
 
   return (
     <div className="space-y-4">
+      {canManage && confirm === "transfer" && confirmEnrollment && confirmTargetClass ? (
+        <ConfirmPanel
+          title="Confirmer le transfert de classe"
+          action={transferStudentAction}
+          fields={{
+            enrollmentId: confirmEnrollment.id,
+            toClassroomId: confirmTargetClass.id,
+          }}
+          confirmLabel="Transférer l'élève"
+          cancelHref="/app/enrollments"
+        >
+          Transférer{" "}
+          <strong>
+            {confirmEnrollment.student.lastName}{" "}
+            {confirmEnrollment.student.firstName} (
+            {confirmEnrollment.student.matricule})
+          </strong>{" "}
+          de <strong>{confirmEnrollment.classroom.name}</strong> vers{" "}
+          <strong>{confirmTargetClass.name}</strong>. L&apos;historique des notes
+          et présences est conservé ; l&apos;élève quittera la grille de la
+          classe actuelle.
+        </ConfirmPanel>
+      ) : null}
+      {canManage && confirm === "close" && confirmEnrollment ? (
+        <ConfirmPanel
+          title="Confirmer le retrait de l'inscription"
+          tone="danger"
+          action={closeEnrollmentAction}
+          fields={{
+            enrollmentId: confirmEnrollment.id,
+            status: "WITHDRAWN",
+          }}
+          confirmLabel="Retirer l'élève"
+          cancelHref="/app/enrollments"
+        >
+          Retirer{" "}
+          <strong>
+            {confirmEnrollment.student.lastName}{" "}
+            {confirmEnrollment.student.firstName} (
+            {confirmEnrollment.student.matricule})
+          </strong>{" "}
+          de <strong>{confirmEnrollment.classroom.name}</strong> termine son
+          inscription pour {confirmEnrollment.academicYear.name}.{" "}
+          <strong>Cette action est irréversible</strong> — une nouvelle
+          inscription serait nécessaire pour le réinscrire.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Scolarité</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -95,7 +150,7 @@ export default async function EnrollmentsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -230,12 +285,11 @@ export default async function EnrollmentsPage(props: {
                   ))}
                 </select>
               </div>
-              <button
-                type="submit"
+              <SubmitButton
                 className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Inscrire
-              </button>
+              </SubmitButton>
             </div>
             <p className="mt-2 text-xs text-zinc-500">
               La classe doit appartenir à l&apos;année scolaire choisie ; un
@@ -296,58 +350,43 @@ export default async function EnrollmentsPage(props: {
                     <td className="py-2 pr-4">
                       {e.status === "ENROLLED" ? (
                         <div className="flex items-center gap-2">
-                          <form
-                            action={transferStudentAction}
-                            className="flex items-center gap-1"
+                          {/* GET vers ?confirm=transfer — la vraie action est
+                              dans le panneau de confirmation. */}
+                          <form id={`tr-${e.id}`} method="GET" action="/app/enrollments" />
+                          <select
+                            form={`tr-${e.id}`}
+                            name="to"
+                            required
+                            className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-xs"
                           >
-                            <input
-                              type="hidden"
-                              name="enrollmentId"
-                              value={e.id}
-                            />
-                            <select
-                              name="toClassroomId"
-                              required
-                              className="h-8 rounded-lg border border-zinc-200 bg-white px-2 text-xs"
-                            >
-                              <option value="">→ Classe…</option>
-                              {classrooms
-                                .filter(
-                                  (c) =>
-                                    c.academicYearId ===
-                                      e.academicYear.id && c.id !== e.classroom.id,
-                                )
-                                .map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}
-                                  </option>
-                                ))}
-                            </select>
-                            <button
-                              type="submit"
-                              className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
-                            >
-                              Transférer
-                            </button>
-                          </form>
-                          <form action={closeEnrollmentAction}>
-                            <input
-                              type="hidden"
-                              name="enrollmentId"
-                              value={e.id}
-                            />
-                            <input
-                              type="hidden"
-                              name="status"
-                              value="WITHDRAWN"
-                            />
-                            <button
-                              type="submit"
-                              className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                            >
-                              Retirer
-                            </button>
-                          </form>
+                            <option value="">→ Classe…</option>
+                            {classrooms
+                              .filter(
+                                (c) =>
+                                  c.academicYearId ===
+                                    e.academicYear.id && c.id !== e.classroom.id,
+                              )
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                </option>
+                              ))}
+                          </select>
+                          <input form={`tr-${e.id}`} type="hidden" name="confirm" value="transfer" />
+                          <input form={`tr-${e.id}`} type="hidden" name="id" value={e.id} />
+                          <button
+                            type="submit"
+                            form={`tr-${e.id}`}
+                            className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                          >
+                            Transférer
+                          </button>
+                          <Link
+                            href={`/app/enrollments?confirm=close&id=${e.id}`}
+                            className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                          >
+                            Retirer
+                          </Link>
                         </div>
                       ) : null}
                     </td>

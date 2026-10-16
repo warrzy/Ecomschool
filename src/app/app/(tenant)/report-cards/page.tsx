@@ -11,6 +11,8 @@ import {
   rectifyReportCardAction,
 } from "@/app/app/(tenant)/report-cards/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -34,6 +36,8 @@ export default async function ReportCardsPage(props: {
   const error = str("error");
   const classroomId = str("classroom");
   const periodId = str("period");
+  const confirm = str("confirm");
+  const confirmId = str("id");
   const status = str("status") as
     | "DRAFT"
     | "CALCULATED"
@@ -81,8 +85,56 @@ export default async function ReportCardsPage(props: {
   const inputCls =
     "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
 
+  const selClassroom = classrooms.find((cl) => cl.id === classroomId);
+  const selPeriod = periods.find((p) => p.id === periodId);
+  const confirmCard = cards.find((card) => card.id === confirmId);
+
   return (
     <div className="space-y-4">
+      {confirm === "rectify" && confirmCard ? (
+        <ConfirmPanel
+          title="Confirmer la rectification du bulletin"
+          tone="warning"
+          action={rectifyReportCardAction}
+          fields={{ id: confirmCard.id }}
+          inputs={[
+            {
+              name: "reason",
+              label: "Motif de rectification",
+              required: true,
+              placeholder: "Ex. erreur de saisie de la note de maths",
+            },
+          ]}
+          confirmLabel="Rectifier le bulletin"
+          cancelHref="/app/report-cards"
+        >
+          Rectifier le bulletin <strong>{confirmCard.identifier}</strong> de{" "}
+          <strong>
+            {confirmCard.student.lastName} {confirmCard.student.firstName}
+          </strong>{" "}
+          ({confirmCard.classroom.name} — {confirmCard.academicPeriod.name})
+          repasse le bulletin à l&apos;état « Rectifié » : le snapshot publié est
+          conservé et une nouvelle version sera produite à la prochaine
+          validation. Le motif est tracé dans le registre.
+        </ConfirmPanel>
+      ) : null}
+      {canGenerate && confirm === "generate" && selClassroom && selPeriod ? (
+        <ConfirmPanel
+          title="Confirmer la génération des bulletins"
+          action={generateClassReportCardsAction}
+          fields={{
+            classroomId: selClassroom.id,
+            academicPeriodId: selPeriod.id,
+          }}
+          confirmLabel="Générer les bulletins"
+          cancelHref="/app/report-cards"
+        >
+          Générer les bulletins de toute la classe{" "}
+          <strong>{selClassroom.name}</strong> pour{" "}
+          <strong>{selPeriod.name}</strong>. Les bulletins existants à jour ne
+          sont pas régénérés ; les versions antérieures sont conservées.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Bulletins</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -90,7 +142,7 @@ export default async function ReportCardsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "generated" ? `Bulletins générés (${sp.count ?? ""}).` : ok === "rectified" ? "Bulletin rectifié (nouvelle version)." : ok}
+            {ok === "generated" ? `Bulletins générés (${sp.count ?? ""}).` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -136,13 +188,12 @@ export default async function ReportCardsPage(props: {
             Registre Excel
           </a>
           {canGenerate && classroomId && periodId ? (
-            <button
-              type="submit"
-              form="generate-class"
+            <a
+              href={`/app/report-cards?classroom=${classroomId}&period=${periodId}&confirm=generate`}
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Générer tous les bulletins de la classe
-            </button>
+            </a>
           ) : null}
           {canPrint && classroomId && periodId ? (
             <a
@@ -154,15 +205,10 @@ export default async function ReportCardsPage(props: {
             </a>
           ) : null}
         </form>
-        {canGenerate && classroomId && periodId ? (
-          <form id="generate-class" action={generateClassReportCardsAction}>
-            <input type="hidden" name="classroomId" value={classroomId} />
-            <input type="hidden" name="academicPeriodId" value={periodId} />
-          </form>
-        ) : null}
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -202,18 +248,12 @@ export default async function ReportCardsPage(props: {
                       </a>
                     ) : null}
                     {canValidate && card.status === "PUBLISHED" ? (
-                      <form action={rectifyReportCardAction} className="flex items-center gap-1">
-                        <input type="hidden" name="id" value={card.id} />
-                        <input
-                          name="reason"
-                          required
-                          placeholder="Motif de rectification"
-                          className="rounded-lg border border-zinc-300 px-2 py-1 text-xs"
-                        />
-                        <button type="submit" className="rounded-lg border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">
-                          Rectifier
-                        </button>
-                      </form>
+                      <Link
+                        href={`/app/report-cards?confirm=rectify&id=${card.id}`}
+                        className="rounded-lg border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
+                      >
+                        Rectifier
+                      </Link>
                     ) : null}
                     <Link
                       href={`/app/students/${card.student.id}`}
@@ -234,6 +274,7 @@ export default async function ReportCardsPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import {
   updateAnnouncementAction,
 } from "@/app/app/(tenant)/announcements/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 export const instant = false;
 
 const AUDIENCE_LABELS: Record<string, string> = {
@@ -596,9 +597,9 @@ export default async function AnnouncementsPage(props: {
                           {st === "scheduled" ? (
                             <form action={cancelScheduleAction}>
                               <input type="hidden" name="id" value={a.id} />
-                              <button type="submit" className={linkCls}>
+                              <SubmitButton pendingLabel="Annulation…" className={linkCls}>
                                 Annuler prog.
-                              </button>
+                              </SubmitButton>
                             </form>
                           ) : null}
                           {st !== "archived" ? (

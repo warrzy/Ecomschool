@@ -205,6 +205,7 @@ export default async function SubscriptionPage(props: {
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Factures SaaS ({invoices.length})
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <tbody>
             {invoices.map((i) => (
@@ -223,6 +224,7 @@ export default async function SubscriptionPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

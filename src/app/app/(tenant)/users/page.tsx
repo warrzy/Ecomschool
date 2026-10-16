@@ -7,6 +7,8 @@ import {
 } from "@/app/app/(tenant)/users/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -29,6 +31,8 @@ export default async function UsersPage(props: {
   const sort = safeSort(typeof sp.sort === "string" ? sp.sort : undefined);
   const dir = safeDir(typeof sp.dir === "string" ? sp.dir : undefined);
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
 
   const memberships = await listSchoolUsers(
     { userId: tenant.userId, schoolId: tenant.schoolId },
@@ -44,8 +48,47 @@ export default async function UsersPage(props: {
     return `/app/users?${params.toString()}`;
   };
 
+  const confirmTarget = memberships.find((m) => m.user.id === confirmId);
+
   return (
     <div className="space-y-4">
+      {confirm === "reset" && confirmTarget ? (
+        <ConfirmPanel
+          title="Confirmer la réinitialisation du mot de passe"
+          action={resetUserPassword}
+          fields={{ id: confirmTarget.user.id }}
+          confirmLabel="Réinitialiser le mot de passe"
+          cancelHref="/app/users"
+        >
+          Un lien de réinitialisation sera émis pour{" "}
+          <strong>
+            {confirmTarget.user.firstName} {confirmTarget.user.lastName} (
+            {confirmTarget.user.email})
+          </strong>
+          . Son mot de passe actuel continuera de fonctionner jusqu&apos;à ce
+          qu&apos;il soit changé.
+        </ConfirmPanel>
+      ) : null}
+      {confirm === "delete" && confirmTarget ? (
+        <ConfirmPanel
+          title="Confirmer la suppression du compte"
+          tone="danger"
+          action={deleteUser}
+          fields={{ id: confirmTarget.user.id }}
+          confirmLabel="Supprimer définitivement"
+          cancelHref="/app/users"
+          requireText="SUPPRIMER"
+        >
+          Supprimer{" "}
+          <strong>
+            {confirmTarget.user.firstName} {confirmTarget.user.lastName} (
+            {confirmTarget.user.email})
+          </strong>{" "}
+          retire son accès à l&apos;établissement. Si ce compte n&apos;appartient
+          à aucun autre établissement, l&apos;utilisateur est{" "}
+          <strong>définitivement supprimé — action irréversible</strong>.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -85,6 +128,11 @@ export default async function UsersPage(props: {
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Lien de réinitialisation émis (valable 24 h) — envoyé par email si le
             canal est configuré.
+          </div>
+        ) : null}
+        {sp.ok && sp.ok !== "reset" ? (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {okMessage(typeof sp.ok === "string" ? sp.ok : undefined)}
           </div>
         ) : null}
 
@@ -136,7 +184,7 @@ export default async function UsersPage(props: {
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">{m.role.name}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("membership", m.status)}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.user.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("user", m.user.status)}</td>
                   <td className="py-2 pr-4 text-zinc-700">
                     {m.user.createdAt.toISOString().slice(0, 10)}
                   </td>
@@ -149,26 +197,20 @@ export default async function UsersPage(props: {
                         Modifier
                       </Link>
                       {m.user.id === tenant.userId ? null : (
-                        <form action={resetUserPassword}>
-                          <input type="hidden" name="id" value={m.user.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
-                          >
-                            Réinit. MDP
-                          </button>
-                        </form>
+                        <Link
+                          href={`/app/users?confirm=reset&id=${m.user.id}`}
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        >
+                          Réinit. MDP
+                        </Link>
                       )}
                       {m.user.id === tenant.userId ? null : (
-                        <form action={deleteUser}>
-                          <input type="hidden" name="id" value={m.user.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
-                          >
-                            Supprimer
-                          </button>
-                        </form>
+                        <Link
+                          href={`/app/users?confirm=delete&id=${m.user.id}`}
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                        >
+                          Supprimer
+                        </Link>
                       )}
                     </div>
                   </td>

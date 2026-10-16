@@ -9,6 +9,8 @@ import {
   recordPlatformPaymentAction,
 } from "@/app/platform/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -28,6 +30,8 @@ export default async function InvoiceDetailPage(props: {
   const { id } = await props.params;
   const sp = (await props.searchParams) ?? {};
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.pid === "string" ? sp.pid : undefined;
   const canManage = await userHasPlatformPermission({
     userId: tenant.userId,
     permissionKey: "platform.invoices.manage",
@@ -53,9 +57,34 @@ export default async function InvoiceDetailPage(props: {
   const balance = Math.max(0, invoice.total - paid - credited);
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
+  const selfHref = `/platform/invoices/${invoice.id}`;
+  const confirmPayment = invoice.payments.find((p) => p.id === confirmId);
 
   return (
     <div className="space-y-4">
+      {canPay && confirm === "cancel-payment" && confirmPayment ? (
+        <ConfirmPanel
+          title="Confirmer l'annulation du règlement"
+          tone="danger"
+          action={cancelPlatformPaymentAction}
+          fields={{ id: confirmPayment.id }}
+          inputs={[
+            {
+              name: "reason",
+              label: "Motif de la contre-écriture :",
+              required: true,
+              placeholder: "Erreur de saisie, doublon…",
+            },
+          ]}
+          confirmLabel="Annuler le règlement"
+          cancelHref={selfHref}
+        >
+          Annuler le règlement de <strong>{fmt(confirmPayment.amount)}</strong>{" "}
+          sur la facture <strong>{invoice.invoiceNumber}</strong> le contredit
+          et rouvre le solde. <strong>Cette action est irréversible</strong> et
+          reste tracée dans l&apos;audit.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -85,6 +114,7 @@ export default async function InvoiceDetailPage(props: {
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Lignes</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <tbody>
             {invoice.lines.map((l) => (
@@ -96,6 +126,7 @@ export default async function InvoiceDetailPage(props: {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {canPay && (invoice.status === "ISSUED" || invoice.status === "PARTIALLY_PAID") ? (
@@ -104,12 +135,16 @@ export default async function InvoiceDetailPage(props: {
           <form action={recordPlatformPaymentAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="invoiceId" value={invoice.id} />
             <input type="hidden" name="schoolId" value={invoice.schoolId} />
+            <input type="hidden" name="idempotencyKey" value={globalThis.crypto?.randomUUID?.() ?? ""} />
             <input name="amount" type="number" min="1" max={balance} defaultValue={balance} required className={input} />
             <input name="method" placeholder="Mode (virement, espèces…)" className={input} />
             <input name="reference" placeholder="Référence" className={input} />
-            <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
+            <SubmitButton
+              pendingLabel="Encaissement…"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+            >
               Encaisser
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : null}
@@ -117,6 +152,7 @@ export default async function InvoiceDetailPage(props: {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Règlements ({invoice.payments.length})</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {invoice.payments.map((p) => (
@@ -126,10 +162,12 @@ export default async function InvoiceDetailPage(props: {
                   <td className="py-2 text-xs">{p.status === "CANCELLED" ? "Annulé" : "Validé"}</td>
                   <td className="py-2 text-right">
                     {canPay && p.status === "VALIDATED" ? (
-                      <form action={cancelPlatformPaymentAction} className="inline">
-                        <input type="hidden" name="id" value={p.id} />
-                        <button name="reason" value="Contre-écriture" className="text-xs text-red-700 underline">Annuler</button>
-                      </form>
+                      <Link
+                        href={`${selfHref}?confirm=cancel-payment&pid=${p.id}`}
+                        className="text-xs text-red-700 underline"
+                      >
+                        Annuler
+                      </Link>
                     ) : null}
                   </td>
                 </tr>
@@ -139,10 +177,12 @@ export default async function InvoiceDetailPage(props: {
               ) : null}
             </tbody>
           </table>
+          </div>
         </div>
 
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Avoirs ({invoice.creditNotes.length})</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {invoice.creditNotes.map((c) => (
@@ -157,15 +197,16 @@ export default async function InvoiceDetailPage(props: {
               ) : null}
             </tbody>
           </table>
+          </div>
           {canManage && invoice.status !== "CANCELLED" && balance > 0 ? (
             <form action={issueCreditNoteAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="invoiceId" value={invoice.id} />
               <input type="hidden" name="schoolId" value={invoice.schoolId} />
               <input name="amount" type="number" min="1" max={balance} placeholder="Montant" required className={input} />
               <input name="reason" placeholder="Motif" required className={input} />
-              <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+              <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
                 Émettre un avoir
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
         </div>

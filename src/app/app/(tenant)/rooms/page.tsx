@@ -3,6 +3,7 @@ import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listRooms } from "@/lib/services/rooms";
 import { createRoomAction, updateRoomAction } from "@/app/app/(tenant)/rooms/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
 
 export const instant = false;
 
@@ -46,7 +47,7 @@ export default async function RoomsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (

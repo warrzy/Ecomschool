@@ -12,6 +12,8 @@ import {
 } from "@/app/app/(tenant)/teachers/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -27,6 +29,8 @@ export default async function TeacherDetailPage({
   const sp = (await searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmAssignId = typeof sp.assignment === "string" ? sp.assignment : undefined;
 
   const teacher = await getTeacher(
     { userId: tenant.userId, schoolId: tenant.schoolId },
@@ -65,8 +69,37 @@ export default async function TeacherDetailPage({
 
   const currentYear = years.find((y) => y.isCurrent) ?? years[0];
 
+  const confirmAssignment = teacher.assignments.find(
+    (a) => a.id === confirmAssignId,
+  );
+  const selfHref = `/app/teachers/${teacher.id}`;
+
   return (
     <div className="space-y-4">
+      {canManage && confirm === "unassign" && confirmAssignment ? (
+        <ConfirmPanel
+          title="Confirmer le retrait de l'affectation"
+          action={removeAssignmentAction}
+          fields={{
+            assignmentId: confirmAssignment.id,
+            teacherId: teacher.id,
+          }}
+          confirmLabel="Retirer l'affectation"
+          cancelHref={selfHref}
+        >
+          Retirer l&apos;affectation de{" "}
+          <strong>
+            {teacher.lastName} {teacher.firstName}
+          </strong>{" "}
+          à <strong>{confirmAssignment.classroom.name}</strong>
+          {confirmAssignment.subject ? (
+            <> en <strong>{confirmAssignment.subject.name}</strong></>
+          ) : null}{" "}
+          ({confirmAssignment.academicYear.name}). L&apos;enseignant ne pourra
+          plus saisir les notes de cette classe/matière ; réversible en
+          réaffectant ci-dessous.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -90,7 +123,7 @@ export default async function TeacherDetailPage({
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -317,24 +350,12 @@ export default async function TeacherDetailPage({
                   </td>
                   {canManage ? (
                     <td className="py-2 pr-4">
-                      <form action={removeAssignmentAction}>
-                        <input
-                          type="hidden"
-                          name="assignmentId"
-                          value={a.id}
-                        />
-                        <input
-                          type="hidden"
-                          name="teacherId"
-                          value={teacher.id}
-                        />
-                        <button
-                          type="submit"
-                          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
-                        >
-                          Retirer
-                        </button>
-                      </form>
+                      <Link
+                        href={`${selfHref}?confirm=unassign&assignment=${a.id}`}
+                        className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                      >
+                        Retirer
+                      </Link>
                     </td>
                   ) : null}
                 </tr>

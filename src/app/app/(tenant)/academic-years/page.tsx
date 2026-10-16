@@ -9,6 +9,8 @@ import {
 } from "@/app/app/(tenant)/academic-years/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -21,6 +23,8 @@ export default async function AcademicYearsPage(props: {
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
 
   const canManage = await userHasSchoolPermission({
     userId: tenant.userId,
@@ -32,9 +36,39 @@ export default async function AcademicYearsPage(props: {
     userId: tenant.userId,
     schoolId: tenant.schoolId,
   });
+  const confirmTarget = years.find((y) => y.id === confirmId);
 
   return (
     <div className="space-y-4">
+      {canManage && confirm === "current" && confirmTarget ? (
+        <ConfirmPanel
+          title="Confirmer le changement d'année courante"
+          action={setCurrentYearAction}
+          fields={{ id: confirmTarget.id }}
+          confirmLabel="Définir comme année courante"
+          cancelHref="/app/academic-years"
+        >
+          Définir <strong>{confirmTarget.name}</strong> comme année courante
+          change le contexte de toute l&apos;école : les listes, saisies et
+          finances basculeront sur cette année. L&apos;opération est réversible
+          mais impacte immédiatement tous les utilisateurs.
+        </ConfirmPanel>
+      ) : null}
+      {canManage && confirm === "close" && confirmTarget ? (
+        <ConfirmPanel
+          title="Confirmer la clôture de l'année"
+          tone="danger"
+          action={closeYearAction}
+          fields={{ id: confirmTarget.id }}
+          confirmLabel="Clôturer définitivement"
+          cancelHref="/app/academic-years"
+        >
+          Clôturer <strong>{confirmTarget.name}</strong> verrouille
+          définitivement ses inscriptions, notes, évaluations et périodes.{" "}
+          <strong>Cette action est irréversible</strong> : aucune réouverture
+          n&apos;est possible depuis l&apos;interface.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -42,7 +76,7 @@ export default async function AcademicYearsPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -152,26 +186,20 @@ export default async function AcademicYearsPage(props: {
                         Périodes
                       </Link>
                       {canManage && !y.isCurrent && y.status !== "CLOSED" ? (
-                        <form action={setCurrentYearAction}>
-                          <input type="hidden" name="id" value={y.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
-                          >
-                            Définir courante
-                          </button>
-                        </form>
+                        <Link
+                          href={`/app/academic-years?confirm=current&id=${y.id}`}
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        >
+                          Définir courante
+                        </Link>
                       ) : null}
                       {canManage && !y.isCurrent && y.status === "ACTIVE" ? (
-                        <form action={closeYearAction}>
-                          <input type="hidden" name="id" value={y.id} />
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
-                          >
-                            Clôturer
-                          </button>
-                        </form>
+                        <Link
+                          href={`/app/academic-years?confirm=close&id=${y.id}`}
+                          className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+                        >
+                          Clôturer
+                        </Link>
                       ) : null}
                     </div>
                   </td>

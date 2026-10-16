@@ -11,6 +11,9 @@ import {
   updateInstallmentAction,
 } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -57,6 +60,8 @@ export default async function StudentAccountPage(props: {
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const ok = str("ok");
   const error = str("error");
+  const confirm = str("confirm");
+  const confirmId = str("id");
 
   const financeYears = await studentFinanceYears(c, id);
   const allYears = await prisma.academicYear.findMany({
@@ -80,9 +85,29 @@ export default async function StudentAccountPage(props: {
 
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
+  const selfHref = `/app/fees/accounts/${id}?year=${yearId}`;
+  const confirmDiscount = account.discounts.find((d) => d.id === confirmId);
 
   return (
     <div className="space-y-4">
+      {canDiscount && confirm === "archive-discount" && confirmDiscount ? (
+        <ConfirmPanel
+          title="Confirmer l'archivage de la réduction"
+          action={archiveDiscountAction}
+          fields={{ id: confirmDiscount.id, studentId: id, academicYearId: yearId }}
+          confirmLabel="Archiver la réduction"
+          cancelHref={selfHref}
+        >
+          Archiver la réduction{" "}
+          <strong>
+            {DISCOUNT_LABELS[confirmDiscount.type] ?? confirmDiscount.type} —{" "}
+            {confirmDiscount.reason}
+          </strong>{" "}
+          de {account.student.firstName} {account.student.lastName} la retire
+          des prochains calculs de soldes. Les montants déjà appliqués restent
+          tracés.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees/accounts" className="hover:underline">Comptes élèves</Link> / Dossier
@@ -116,7 +141,7 @@ export default async function StudentAccountPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "payment" ? `Paiement enregistré — reçu ${sp.receipt ?? ""}.` : ok === "discount" ? "Réduction enregistrée." : ok === "installment" ? "Échéance mise à jour." : ok}
+            {ok === "payment" ? `Paiement enregistré — reçu ${sp.receipt ?? ""}.` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -143,6 +168,7 @@ export default async function StudentAccountPage(props: {
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Échéances</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -187,11 +213,13 @@ export default async function StudentAccountPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Réductions & bourses</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {account.discounts.map((d) => (
@@ -206,12 +234,12 @@ export default async function StudentAccountPage(props: {
                   <td className="py-2 text-right text-xs text-zinc-500">
                     {d.status === "ARCHIVED" ? "Archivée" : ""}
                     {canDiscount && d.status === "ACTIVE" ? (
-                      <form action={archiveDiscountAction} className="inline">
-                        <input type="hidden" name="id" value={d.id} />
-                        <input type="hidden" name="studentId" value={id} />
-                        <input type="hidden" name="academicYearId" value={yearId} />
-                        <button type="submit" className="ml-2 text-red-600 hover:underline">Archiver</button>
-                      </form>
+                      <Link
+                        href={`/app/fees/accounts/${id}?year=${yearId}&confirm=archive-discount&id=${d.id}`}
+                        className="ml-2 text-red-600 hover:underline"
+                      >
+                        Archiver
+                      </Link>
                     ) : null}
                   </td>
                 </tr>
@@ -221,6 +249,7 @@ export default async function StudentAccountPage(props: {
               ) : null}
             </tbody>
           </table>
+          </div>
           {canDiscount ? (
             <form action={createDiscountAction} className="mt-4 flex flex-wrap items-end gap-2">
               <input type="hidden" name="studentId" value={id} />
@@ -259,9 +288,12 @@ export default async function StudentAccountPage(props: {
               </select>
               <input name="reference" placeholder="Référence" className={input} />
               <input name="observation" placeholder="Observation" className={input} />
-              <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
+              <SubmitButton
+                pendingLabel="Encaissement…"
+                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+              >
                 Encaisser
-              </button>
+              </SubmitButton>
             </form>
           ) : (
             <div className="text-sm text-zinc-500">Permission d&apos;encaissement requise.</div>
@@ -274,6 +306,7 @@ export default async function StudentAccountPage(props: {
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Historique des paiements</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -315,6 +348,7 @@ export default async function StudentAccountPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

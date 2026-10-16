@@ -6,6 +6,8 @@ import { updatePeriodAction } from "@/app/app/(tenant)/academic-years/actions";
 import { redirect } from "next/navigation";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -75,7 +77,7 @@ export default async function AcademicPeriodsPage({
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -139,12 +141,11 @@ export default async function AcademicPeriodsPage({
                     />
                     Verrouillée
                   </label>
-                  <button
-                    type="submit"
+                  <SubmitButton
                     className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
                   >
                     Enregistrer
-                  </button>
+                  </SubmitButton>
                 </div>
               </form>
             ) : (

@@ -5,6 +5,8 @@ import { channelsStatus } from "@/lib/services/comm/providers";
 import { createMessageAction, sendMessageAction } from "./actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -30,6 +32,7 @@ export default async function MessagesPage(props: {
 }) {
   const tenant = await requireSchoolPermission("messages.manage");
   const sp = (await props.searchParams) ?? {};
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
   const [messages, stats, classrooms, channels] = await Promise.all([
     listMessages(
       { userId: tenant.userId, schoolId: tenant.schoolId },
@@ -44,8 +47,32 @@ export default async function MessagesPage(props: {
     channelsStatus(),
   ]);
 
+  const confirmMessage =
+    sp.confirm === "send" && confirmId
+      ? messages.find((m) => m.id === confirmId)
+      : undefined;
+
   return (
     <div className="space-y-4">
+      {confirmMessage ? (
+        <ConfirmPanel
+          title="Confirmer l'envoi du message"
+          tone="danger"
+          action={sendMessageAction}
+          fields={{ id: confirmMessage.id }}
+          confirmLabel="Envoyer le message"
+          cancelHref="/app/messages"
+        >
+          Envoyer <strong>« {confirmMessage.subject} »</strong> à{" "}
+          <strong>
+            {AUDIENCE_LABELS[confirmMessage.audience] ?? confirmMessage.audience}
+          </strong>{" "}
+          via {confirmMessage.channels.join(", ")}.{" "}
+          <strong>Cette action est irréversible</strong> : les SMS, emails et
+          messages WhatsApp partent immédiatement et ne peuvent pas être
+          rappelés.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Communication</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -152,22 +179,20 @@ export default async function MessagesPage(props: {
             </label>
           </div>
           <div className="flex gap-2 md:col-span-2">
-            <button
-              type="submit"
+            <SubmitButton
               name="mode"
               value="draft"
               className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
             >
               Enregistrer (brouillon/programmé)
-            </button>
-            <button
-              type="submit"
+            </SubmitButton>
+            <SubmitButton
               name="mode"
               value="send"
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Envoyer
-            </button>
+            </SubmitButton>
           </div>
         </form>
       </div>
@@ -208,15 +233,12 @@ export default async function MessagesPage(props: {
                     {STATUS_LABELS[m.status] ?? m.status}
                   </span>
                   {m.status === "DRAFT" ? (
-                    <form action={sendMessageAction}>
-                      <input type="hidden" name="id" value={m.id} />
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-zinc-900 px-2 py-1 text-xs text-white"
-                      >
-                        Envoyer
-                      </button>
-                    </form>
+                    <a
+                      href={`/app/messages?confirm=send&id=${m.id}`}
+                      className="rounded-lg bg-zinc-900 px-2 py-1 text-xs text-white"
+                    >
+                      Envoyer
+                    </a>
                   ) : null}
                 </div>
               </li>
@@ -231,6 +253,7 @@ export default async function MessagesPage(props: {
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Statistiques par canal
         </div>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-zinc-500">
@@ -259,6 +282,7 @@ export default async function MessagesPage(props: {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

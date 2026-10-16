@@ -10,6 +10,8 @@ import {
 } from "@/app/app/(tenant)/grades/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -87,7 +89,7 @@ export default async function GradeEntryPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "saved" ? "Notes enregistrées." : ok === "imported" ? `Import réussi (${sp.count ?? ""} lignes).` : ok}
+            {ok === "imported" ? `Import réussi (${sp.count ?? ""} lignes).` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -109,6 +111,7 @@ export default async function GradeEntryPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form action={saveGradesAction}>
           <input type="hidden" name="assessmentId" value={id} />
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -155,11 +158,12 @@ export default async function GradeEntryPage(props: {
               ))}
             </tbody>
           </table>
+          </div>
           {canEnter ? (
             <div className="mt-4 flex gap-3">
-              <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
                 Enregistrer (brouillon)
-              </button>
+              </SubmitButton>
             </div>
           ) : null}
         </form>
@@ -191,9 +195,9 @@ export default async function GradeEntryPage(props: {
             <form action={setAssessmentStatusAction}>
               <input type="hidden" name="id" value={id} />
               <input type="hidden" name="status" value="SUBMITTED" />
-              <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
                 Soumettre à validation
-              </button>
+              </SubmitButton>
             </form>
           ) : (
             <div className="text-sm text-zinc-500">Statut : {statusLabel("assessment", assessment.status)}</div>

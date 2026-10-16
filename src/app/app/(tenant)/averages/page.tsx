@@ -11,6 +11,9 @@ import {
   computeAnnualAction,
 } from "@/app/app/(tenant)/averages/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export const instant = false;
 
@@ -35,6 +38,7 @@ export default async function AveragesPage(props: {
   const classroomId = str("classroom");
   const periodId = str("period");
   const yearId = str("year");
+  const confirm = str("confirm");
 
   const [canCalculate, canValidate, canPublish] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "grades.calculate" }),
@@ -86,8 +90,49 @@ export default async function AveragesPage(props: {
   const inputCls =
     "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
 
+  const selClassroom = classrooms.find((cl) => cl.id === classroomId);
+  const selPeriod = periods.find((p) => p.id === periodId);
+  const resultsHref = `/app/averages?year=${selYear}&classroom=${classroomId}&period=${periodId}`;
+
   return (
     <div className="space-y-4">
+      {confirm === "validated" && selClassroom && selPeriod ? (
+        <ConfirmPanel
+          title="Confirmer la validation des résultats"
+          action={setValidationStatusAction}
+          fields={{
+            classroomId: selClassroom.id,
+            academicPeriodId: selPeriod.id,
+            status: "VALIDATED",
+          }}
+          confirmLabel="Valider les résultats"
+          cancelHref={resultsHref}
+        >
+          Valider les résultats de <strong>{selClassroom.name}</strong> pour{" "}
+          <strong>{selPeriod.name}</strong> fige les moyennes et classements —
+          ils deviennent éligibles à la publication et aux bulletins.
+        </ConfirmPanel>
+      ) : null}
+      {confirm === "published" && selClassroom && selPeriod ? (
+        <ConfirmPanel
+          title="Confirmer la publication des résultats"
+          tone="danger"
+          action={setValidationStatusAction}
+          fields={{
+            classroomId: selClassroom.id,
+            academicPeriodId: selPeriod.id,
+            status: "PUBLISHED",
+          }}
+          confirmLabel="Publier les résultats"
+          cancelHref={resultsHref}
+        >
+          Publier les résultats de <strong>{selClassroom.name}</strong> (
+          {selPeriod.name}) les rend{" "}
+          <strong>visibles sur les portails parents et élèves</strong> et déclenche
+          les bulletins. <strong>Cette action est irréversible</strong> — toute
+          correction ultérieure passe par une rectification tracée.
+        </ConfirmPanel>
+      ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Résultats</div>
         <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
@@ -95,11 +140,7 @@ export default async function AveragesPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "computed" ? "Moyennes calculées et enregistrées."
-              : ok === "validated" ? "Résultats validés."
-              : ok === "published" ? "Résultats publiés — bulletins consultables."
-              : ok === "annual" ? "Résultats annuels calculés."
-              : ok === "rectified" ? "Résultats rectifiés." : ok}
+            {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -148,13 +189,12 @@ export default async function AveragesPage(props: {
             </>
           ) : null}
           {canCalculate && classroomId && periodId ? (
-            <button
-              type="submit"
+            <SubmitButton
               form="compute-form"
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
             >
               Calculer les moyennes
-            </button>
+            </SubmitButton>
           ) : null}
         </form>
         {canCalculate && classroomId && periodId ? (
@@ -178,24 +218,20 @@ export default async function AveragesPage(props: {
             </div>
             <div className="flex gap-2">
               {canValidate && stored.validation?.status === "CALCULATED" ? (
-                <form action={setValidationStatusAction}>
-                  <input type="hidden" name="classroomId" value={classroomId} />
-                  <input type="hidden" name="academicPeriodId" value={periodId} />
-                  <input type="hidden" name="status" value="VALIDATED" />
-                  <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700">
-                    Valider les résultats
-                  </button>
-                </form>
+                <a
+                  href={`${resultsHref}&confirm=validated`}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                >
+                  Valider les résultats
+                </a>
               ) : null}
               {canPublish && stored.validation?.status === "VALIDATED" ? (
-                <form action={setValidationStatusAction}>
-                  <input type="hidden" name="classroomId" value={classroomId} />
-                  <input type="hidden" name="academicPeriodId" value={periodId} />
-                  <input type="hidden" name="status" value="PUBLISHED" />
-                  <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
-                    Publier
-                  </button>
-                </form>
+                <a
+                  href={`${resultsHref}&confirm=published`}
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                >
+                  Publier
+                </a>
               ) : null}
             </div>
           </div>
@@ -216,6 +252,7 @@ export default async function AveragesPage(props: {
             ))}
           </div>
 
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -244,6 +281,7 @@ export default async function AveragesPage(props: {
                 ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
@@ -270,14 +308,15 @@ export default async function AveragesPage(props: {
           {canCalculate && yearId ? (
             <form action={computeAnnualAction}>
               <input type="hidden" name="academicYearId" value={yearId} />
-              <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+              <SubmitButton className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
                 Calculer les résultats annuels
-              </button>
+              </SubmitButton>
             </form>
           ) : null}
           </div>
         </div>
         {annualResults.length > 0 ? (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -306,6 +345,7 @@ export default async function AveragesPage(props: {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <div className="text-sm text-zinc-500">Aucun résultat annuel calculé pour cette année.</div>
         )}

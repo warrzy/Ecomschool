@@ -63,11 +63,9 @@ export async function createMessageAction(formData: FormData) {
     redirect(`/app/messages?error=${res.error}` as never);
   }
   if (formData.get("mode") === "send") {
-    await sendMessage(
-      { userId: tenant.userId, schoolId: tenant.schoolId },
-      res.result.id,
-    );
-    redirect("/app/messages?ok=sent" as never);
+    // Le brouillon est créé ; l'envoi effectif passe par le panneau de
+    // confirmation qui nomme le message, l'audience et les canaux.
+    redirect(`/app/messages?confirm=send&id=${res.result.id}` as never);
   }
   redirect("/app/messages?ok=created" as never);
 }

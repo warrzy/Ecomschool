@@ -52,6 +52,7 @@ export default async function PlatformDashboard() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Répartition par offre</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {d.byPlan.map((p) => (
@@ -65,6 +66,7 @@ export default async function PlatformDashboard() {
               ) : null}
             </tbody>
           </table>
+          </div>
         </div>
         <div className={card}>
           <div className="mb-3 flex items-center justify-between">
@@ -75,6 +77,7 @@ export default async function PlatformDashboard() {
               </Link>
             ) : null}
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {d.renewals.map((r) => (
@@ -94,6 +97,7 @@ export default async function PlatformDashboard() {
               ) : null}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

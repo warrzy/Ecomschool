@@ -1,0 +1,157 @@
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
+import Link from "next/link";
+
+/**
+ * Panneau de confirmation partagé pour les actions sensibles.
+ * Rendu côté page via `?confirm=<kind>&id=<id>` : la page résout l'objet,
+ * nomme précisément la cible dans `children`, puis monte ce panneau.
+ * La permission reste vérifiée par la server action — ce composant ne
+ * protège rien, il empêche seulement le déclenchement accidentel.
+ *
+ * `requireText` = confirmation renforcée : l'utilisateur doit saisir le
+ * mot exact (ex. « SUPPRIMER ») pour activer le bouton.
+ */
+export type ConfirmInput = {
+  name: string;
+  label: string;
+  type?: string;
+  required?: boolean;
+  defaultValue?: string;
+  placeholder?: string;
+};
+
+export function ConfirmPanel({
+  title,
+  tone = "warning",
+  action,
+  fields,
+  inputs,
+  confirmLabel = "Confirmer",
+  cancelHref,
+  requireText,
+  children,
+}: {
+  /** Titre du panneau, ex. « Confirmer la clôture ». */
+  title: string;
+  /** warning (ambre) = action sensible ; danger (rouge) = irréversible. */
+  tone?: "warning" | "danger";
+  /** Server action exécutée à la confirmation. */
+  action: (formData: FormData) => void | Promise<void>;
+  /** Champs cachés repris par le formulaire (id, paramètres…). */
+  fields: Record<string, string>;
+  /** Champs visibles à remplir avant de confirmer (motif, date…). */
+  inputs?: ConfirmInput[];
+  confirmLabel?: string;
+  /** Destination stable du bouton Annuler (page sans `?confirm=`). */
+  cancelHref: string;
+  /** Mot à retaper pour activer la confirmation (actions destructrices). */
+  requireText?: string;
+  children: React.ReactNode;
+}) {
+  const [typed, setTyped] = useState("");
+  const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const locked = !!requireText && typed.trim() !== requireText;
+
+  // Focus visible dès l'ouverture : champ de frappe sinon bouton Annuler.
+  useEffect(() => {
+    const el = panelRef.current?.querySelector<HTMLElement>(
+      requireText ? "input[data-confirm-text]" : "a[data-cancel]",
+    );
+    el?.focus();
+  }, [requireText]);
+
+  const palette =
+    tone === "danger"
+      ? "border-red-300 bg-red-50 text-red-900"
+      : "border-amber-300 bg-amber-50 text-amber-900";
+
+  return (
+    <div
+      ref={panelRef}
+      role="alertdialog"
+      aria-labelledby={titleId}
+      className={`rounded-2xl border p-6 shadow-sm ${palette}`}
+    >
+      <div id={titleId} className="text-sm font-semibold">
+        {title}
+      </div>
+      <div className="mt-2 text-sm">{children}</div>
+      <form action={action} className="mt-4">
+        {Object.entries(fields).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
+        {inputs?.map((f) => (
+          <label key={f.name} className="mb-3 block text-sm">
+            {f.label}
+            <input
+              name={f.name}
+              type={f.type ?? "text"}
+              required={f.required}
+              defaultValue={f.defaultValue}
+              placeholder={f.placeholder}
+              className="ml-2 h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-900"
+            />
+          </label>
+        ))}
+        {requireText ? (
+          <label className="mb-3 block text-sm">
+            Saisissez «{" "}
+            <span className="font-mono font-semibold">{requireText}</span> »
+            pour confirmer :
+            <input
+              data-confirm-text
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              className="ml-2 h-9 w-44 rounded-lg border border-zinc-300 bg-white px-2 font-mono text-sm outline-none focus:border-zinc-900"
+              autoComplete="off"
+            />
+          </label>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <ConfirmSubmit
+            label={confirmLabel}
+            tone={tone}
+            locked={locked}
+          />
+          <Link
+            data-cancel
+            href={cancelHref}
+            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Annuler
+          </Link>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ConfirmSubmit({
+  label,
+  tone,
+  locked,
+}: {
+  label: string;
+  tone: "warning" | "danger";
+  locked: boolean;
+}) {
+  const { pending } = useFormStatus();
+  const cls =
+    tone === "danger"
+      ? "rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
+      : "rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800";
+  return (
+    <button
+      type="submit"
+      disabled={pending || locked}
+      aria-busy={pending}
+      className={`${cls} disabled:cursor-not-allowed disabled:opacity-60`}
+    >
+      {pending ? "En cours…" : label}
+    </button>
+  );
+}

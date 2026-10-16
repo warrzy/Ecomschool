@@ -6,6 +6,8 @@ import { financeDashboard } from "@/lib/services/finance/payments";
 import { ensureDefaultFeeCategories } from "@/lib/services/finance/fees";
 import { generateChargesAction } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -91,7 +93,7 @@ export default async function FeesPage(props: {
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "charges" ? `Créances générées (${sp.count ?? 0}).` : ok}
+            {ok === "charges" ? `Créances générées (${sp.count ?? 0}).` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -113,7 +115,7 @@ export default async function FeesPage(props: {
           </button>
           {canManage && yearId ? (
             <>
-              <select form="gen-charges" name="classroomId" defaultValue="" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+              <select form="gen-confirm" name="classroomId" defaultValue="" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
                 <option value="">Toutes les classes</option>
                 {classrooms.map((cl) => (
                   <option key={cl.id} value={cl.id}>{cl.name}</option>
@@ -121,7 +123,7 @@ export default async function FeesPage(props: {
               </select>
               <button
                 type="submit"
-                form="gen-charges"
+                form="gen-confirm"
                 className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
               >
                 Générer les créances
@@ -129,12 +131,37 @@ export default async function FeesPage(props: {
             </>
           ) : null}
         </form>
+        {/* GET vers ?confirm=charges — la génération réelle passe par le
+            panneau de confirmation ci-dessous. */}
         {canManage && yearId ? (
-          <form id="gen-charges" action={generateChargesAction}>
-            <input type="hidden" name="academicYearId" value={yearId} />
+          <form id="gen-confirm" method="GET" action="/app/fees">
+            <input type="hidden" name="confirm" value="charges" />
+            <input type="hidden" name="year" value={yearId} />
           </form>
         ) : null}
       </div>
+
+      {canManage && str("confirm") === "charges" ? (
+        <ConfirmPanel
+          title="Confirmer la génération des créances"
+          action={generateChargesAction}
+          fields={{
+            academicYearId: yearId!,
+            classroomId: str("classroomId") ?? "",
+          }}
+          confirmLabel="Générer les créances"
+          cancelHref={`/app/fees?year=${yearId}`}
+        >
+          Génère les créances et échéances de{" "}
+          <strong>{years.find((y) => y.id === yearId)?.name}</strong> pour{" "}
+          {str("classroomId")
+            ? `la classe ${classrooms.find((cl) => cl.id === str("classroomId"))?.name ?? ""}`
+            : "toutes les classes"}
+          . Les créances déjà existantes sont ignorées — une relance
+          n&apos;écrase rien, mais l&apos;opération peut créer beaucoup de lignes
+          en une fois.
+        </ConfirmPanel>
+      ) : null}
 
       {dash ? (
         <>
@@ -152,6 +179,7 @@ export default async function FeesPage(props: {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className={card}>
               <div className="mb-3 text-sm font-medium text-zinc-900">Par catégorie</div>
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <tbody>
                   {dash.byCategory.map((r) => (
@@ -165,9 +193,11 @@ export default async function FeesPage(props: {
                   ) : null}
                 </tbody>
               </table>
+              </div>
             </div>
             <div className={card}>
               <div className="mb-3 text-sm font-medium text-zinc-900">Par mode de paiement</div>
+              <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <tbody>
                   {dash.byMethod.map((r) => (
@@ -181,6 +211,7 @@ export default async function FeesPage(props: {
                   ) : null}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </>

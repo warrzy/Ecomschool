@@ -65,6 +65,7 @@ export default async function MonitoringPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Utilisation globale</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {[
@@ -82,9 +83,11 @@ export default async function MonitoringPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Abonnements par statut</div>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <tbody>
               {Object.entries(m.subscriptions).map(([k, v]) => (
@@ -95,6 +98,7 @@ export default async function MonitoringPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

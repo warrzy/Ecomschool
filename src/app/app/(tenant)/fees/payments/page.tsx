@@ -9,6 +9,8 @@ import {
 } from "@/app/app/(tenant)/fees/actions";
 import type { PaymentMethod } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -31,6 +33,8 @@ export default async function PaymentsJournalPage(props: {
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const ok = str("ok");
   const error = str("error");
+  const confirm = str("confirm");
+  const confirmId = str("id");
 
   const [canCancel, canClose, canPrint] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.payments.cancel" }),
@@ -68,8 +72,58 @@ export default async function PaymentsJournalPage(props: {
   const csvHref = `/app/fees/payments/export?format=csv&${exportParams}`;
   const xlsxHref = `/app/fees/payments/export?format=xlsx&${exportParams}`;
 
+  const confirmPayment = payments.find((p) => p.id === confirmId);
+  const cancelHref = `/app/fees/payments${yearId ? `?year=${yearId}` : ""}`;
+
   return (
     <div className="space-y-4">
+      {canClose && confirm === "close-cash" ? (
+        <ConfirmPanel
+          title="Confirmer la clôture de caisse"
+          action={closeCashAction}
+          fields={{}}
+          inputs={[
+            {
+              name: "date",
+              label: "Date de la journée à clôturer :",
+              type: "date",
+              required: true,
+              defaultValue: dstr(new Date()),
+            },
+          ]}
+          confirmLabel="Clôturer la journée"
+          cancelHref={cancelHref}
+        >
+          La clôture fige la journée choisie : aucun encaissement ne pourra plus
+          être enregistré à cette date (<code>CLOSED_DAY</code>).{" "}
+          <strong>Cette action est irréversible.</strong>
+        </ConfirmPanel>
+      ) : null}
+      {canCancel && confirm === "cancel" && confirmPayment ? (
+        <ConfirmPanel
+          title="Confirmer l'annulation du paiement"
+          tone="danger"
+          action={cancelPaymentAction}
+          fields={{ id: confirmPayment.id }}
+          inputs={[
+            {
+              name: "reason",
+              label: "Motif de l'annulation :",
+              required: true,
+              placeholder: "Erreur de saisie, doublon…",
+            },
+          ]}
+          confirmLabel="Annuler le paiement"
+          cancelHref={cancelHref}
+        >
+          Annuler le paiement <strong>{confirmPayment.receiptNumber}</strong> de{" "}
+          <strong>{fmt(confirmPayment.amount)}</strong> —{" "}
+          {confirmPayment.student.firstName} {confirmPayment.student.lastName} —
+          le contredit dans le journal et recalcule les soldes.{" "}
+          <strong>Cette action est irréversible</strong> et reste tracée dans
+          l&apos;audit.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Journal des paiements
@@ -86,18 +140,18 @@ export default async function PaymentsJournalPage(props: {
               Export Excel
             </a>
             {canClose ? (
-              <form action={closeCashAction} className="flex items-center gap-2">
-                <input name="date" type="date" defaultValue={dstr(new Date())} className={input} />
-                <button type="submit" className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white">
-                  Clôturer la caisse
-                </button>
-              </form>
+              <Link
+                href={`/app/fees/payments?confirm=close-cash${yearId ? `&year=${yearId}` : ""}`}
+                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+              >
+                Clôturer la caisse
+              </Link>
             ) : null}
           </div>
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "cancelled" ? "Paiement annulé (contre-écriture auditée)." : ok === "closed" ? "Journée clôturée." : ok}
+            {ok === "cancelled" ? "Paiement annulé (contre-écriture auditée)." : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
@@ -128,6 +182,7 @@ export default async function PaymentsJournalPage(props: {
       </div>
 
       <div className={card}>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -160,11 +215,12 @@ export default async function PaymentsJournalPage(props: {
                     </a>
                   ) : null}
                   {canCancel && p.status === "VALIDATED" ? (
-                    <form action={cancelPaymentAction} className="inline">
-                      <input type="hidden" name="id" value={p.id} />
-                      <input name="reason" placeholder="Motif" required className="mr-1 w-28 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
-                      <button type="submit" className="text-red-600 hover:underline">Annuler</button>
-                    </form>
+                    <Link
+                      href={`/app/fees/payments?confirm=cancel&id=${p.id}${yearId ? `&year=${yearId}` : ""}`}
+                      className="text-red-600 hover:underline"
+                    >
+                      Annuler
+                    </Link>
                   ) : null}
                 </td>
               </tr>
@@ -174,10 +230,12 @@ export default async function PaymentsJournalPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Clôtures de caisse</div>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -199,6 +257,7 @@ export default async function PaymentsJournalPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

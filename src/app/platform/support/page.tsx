@@ -73,6 +73,7 @@ export default async function SupportPage(props: {
       </div>
 
       <div className={card}>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -110,6 +111,7 @@ export default async function SupportPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

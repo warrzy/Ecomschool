@@ -4,6 +4,7 @@ import { userHasPlatformPermission } from "@/lib/permissions/rbac";
 import { listInvoices, listUnpaidInvoices } from "@/lib/services/platform/billing";
 import { cancelInvoiceAction } from "@/app/platform/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
 
@@ -21,6 +22,8 @@ export default async function InvoicesPage(props: {
   const tenant = await requirePlatformPermission("platform.invoices.read");
   const sp = (await props.searchParams) ?? {};
   const error = typeof sp.error === "string" ? sp.error : undefined;
+  const confirm = typeof sp.confirm === "string" ? sp.confirm : undefined;
+  const confirmId = typeof sp.id === "string" ? sp.id : undefined;
   const canManage = await userHasPlatformPermission({
     userId: tenant.userId,
     permissionKey: "platform.invoices.manage",
@@ -28,6 +31,7 @@ export default async function InvoicesPage(props: {
 
   const [invoices, unpaid] = await Promise.all([listInvoices(), listUnpaidInvoices()]);
   const unpaidTotal = unpaid.reduce((s, i) => s + i.balance, 0);
+  const confirmInvoice = invoices.find((i) => i.id === confirmId);
 
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
 
@@ -54,7 +58,32 @@ export default async function InvoicesPage(props: {
         </div>
       ) : null}
 
+      {canManage && confirm === "cancel" && confirmInvoice ? (
+        <ConfirmPanel
+          title="Confirmer l'annulation de la facture"
+          tone="danger"
+          action={cancelInvoiceAction}
+          fields={{ id: confirmInvoice.id }}
+          inputs={[
+            {
+              name: "reason",
+              label: "Motif de l'annulation :",
+              required: true,
+              placeholder: "Erreur d'émission, geste commercial…",
+            },
+          ]}
+          confirmLabel="Annuler la facture"
+          cancelHref="/platform/invoices"
+        >
+          Annuler la facture <strong>{confirmInvoice.invoiceNumber}</strong> de{" "}
+          <strong>{confirmInvoice.school.name}</strong> (
+          {fmt(confirmInvoice.total)}) la marque « Annulée » : elle ne pourra
+          plus être encaissée. <strong>Cette action est irréversible</strong> —
+          les règlements déjà enregistrés restent tracés.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
+        <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
@@ -95,12 +124,12 @@ export default async function InvoicesPage(props: {
                     {canManage && (i.status === "ISSUED" || i.status === "PARTIALLY_PAID") ? (
                       <>
                         {" · "}
-                        <form action={cancelInvoiceAction} className="inline">
-                          <input type="hidden" name="id" value={i.id} />
-                          <button name="reason" value="Annulation depuis la liste" className="text-red-700 underline">
-                            Annuler
-                          </button>
-                        </form>
+                        <Link
+                          href={`/platform/invoices?confirm=cancel&id=${i.id}`}
+                          className="text-red-700 underline"
+                        >
+                          Annuler
+                        </Link>
                       </>
                     ) : null}
                   </td>
@@ -112,6 +141,7 @@ export default async function InvoicesPage(props: {
             ) : null}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
