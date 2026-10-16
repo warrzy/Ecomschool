@@ -15,6 +15,8 @@ import {
   minutesToLabel,
 } from "@/lib/services/schedules";
 import { listAttendance, classroomStats } from "@/lib/services/attendance";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 const DAY_LABEL: Record<string, string> = {
   MONDAY: "Lun",
@@ -265,7 +267,7 @@ export default async function ClassroomDetailPage({
               Niveau {classroom.level.name} · Année{" "}
               {classroom.academicYear.name}
               {classroom.academicYear.isCurrent ? " (courante)" : ""} ·{" "}
-              {classroom.status}
+              {statusLabel("classroom", classroom.status)}
             </div>
           </div>
           <Link
@@ -282,7 +284,7 @@ export default async function ClassroomDetailPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -945,7 +947,7 @@ export default async function ClassroomDetailPage({
                     <td className="py-2 pr-4">{a.type.name}</td>
                     <td className="py-2 pr-4">{a.academicPeriod?.name ?? "—"}</td>
                     <td className="py-2 pr-4">{a._count.grades}</td>
-                    <td className="py-2">{a.status}</td>
+                    <td className="py-2">{statusLabel("assessment", a.status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -996,7 +998,7 @@ export default async function ClassroomDetailPage({
                       {r.generalAverage != null ? `${r.generalAverage.toFixed(2)}/20` : "—"}
                     </td>
                     <td className="py-2 pr-4">{r.mention ?? "—"}</td>
-                    <td className="py-2">{r.status}</td>
+                    <td className="py-2">{statusLabel("result", r.status)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1039,7 +1041,9 @@ export default async function ClassroomDetailPage({
                       {card.student.lastName} {card.student.firstName}
                     </td>
                     <td className="py-2 pr-4">v{card.currentVersion}</td>
-                    <td className="py-2 pr-4">{card.status}</td>
+                    <td className="py-2 pr-4">
+                      {statusLabel("reportCard", card.status)}
+                    </td>
                     <td className="py-2">
                       <a
                         href={`/app/report-cards/pdf?id=${card.id}`}

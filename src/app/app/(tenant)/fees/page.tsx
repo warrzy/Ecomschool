@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import { financeDashboard } from "@/lib/services/finance/payments";
 import { ensureDefaultFeeCategories } from "@/lib/services/finance/fees";
 import { generateChargesAction } from "@/app/app/(tenant)/fees/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -27,9 +28,10 @@ export default async function FeesPage(props: {
   const ok = str("ok");
   const error = str("error");
 
-  const [canManage, canConfigure] = await Promise.all([
+  const [canManage, canConfigure, canReadReports] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.fees.manage" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.configure" }),
+    userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.reports.read" }),
   ]);
 
   await ensureDefaultFeeCategories(c);
@@ -70,12 +72,16 @@ export default async function FeesPage(props: {
             <Link href="/app/fees/accounts" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
               Comptes élèves
             </Link>
-            <Link href={`/app/fees/payments?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
-              Journal des paiements
-            </Link>
-            <Link href={`/app/fees/unpaid?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
-              Impayés
-            </Link>
+            {canReadReports ? (
+              <>
+                <Link href={`/app/fees/payments?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+                  Journal des paiements
+                </Link>
+                <Link href={`/app/fees/unpaid?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+                  Impayés
+                </Link>
+              </>
+            ) : null}
             {canConfigure ? (
               <Link href="/app/fees/settings" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
                 Configuration
@@ -90,7 +96,7 @@ export default async function FeesPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "CLOSED_DAY" ? "Journée de caisse clôturée." : error}
+            {error === "CLOSED_DAY" ? "Journée de caisse clôturée." : errorMessage(error)}
           </div>
         ) : null}
       </div>

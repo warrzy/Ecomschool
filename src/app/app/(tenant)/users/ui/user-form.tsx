@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUser, updateUser } from "@/app/app/(tenant)/users/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 type Mode = "create" | "edit";
 
@@ -168,7 +169,7 @@ export default function UserForm(props: {
 
       {error ? (
         <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
+          {errorMessage(error)}
         </div>
       ) : null}
 

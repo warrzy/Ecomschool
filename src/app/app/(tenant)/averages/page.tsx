@@ -10,6 +10,7 @@ import {
   setValidationStatusAction,
   computeAnnualAction,
 } from "@/app/app/(tenant)/averages/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -103,7 +104,7 @@ export default async function AveragesPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "INVALID_STATUS" ? "Transition de statut non autorisée." : error}
+            {error === "INVALID_STATUS" ? "Transition de statut non autorisée." : errorMessage(error)}
           </div>
         ) : null}
       </div>

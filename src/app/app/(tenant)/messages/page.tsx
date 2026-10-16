@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { commDashboard, listMessages } from "@/lib/services/comm/messages";
 import { channelsStatus } from "@/lib/services/comm/providers";
 import { createMessageAction, sendMessageAction } from "./actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -71,7 +73,7 @@ export default async function MessagesPage(props: {
           ))}
         </div>
         {sp.error ? (
-          <div className="mt-2 text-sm text-red-600">Erreur : {sp.error}</div>
+          <div className="mt-2 text-sm text-red-600">{typeof sp.error === "string" ? errorMessage(sp.error) : null}</div>
         ) : null}
       </div>
 
@@ -243,7 +245,7 @@ export default async function MessagesPage(props: {
               stats.deliveries.map((d, i) => (
                 <tr key={`${d.channel}-${d.status}-${i}`}>
                   <td className="py-2">{d.channel}</td>
-                  <td className="py-2">{d.status}</td>
+                  <td className="py-2">{statusLabel("delivery", d.status)}</td>
                   <td className="py-2">{d.count}</td>
                   <td className="py-2">{d.cost}</td>
                 </tr>

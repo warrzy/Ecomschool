@@ -3,6 +3,7 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { prisma } from "@/lib/db/prisma";
 import { listReminders, listUnpaid } from "@/lib/services/finance/payments";
 import { remindAction } from "@/app/app/(tenant)/fees/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -70,7 +71,7 @@ export default async function UnpaidPage(props: {
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div>
         ) : null}
       </div>
 

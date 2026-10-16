@@ -6,6 +6,7 @@ import {
 import { channelsStatus } from "@/lib/services/comm/providers";
 import { setPreferenceAction } from "./actions";
 import type { CommTopic, MessageChannel } from "@prisma/client";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -45,7 +46,7 @@ export default async function PreferencesPage(props: {
           Les communications transactionnelles (sécurité, compte, convocations)
           sont toujours actives. Vous pouvez désactiver les autres sujets par
           canal. {sp.error ? (
-            <span className="text-red-600">Erreur : {sp.error}.</span>
+            <span className="text-red-600">{typeof sp.error === "string" ? errorMessage(sp.error) : null}.</span>
           ) : null}
           {sp.ok ? <span className="text-emerald-600">Enregistré.</span> : null}
         </p>

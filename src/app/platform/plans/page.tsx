@@ -4,6 +4,7 @@ import { userHasPlatformPermission } from "@/lib/permissions/rbac";
 import { listPlans } from "@/lib/services/platform/plans";
 import { listModules } from "@/lib/services/platform/modules";
 import { createPlanAction, updatePlanAction } from "@/app/platform/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -35,7 +36,7 @@ export default async function PlansPage(props: {
           Offres commerciales ({plans.length})
         </div>
         {ok ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Offre enregistrée.</div> : null}
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error === "DUPLICATE" ? "Code déjà utilisé." : error}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error === "DUPLICATE" ? "Code déjà utilisé." : errorMessage(error)}</div> : null}
       </div>
 
       {canManage ? (

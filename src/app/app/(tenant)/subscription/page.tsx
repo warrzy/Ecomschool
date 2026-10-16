@@ -10,6 +10,7 @@ import { listSchoolInvoices } from "@/lib/services/platform/billing";
 import { listPlans } from "@/lib/services/platform/plans";
 import { requestPlanChange } from "@/lib/services/platform/subscriptions";
 import { redirect } from "next/navigation";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -96,7 +97,7 @@ export default async function SubscriptionPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "INVALID_STATUS" ? "Une demande est déjà en attente." : error}
+            {error === "INVALID_STATUS" ? "Une demande est déjà en attente." : errorMessage(error)}
           </div>
         ) : null}
       </div>

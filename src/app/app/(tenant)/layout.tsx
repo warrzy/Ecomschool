@@ -1,7 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { appNav } from "@/app/app/(tenant)/ui/nav";
+import { appNav, groupNav } from "@/app/app/(tenant)/ui/nav";
+import { MobileNav } from "@/components/ui/MobileNav";
 import { requireSchoolContext } from "@/lib/tenant/context";
 import { getSchoolPermissionKeys } from "@/lib/permissions/rbac";
 import {
@@ -42,11 +43,13 @@ export default async function TenantLayout({
 
   // Menus = permissions effectives du rôle + couverture de l'abonnement,
   // exactement comme les gardes `requireSchoolPermission` des pages.
-  const navItems = appNav.filter(
-    (item) =>
-      !item.permission ||
-      (permKeys.has(item.permission) &&
-        permissionCoveredByEntitlements(ent, item.permission)),
+  const navSections = groupNav(
+    appNav.filter(
+      (item) =>
+        !item.permission ||
+        (permKeys.has(item.permission) &&
+          permissionCoveredByEntitlements(ent, item.permission)),
+    ),
   );
 
   return (
@@ -62,22 +65,32 @@ export default async function TenantLayout({
             </div>
           </div>
 
-          <nav className="space-y-1 text-sm">
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
-                href={item.href}
-              >
-                {item.label}
-              </a>
+          <nav className="space-y-3 text-sm">
+            {navSections.map((section) => (
+              <div key={section.title}>
+                <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  {section.title}
+                </div>
+                <div className="space-y-1">
+                  {section.items.map((item) => (
+                    <a
+                      key={item.href}
+                      className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
+                      href={item.href}
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
         </aside>
 
         <div className="flex flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <MobileNav sections={navSections} />
               <div>
                 <div className="text-xs text-zinc-500">Établissement</div>
                 <div className="text-sm font-medium text-zinc-900">
@@ -93,10 +106,6 @@ export default async function TenantLayout({
             </div>
 
             <div className="flex items-center gap-3">
-              <input
-                className="hidden h-9 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 md:block"
-                placeholder="Rechercher..."
-              />
             <form action="/api/auth/signout" method="post">
               <input type="hidden" name="callbackUrl" value="/login" />
               <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50">

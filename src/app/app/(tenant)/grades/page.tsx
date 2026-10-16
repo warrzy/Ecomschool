@@ -11,6 +11,7 @@ import {
   setAssessmentStatusAction,
 } from "@/app/app/(tenant)/grades/actions";
 import type { AssessmentStatus } from "@prisma/client";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -124,7 +125,7 @@ export default async function GradesPage(props: {
                 ? "Une note est hors du barème."
                 : error === "LOCKED"
                   ? "L'évaluation ou la période est verrouillée."
-                  : error}
+                  : errorMessage(error)}
           </div>
         ) : null}
       </div>

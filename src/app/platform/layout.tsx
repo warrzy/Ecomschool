@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { requirePlatformContext } from "@/lib/tenant/context";
 import { getPlatformPermissionKeys } from "@/lib/permissions/rbac";
 import { platformNav } from "@/app/platform/ui/nav";
+import { MobileNav } from "@/components/ui/MobileNav";
 
 export const instant = false;
 
@@ -46,9 +47,12 @@ export default async function PlatformLayout({
 
         <div className="flex flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
-            <div>
-              <div className="text-xs text-zinc-500">Espace</div>
-              <div className="text-sm font-medium text-zinc-900">Plateforme</div>
+            <div className="flex items-center gap-3">
+              <MobileNav sections={[{ items: navItems }]} title="Plateforme" />
+              <div>
+                <div className="text-xs text-zinc-500">Espace</div>
+                <div className="text-sm font-medium text-zinc-900">Plateforme</div>
+              </div>
             </div>
 
             <div className="flex items-center gap-3">

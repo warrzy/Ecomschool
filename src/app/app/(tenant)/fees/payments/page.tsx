@@ -8,6 +8,7 @@ import {
   closeCashAction,
 } from "@/app/app/(tenant)/fees/actions";
 import type { PaymentMethod } from "@prisma/client";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -101,7 +102,7 @@ export default async function PaymentsJournalPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "CLOSED_DAY" ? "Journée déjà clôturée." : error === "ALREADY_CANCELLED" ? "Paiement déjà annulé." : error}
+            {error === "CLOSED_DAY" ? "Journée déjà clôturée." : error === "ALREADY_CANCELLED" ? "Paiement déjà annulé." : errorMessage(error)}
           </div>
         ) : null}
       </div>

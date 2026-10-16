@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireSchoolContext } from "@/lib/tenant/context";
+import { MobileNav } from "@/components/ui/MobileNav";
 
 export const instant = false;
 
@@ -51,8 +52,11 @@ export default async function TeacherLayout({
         </aside>
         <div className="flex flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
-            <div className="text-sm font-medium text-zinc-900">
-              {school?.name ?? "-"}
+            <div className="flex items-center gap-3">
+              <MobileNav sections={[{ items: teacherNav }]} title="Espace enseignant" />
+              <div className="text-sm font-medium text-zinc-900">
+                {school?.name ?? "-"}
+              </div>
             </div>
             <form action="/api/auth/signout" method="post">
               <input type="hidden" name="callbackUrl" value="/login" />

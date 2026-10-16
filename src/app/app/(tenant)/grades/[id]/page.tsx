@@ -8,6 +8,8 @@ import {
   saveGradesAction,
   setAssessmentStatusAction,
 } from "@/app/app/(tenant)/grades/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -96,7 +98,7 @@ export default async function GradeEntryPage(props: {
                 ? "L'évaluation ou la période est verrouillée."
                 : error === "FORBIDDEN"
                   ? "Vous n'êtes pas autorisé sur cette classe/matière."
-                  : error}
+                  : errorMessage(error)}
           </div>
         ) : null}
         <div className="mt-2 text-sm text-zinc-500">
@@ -194,7 +196,7 @@ export default async function GradeEntryPage(props: {
               </button>
             </form>
           ) : (
-            <div className="text-sm text-zinc-500">Statut : {assessment.status}</div>
+            <div className="text-sm text-zinc-500">Statut : {statusLabel("assessment", assessment.status)}</div>
           )}
         </div>
       </div>

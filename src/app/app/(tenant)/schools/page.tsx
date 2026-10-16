@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -45,7 +46,9 @@ export default async function SchoolsPage() {
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">{school.code}</td>
                   <td className="py-2 pr-4 text-zinc-700">{school.city ?? "-"}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{school.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {statusLabel("school", school.status)}
+                  </td>
                 </tr>
               ) : null}
             </tbody>

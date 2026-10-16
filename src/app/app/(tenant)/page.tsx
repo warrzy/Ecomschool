@@ -6,10 +6,12 @@ import {
   getEvaluationsDashboard,
 } from "@/lib/services/dashboard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
+import { financeDashboard } from "@/lib/services/finance/payments";
 
 export const instant = false;
 
 const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "—");
+const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 
 function Card({
   label,
@@ -25,15 +27,6 @@ function Card({
       <div className="text-sm text-zinc-500">{label}</div>
       <div className="mt-2 text-2xl font-semibold text-zinc-900">{value}</div>
       {hint ? <div className="mt-1 text-xs text-zinc-500">{hint}</div> : null}
-    </div>
-  );
-}
-
-function PendingCard({ label }: { label: string }) {
-  return (
-    <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-5">
-      <div className="text-sm text-zinc-500">{label}</div>
-      <div className="mt-2 text-sm text-zinc-600">Module à venir</div>
     </div>
   );
 }
@@ -57,6 +50,18 @@ export default async function DashboardPage() {
   const evals = canViewResults
     ? await getEvaluationsDashboard({ schoolId: tenant.schoolId })
     : null;
+  const canViewFinance = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "finance.read",
+  });
+  const finance =
+    canViewFinance && dash.currentYear
+      ? await financeDashboard(
+          { userId: tenant.userId, schoolId: tenant.schoolId },
+          { academicYearId: dash.currentYear.id },
+        )
+      : null;
 
   return (
     <div className="space-y-4">
@@ -197,9 +202,30 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-1">
-        <PendingCard label="Paiements (mois)" />
-      </div>
+      {finance ? (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-zinc-900">
+              Finances — année courante
+            </div>
+            <Link
+              href="/app/fees"
+              className="text-sm text-zinc-600 hover:text-zinc-900 hover:underline"
+            >
+              Voir les finances →
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-4 md:grid-cols-4">
+            <Card label="Encaissé ce mois" value={fmt(finance.paidThisMonth)} />
+            <Card label="Encaissé (année)" value={fmt(finance.paid)} />
+            <Card label="Solde restant" value={fmt(finance.balance)} />
+            <Card
+              label="Échéances en retard"
+              value={`${finance.lateCount} (${fmt(finance.lateAmount)})`}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

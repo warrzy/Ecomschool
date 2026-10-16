@@ -10,6 +10,8 @@ import {
   removeAssignmentAction,
   updateTeacherAction,
 } from "@/app/app/(tenant)/teachers/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -73,9 +75,9 @@ export default async function TeacherDetailPage({
               {teacher.lastName} {teacher.firstName}
             </div>
             <div className="mt-1 text-sm text-zinc-600">
-              {teacher.status}
+              {statusLabel("teacher", teacher.status)}
               {teacher.userId
-                ? ` · Compte : ${teacher.user?.email} (${teacher.user?.status})`
+                ? ` · Compte : ${teacher.user?.email} (${statusLabel("user", teacher.user?.status)})`
                 : " · Pas de compte utilisateur"}
             </div>
           </div>
@@ -93,7 +95,7 @@ export default async function TeacherDetailPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -195,7 +197,7 @@ export default async function TeacherDetailPage({
               </div>
               <div>
                 <dt className="text-xs font-medium text-zinc-500">Statut</dt>
-                <dd className="mt-1 text-sm text-zinc-900">{teacher.status}</dd>
+                <dd className="mt-1 text-sm text-zinc-900">{statusLabel("teacher", teacher.status)}</dd>
               </div>
             </dl>
           )}

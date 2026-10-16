@@ -1,5 +1,6 @@
 import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { platformListAdministrators } from "@/lib/services/users";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -44,7 +45,7 @@ export default async function PlatformAdministratorsPage() {
                       .join(" ") || "-"}
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">{a.role.name}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{a.user.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("user", a.user.status)}</td>
                 </tr>
               ))}
             </tbody>

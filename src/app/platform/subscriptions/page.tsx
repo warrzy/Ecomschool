@@ -6,6 +6,7 @@ import {
   reviewChangeRequestAction,
   sweepSubscriptionsAction,
 } from "@/app/platform/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -58,7 +59,7 @@ export default async function SubscriptionsPage(props: {
             </button>
           </form>
         </div>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       {requests.length > 0 ? (

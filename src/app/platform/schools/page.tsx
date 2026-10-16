@@ -3,6 +3,7 @@ import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { platformListSchools } from "@/lib/services/schools";
 import { setSchoolStatusAction } from "@/app/platform/schools/actions";
 import type { SchoolStatus } from "@prisma/client";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -102,7 +103,7 @@ export default async function PlatformSchoolsPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">{s.city ?? "-"}</td>
                   <td className="py-2 pr-4 text-zinc-700">{s._count.memberships}</td>
                   <td className="py-2 pr-4 text-zinc-700">{s._count.academicYears}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{s.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("school", s.status)}</td>
                   <td className="py-2 pr-4">
                     <div className="flex items-center gap-2">
                       <Link

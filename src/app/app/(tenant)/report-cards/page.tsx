@@ -10,6 +10,7 @@ import {
   generateClassReportCardsAction,
   rectifyReportCardAction,
 } from "@/app/app/(tenant)/report-cards/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -94,7 +95,7 @@ export default async function ReportCardsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "INVALID_STATUS" ? "Calculez les moyennes avant de générer les bulletins." : error}
+            {error === "INVALID_STATUS" ? "Calculez les moyennes avant de générer les bulletins." : errorMessage(error)}
           </div>
         ) : null}
       </div>

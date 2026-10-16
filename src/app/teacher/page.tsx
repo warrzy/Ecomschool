@@ -3,6 +3,7 @@ import { requireSchoolContext } from "@/lib/tenant/context";
 import { prisma } from "@/lib/db/prisma";
 import { teacherIdForUser } from "@/lib/services/attendance";
 import { weekStart, minutesToLabel } from "@/lib/services/schedules";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -334,7 +335,7 @@ export default async function TeacherDashboardPage() {
                     {a.title}
                     <span className="ml-2 text-xs font-normal text-zinc-500">
                       {a.subject.name} — {a.classroom.name} ·{" "}
-                      {a.date.toISOString().slice(0, 10)} · {a.status}
+                      {a.date.toISOString().slice(0, 10)} · {statusLabel("assessment", a.status)}
                     </span>
                   </span>
                   <Link

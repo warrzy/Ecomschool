@@ -8,6 +8,7 @@ import {
   runJobsAction,
   runRetentionPurgeAction,
 } from "./actions";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -119,7 +120,7 @@ export default async function AutomationsPage() {
                 key={i}
                 className="rounded-full border border-zinc-200 px-2 py-1"
               >
-                {d.channel} / {d.status} : {d._count}
+                {d.channel} / {statusLabel("delivery", d.status)} : {d._count}
               </span>
             ))
           ) : (
@@ -164,7 +165,7 @@ export default async function AutomationsPage() {
               <li key={r.id} className="flex justify-between py-2">
                 <span className="text-zinc-700">{r.task}</span>
                 <span className="text-xs text-zinc-400">
-                  {r.status} · {r.startedAt.toLocaleString("fr-FR")}
+                  {statusLabel("job", r.status)} · {r.startedAt.toLocaleString("fr-FR")}
                 </span>
               </li>
             ))}

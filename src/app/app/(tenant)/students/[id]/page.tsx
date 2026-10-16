@@ -27,6 +27,8 @@ import {
   setPortalAccessAction,
 } from "@/app/app/(tenant)/students/portal-actions";
 import type { AttendanceStatus } from "@prisma/client";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 const DAY_LABEL: Record<string, string> = {
   MONDAY: "Lun",
@@ -238,7 +240,7 @@ export default async function StudentDetailPage({
               {student.lastName} {student.firstName}
             </div>
             <div className="mt-1 text-sm text-zinc-600">
-              Matricule {student.matricule} · {student.status}
+              Matricule {student.matricule} · {statusLabel("student", student.status)}
               {student.sex
                 ? ` · ${student.sex === "MALE" ? "Masculin" : "Féminin"}`
                 : ""}
@@ -258,7 +260,7 @@ export default async function StudentDetailPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -455,7 +457,7 @@ export default async function StudentDetailPage({
                     </span>
                   </span>
                   <span className="text-xs text-zinc-500">
-                    {e.status}
+                    {statusLabel("enrollment", e.status)}
                     {e.leftAt
                       ? ` · au ${e.leftAt.toISOString().slice(0, 10)}`
                       : ""}
@@ -842,7 +844,7 @@ export default async function StudentDetailPage({
                       {card.academicPeriod.academicYear.name} — {card.academicPeriod.name}
                     </span>
                     <span className="flex items-center gap-2 text-xs text-zinc-600">
-                      v{card.currentVersion} · {card.status}
+                      v{card.currentVersion} · {statusLabel("reportCard", card.status)}
                       {canPrintCards ? (
                         <a
                           href={`/app/report-cards/pdf?id=${card.id}`}

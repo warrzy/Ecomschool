@@ -2,6 +2,7 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listRooms } from "@/lib/services/rooms";
 import { createRoomAction, updateRoomAction } from "@/app/app/(tenant)/rooms/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -50,7 +51,7 @@ export default async function RoomsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>

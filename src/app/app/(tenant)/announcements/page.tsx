@@ -14,6 +14,7 @@ import {
   unarchiveAnnouncementAction,
   updateAnnouncementAction,
 } from "@/app/app/(tenant)/announcements/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 export const instant = false;
 
 const AUDIENCE_LABELS: Record<string, string> = {
@@ -211,7 +212,7 @@ export default async function AnnouncementsPage(props: {
             role="alert"
             className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
-            {ERROR_MESSAGES[error] ?? `Erreur : ${error}`}
+            {ERROR_MESSAGES[error] ?? `Erreur : ${errorMessage(error)}`}
           </div>
         ) : null}
       </div>

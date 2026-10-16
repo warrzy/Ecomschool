@@ -4,6 +4,8 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { updatePeriodAction } from "@/app/app/(tenant)/academic-years/actions";
 import { redirect } from "next/navigation";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -61,7 +63,7 @@ export default async function AcademicPeriodsPage({
               Périodes — {year.name}
             </div>
             <div className="mt-1 text-sm text-zinc-600">
-              Statut de l&apos;année : {year.status}
+              Statut de l&apos;année : {statusLabel("academicYear", year.status)}
             </div>
           </div>
           <Link
@@ -78,7 +80,7 @@ export default async function AcademicPeriodsPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -151,7 +153,8 @@ export default async function AcademicPeriodsPage({
                   #{p.number} — {p.name}
                 </div>
                 <div className="text-zinc-600">
-                  {d(p.startDate)} → {d(p.endDate)} · {p.type}
+                  {d(p.startDate)} → {d(p.endDate)} ·{" "}
+                  {statusLabel("periodType", p.type)}
                   {p.isLocked ? " · verrouillée" : ""}
                 </div>
               </div>

@@ -3,6 +3,8 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listSubjects } from "@/lib/services/subjects";
 import { createSubjectAction } from "@/app/app/(tenant)/subjects/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -48,7 +50,7 @@ export default async function SubjectsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -151,7 +153,7 @@ export default async function SubjectsPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">
                     {s._count.classAssignments}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-700">{s.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("subject", s.status)}</td>
                   <td className="py-2 pr-4">
                     <Link
                       href={`/app/subjects/${s.id}`}

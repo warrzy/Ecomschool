@@ -5,6 +5,8 @@ import {
   deleteUser,
   resetUserPassword,
 } from "@/app/app/(tenant)/users/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -76,7 +78,7 @@ export default async function UsersPage(props: {
 
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
         {sp.ok === "reset" ? (
@@ -133,7 +135,7 @@ export default async function UsersPage(props: {
                       .join(" ") || "-"}
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">{m.role.name}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("membership", m.status)}</td>
                   <td className="py-2 pr-4 text-zinc-700">{m.user.status}</td>
                   <td className="py-2 pr-4 text-zinc-700">
                     {m.user.createdAt.toISOString().slice(0, 10)}

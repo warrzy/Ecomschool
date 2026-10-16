@@ -3,6 +3,8 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listGuardians } from "@/lib/services/guardians";
 import { createGuardianAction } from "@/app/app/(tenant)/guardians/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -53,7 +55,7 @@ export default async function GuardiansPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -183,7 +185,9 @@ export default async function GuardiansPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">
                     {g._count.students}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-700">{g.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {statusLabel("guardian", g.status)}
+                  </td>
                   <td className="py-2 pr-4">
                     <Link
                       href={`/app/guardians/${g.id}`}

@@ -7,6 +7,8 @@ import {
   createYearAction,
   setCurrentYearAction,
 } from "@/app/app/(tenant)/academic-years/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -45,7 +47,7 @@ export default async function AcademicYearsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -138,7 +140,9 @@ export default async function AcademicYearsPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">
                     {y.isCurrent ? "Oui" : "Non"}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-700">{y.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">
+                    {statusLabel("academicYear", y.status)}
+                  </td>
                   <td className="py-2 pr-4">
                     <div className="flex items-center gap-2">
                       <Link

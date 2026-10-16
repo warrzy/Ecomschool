@@ -3,6 +3,7 @@ import type { SignupRequestStatus } from "@prisma/client";
 import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { listSignupRequests } from "@/lib/services/platform/signup-requests";
 import { reviewSignupRequestAction } from "@/app/platform/signup-requests/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -94,7 +95,7 @@ export default async function SignupRequestsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            Échec : {error}
+            Échec : {errorMessage(error)}
           </div>
         ) : null}
       </div>

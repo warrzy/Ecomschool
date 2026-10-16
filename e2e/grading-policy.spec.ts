@@ -316,7 +316,8 @@ test.describe("Règles de notation — accès restreint", () => {
 
   test("l'enseignant n'a pas accès à la page", async ({ page }) => {
     await page.goto("/app/grading-policy");
-    await page.waitForURL(/\/app(\?|$)/, { timeout: 30000 });
+    // Accès refusé : page 403 explicite (ou retour /app).
+    await page.waitForURL(/\/app(\/forbidden|\?|$)/, { timeout: 30000 });
     expect(page.url()).not.toContain("grading-policy");
   });
 });

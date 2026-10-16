@@ -9,6 +9,8 @@ import {
   unlinkGuardianAction,
   updateGuardianAction,
 } from "@/app/app/(tenant)/guardians/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -57,7 +59,9 @@ export default async function GuardianDetailPage({
             <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {guardian.lastName} {guardian.firstName}
             </div>
-            <div className="mt-1 text-sm text-zinc-600">{guardian.status}</div>
+            <div className="mt-1 text-sm text-zinc-600">
+              {statusLabel("guardian", guardian.status)}
+            </div>
           </div>
           <Link
             href="/app/guardians"
@@ -73,7 +77,7 @@ export default async function GuardianDetailPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>

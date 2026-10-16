@@ -3,6 +3,7 @@ import { requirePlatformPermission } from "@/lib/permissions/guard";
 import { prisma } from "@/lib/db/prisma";
 import { listSupportSessions } from "@/lib/services/platform/support";
 import { endSupportSessionAction, startSupportSessionAction } from "@/app/platform/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -44,7 +45,7 @@ export default async function SupportPage(props: {
           Chaque session est motivée, limitée dans le temps (max 72 h), journalisée et visible par l&apos;établissement.
           Aucune permission scolaire n&apos;est contournée.
         </p>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div> : null}
+        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       <div className={card}>

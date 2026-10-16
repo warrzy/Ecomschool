@@ -29,6 +29,8 @@ import {
   setSchoolStatusAction,
   updateSchoolAction,
 } from "@/app/platform/schools/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -146,7 +148,7 @@ export default async function PlatformSchoolDetailPage(props: {
               {school.name}
             </div>
             <div className="mt-1 text-sm text-zinc-600">
-              {school.code} · {school.city ?? "-"} · {school.status}
+              {school.code} · {school.city ?? "-"} · {statusLabel("school", school.status)}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -184,7 +186,7 @@ export default async function PlatformSchoolDetailPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>
@@ -291,8 +293,8 @@ export default async function PlatformSchoolDetailPage(props: {
                     {[m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || "-"}
                   </td>
                   <td className="py-2 pr-4 text-zinc-700">{m.role.name}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.status}</td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.user.status}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("membership", m.status)}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{statusLabel("user", m.user.status)}</td>
                 </tr>
               ))}
               {school.memberships.length === 0 ? (
@@ -335,7 +337,7 @@ export default async function PlatformSchoolDetailPage(props: {
         <ul className="mt-3 space-y-1 text-sm text-zinc-700">
           {school.academicYears.map((y) => (
             <li key={y.id}>
-              {y.name} · {y.status}
+              {y.name} · {statusLabel("academicYear", y.status)}
               {y.isCurrent ? " · courante" : ""}
             </li>
           ))}

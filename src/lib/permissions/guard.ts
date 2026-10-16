@@ -18,7 +18,7 @@ export async function requirePlatformPermission(permissionKey: string) {
     permissionKey,
   });
 
-  if (!ok) redirect("/platform" as never);
+  if (!ok) redirect("/platform/forbidden" as never);
 
   return ctx;
 }
@@ -31,12 +31,12 @@ export async function requireSchoolPermission(permissionKey: string) {
     schoolId: ctx.schoolId,
     permissionKey,
   });
-  if (!ok) redirect("/app" as never);
+  if (!ok) redirect("/app/forbidden" as never);
 
   // Activation commerciale : le module doit être souscrit et l'abonnement
   // non suspendu (les lectures restent autorisées en suspension).
   const covered = await isPermissionCoveredBySubscription(ctx.schoolId, permissionKey);
-  if (!covered) redirect("/app" as never);
+  if (!covered) redirect("/app/forbidden" as never);
 
   return ctx;
 }

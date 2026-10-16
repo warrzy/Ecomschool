@@ -15,6 +15,7 @@ import {
   upsertContentAction,
   saveSessionAttendanceAction,
 } from "@/app/app/(tenant)/sessions/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
 
 export const instant = false;
 
@@ -136,7 +137,7 @@ export default async function SessionDetailPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>

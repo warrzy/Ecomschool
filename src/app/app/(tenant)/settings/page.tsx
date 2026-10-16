@@ -2,6 +2,8 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { getMySchool } from "@/lib/services/schools";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { updateSchoolSettingsAction } from "@/app/app/(tenant)/settings/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -53,7 +55,7 @@ export default async function SettingsPage(props: {
           Paramètres de l&apos;établissement
         </div>
         <div className="mt-1 text-sm text-zinc-600">
-          {school.code} · {school.status}
+          {school.code} · {statusLabel("school", school.status)}
         </div>
         {ok ? (
           <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
@@ -62,7 +64,7 @@ export default async function SettingsPage(props: {
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>

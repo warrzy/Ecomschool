@@ -9,6 +9,8 @@ import {
   setLevelCoefficientAction,
   updateSubjectAction,
 } from "@/app/app/(tenant)/subjects/actions";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export const instant = false;
 
@@ -52,7 +54,7 @@ export default async function SubjectDetailPage({
             </div>
             <div className="mt-1 text-sm text-zinc-600">
               {subject.code ? `${subject.code} · ` : ""}
-              {subject.status}
+              {statusLabel("subject", subject.status)}
             </div>
           </div>
           <Link
@@ -69,7 +71,7 @@ export default async function SubjectDetailPage({
         ) : null}
         {error ? (
           <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error}
+            {errorMessage(error)}
           </div>
         ) : null}
       </div>

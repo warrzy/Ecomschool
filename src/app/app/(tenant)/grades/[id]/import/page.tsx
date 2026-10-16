@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { prisma } from "@/lib/db/prisma";
 import { GradeImportWizard } from "./wizard";
+import { statusLabel } from "@/lib/ui/statusLabels";
 
 export default async function GradesImportPage({
   params,
@@ -52,7 +53,8 @@ export default async function GradesImportPage({
       {locked ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
           Cette évaluation est verrouillée (période clôturée ou statut
-          {` ${assessment.status}`}) — l’import est impossible.
+          {` ${statusLabel("assessment", assessment.status)}`}) — l’import
+          est impossible.
         </p>
       ) : (
         <GradeImportWizard
