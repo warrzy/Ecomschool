@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { listAccounts } from "@/lib/services/finance/accounts";
 
@@ -12,6 +13,11 @@ export default async function AccountsPage(props: {
 }) {
   const tenant = await requireSchoolPermission("finance.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const canReport = await userHasSchoolPermission({
+    userId: tenant.userId,
+    schoolId: tenant.schoolId,
+    permissionKey: "finance.reports.read",
+  });
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
 
@@ -65,6 +71,22 @@ export default async function AccountsPage(props: {
             Filtrer
           </button>
         </form>
+        {canReport && yearId ? (
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <a href={`/app/fees/accounts/export?format=csv&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Comptes CSV
+            </a>
+            <a href={`/app/fees/accounts/export?format=xlsx&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Comptes Excel
+            </a>
+            <a href={`/app/fees/installments/export?format=csv&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Échéances CSV
+            </a>
+            <a href={`/app/fees/installments/export?format=xlsx&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Échéances Excel
+            </a>
+          </div>
+        ) : null}
       </div>
 
       <div className={card}>

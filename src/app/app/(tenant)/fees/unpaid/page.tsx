@@ -91,6 +91,19 @@ export default async function UnpaidPage(props: {
             Filtrer
           </button>
         </form>
+        {yearId ? (
+          <div className="mt-3 flex flex-wrap gap-3 text-sm">
+            <a href={`/app/fees/unpaid/export?format=csv&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Impayés CSV
+            </a>
+            <a href={`/app/fees/unpaid/export?format=xlsx&year=${yearId}${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Impayés Excel
+            </a>
+            <a href={`/app/fees/unpaid/export?format=csv&year=${yearId}&late=1${classroomId ? `&classroom=${classroomId}` : ""}`} className="text-zinc-700 underline">
+              Retards seuls CSV
+            </a>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">

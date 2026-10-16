@@ -63,7 +63,9 @@ export default async function PaymentsJournalPage(props: {
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
-  const csvHref = `/app/fees/payments/csv?year=${yearId ?? ""}&from=${from ?? ""}&to=${to ?? ""}&method=${method ?? ""}`;
+  const exportParams = `year=${yearId ?? ""}&from=${from ?? ""}&to=${to ?? ""}&method=${method ?? ""}${includeCancelled ? "" : "&status=VALIDATED"}`;
+  const csvHref = `/app/fees/payments/export?format=csv&${exportParams}`;
+  const xlsxHref = `/app/fees/payments/export?format=xlsx&${exportParams}`;
 
   return (
     <div className="space-y-4">
@@ -78,6 +80,9 @@ export default async function PaymentsJournalPage(props: {
           <div className="flex items-center gap-2">
             <a href={csvHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
               Export CSV
+            </a>
+            <a href={xlsxHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+              Export Excel
             </a>
             {canClose ? (
               <form action={closeCashAction} className="flex items-center gap-2">

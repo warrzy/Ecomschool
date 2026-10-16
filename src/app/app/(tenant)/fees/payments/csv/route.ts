@@ -1,53 +1,65 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
-import { listPayments } from "@/lib/services/finance/payments";
+import {
+  ALLOCATIONS_HEADERS,
+  buildPaymentsExport,
+  PAYMENTS_HEADERS,
+} from "@/lib/export/finance";
+import { exportFile } from "@/lib/export/respond";
 import type { PaymentMethod } from "@prisma/client";
 
+/**
+ * GET /app/fees/payments/csv?year&from&to&method&classroom&student
+ *   &status=VALIDATED|CANCELLED&view=allocations
+ * URL historique conservée (rétrocompatibilité) — réécrite sur le socle :
+ * BOM + anti-injection + pagination au-delà de 500 lignes + marqueur
+ * de troncature explicite. Inclut les paiements annulés (statut distinct).
+ * view=allocations → export distinct des ventilations.
+ */
 export async function GET(req: NextRequest) {
   const tenant = await requireSchoolPermission("finance.reports.read");
+  const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
   const url = new URL(req.url);
-  const year = url.searchParams.get("year") || undefined;
-  const from = url.searchParams.get("from") || undefined;
-  const to = url.searchParams.get("to") || undefined;
-  const method = (url.searchParams.get("method") || undefined) as PaymentMethod | undefined;
+  const p = (k: string) => url.searchParams.get(k) || undefined;
 
-  const payments = await listPayments(
-    { userId: tenant.userId, schoolId: tenant.schoolId },
+  const date = (k: string) => {
+    const v = p(k);
+    return v && !Number.isNaN(new Date(v).getTime())
+      ? new Date(v)
+      : undefined;
+  };
+  const method = ["CASH", "BANK_TRANSFER", "CHECK", "MOBILE_MONEY", "OTHER"]
+    .includes(p("method") ?? "")
+    ? (p("method") as PaymentMethod)
+    : undefined;
+  const status = ["VALIDATED", "CANCELLED"].includes(p("status") ?? "")
+    ? (p("status") as "VALIDATED" | "CANCELLED")
+    : undefined;
+
+  const { payments, allocations, truncated } = await buildPaymentsExport(
+    ctx,
     {
-      academicYearId: year,
-      from: from ? new Date(`${from}T00:00:00Z`) : undefined,
-      to: to ? new Date(`${to}T23:59:59Z`) : undefined,
+      academicYearId: p("year"),
+      classroomId: p("classroom"),
+      studentId: p("student"),
+      from: date("from"),
+      to: date("to"),
       method,
-      includeCancelled: true,
+      status,
     },
   );
 
-  const esc = (v: string | null | undefined) =>
-    `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = payments.map((p) =>
-    [
-      p.paidAt.toISOString().slice(0, 10),
-      p.receiptNumber ?? "",
-      p.student.matricule,
-      `${p.student.firstName} ${p.student.lastName}`,
-      p.method,
-      p.reference ?? "",
-      String(p.amount),
-      p.status,
-      p.cancelReason ?? "",
-    ]
-      .map(esc)
-      .join(";"),
-  );
-  const csv =
-    ["date;reçu;matricule;élève;mode;référence;montant;statut;motif_annulation", ...rows].join(
-      "\r\n",
-    );
-
-  return new NextResponse(`﻿${csv}`, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="journal-paiements.csv"',
-    },
+  const ventilations = p("view") === "allocations";
+  return exportFile({
+    format: "csv",
+    filename: ventilations ? "ventilations-paiements" : "journal-paiements",
+    sheets: [
+      {
+        name: ventilations ? "Ventilations" : "Paiements",
+        headers: ventilations ? ALLOCATIONS_HEADERS : PAYMENTS_HEADERS,
+        rows: ventilations ? allocations : payments,
+      },
+    ],
+    truncated,
   });
 }

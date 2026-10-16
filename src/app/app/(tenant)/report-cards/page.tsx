@@ -122,6 +122,18 @@ export default async function ReportCardsPage(props: {
           <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
             Filtrer
           </button>
+          <a
+            href={`/app/report-cards/export?format=csv${classroomId ? `&classroom=${classroomId}` : ""}${periodId ? `&period=${periodId}` : ""}${status ? `&status=${status}` : ""}`}
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+          >
+            Registre CSV
+          </a>
+          <a
+            href={`/app/report-cards/export?format=xlsx${classroomId ? `&classroom=${classroomId}` : ""}${periodId ? `&period=${periodId}` : ""}${status ? `&status=${status}` : ""}`}
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+          >
+            Registre Excel
+          </a>
           {canGenerate && classroomId && periodId ? (
             <button
               type="submit"

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 export type PaymentsError =
@@ -339,9 +339,12 @@ export async function listPayments(
     to?: Date;
     method?: PaymentMethod;
     classroomId?: string;
+    studentId?: string;
+    status?: PaymentStatus;
     receivedById?: string;
     includeCancelled?: boolean;
   } = {},
+  opts: { take?: number; cursor?: string } = {},
 ) {
   return prisma.payment.findMany({
     where: {
@@ -356,8 +359,13 @@ export async function listPayments(
           }
         : {}),
       ...(filters.method ? { method: filters.method } : {}),
+      ...(filters.studentId ? { studentId: filters.studentId } : {}),
+      ...(filters.status
+        ? { status: filters.status }
+        : filters.includeCancelled
+          ? {}
+          : { status: "VALIDATED" }),
       ...(filters.receivedById ? { receivedById: filters.receivedById } : {}),
-      ...(filters.includeCancelled ? {} : { status: "VALIDATED" }),
       ...(filters.classroomId
         ? {
             student: {
@@ -374,8 +382,10 @@ export async function listPayments(
     include: {
       student: { select: { matricule: true, firstName: true, lastName: true } },
     },
-    orderBy: { paidAt: "desc" },
-    take: 500,
+    // Tri déterministe (tiebreaker id) requis pour la pagination curseur.
+    orderBy: [{ paidAt: "desc" }, { id: "asc" }],
+    take: opts.take ?? 500,
+    ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
   });
 }
 
