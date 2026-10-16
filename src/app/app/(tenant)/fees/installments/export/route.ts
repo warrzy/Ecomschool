@@ -53,11 +53,16 @@ export async function GET(req: NextRequest) {
     from: date("from"),
     to: date("to"),
   });
+  if (truncated) {
+    return new NextResponse(
+      "Export trop volumineux — réduisez les filtres ou la période, puis réessayez.",
+      { status: 413 },
+    );
+  }
 
   return exportFile({
     format: p("format") === "xlsx" ? "xlsx" : "csv",
     filename: "echeances",
     sheets: [{ name: "Échéances", headers: INSTALLMENTS_HEADERS, rows }],
-    truncated,
   });
 }

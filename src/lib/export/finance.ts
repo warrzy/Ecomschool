@@ -303,11 +303,18 @@ export interface PaymentsExportFilters {
   status?: PaymentStatus;
 }
 
-/** Journal des paiements — pagination curseur au-delà du cap service. */
-export async function buildPaymentsExport(
+/**
+ * Tous les paiements autorisés — pagination curseur au-delà du cap
+ * unitaire du service (500). `truncated` signale un dépassement du
+ * plafond global : les routes DOIVENT alors refuser (erreur explicite),
+ * jamais émettre un fichier partiel présenté comme complet.
+ */
+export async function listAllPayments(
   ctx: SchoolCtx,
   filters: PaymentsExportFilters,
-): Promise<{ payments: Rows; allocations: Rows; truncated: boolean }> {
+  opts: { maxRows?: number } = {},
+) {
+  const cap = opts.maxRows ?? MAX_ROWS;
   const all: Awaited<ReturnType<typeof listPayments>> = [];
   let cursor: string | undefined;
   for (;;) {
@@ -317,11 +324,66 @@ export async function buildPaymentsExport(
       { take: PAGE, cursor },
     );
     all.push(...page);
-    if (page.length < PAGE || all.length >= MAX_ROWS + 1) break;
+    if (page.length < PAGE || all.length >= cap + 1) break;
     cursor = page[page.length - 1].id;
   }
-  const truncated = all.length > MAX_ROWS;
-  const payments = all.slice(0, MAX_ROWS);
+  return { payments: all, truncated: all.length > cap };
+}
+
+/** Une ligne par allocation des paiements fournis. */
+export async function buildAllocationRows(
+  ctx: SchoolCtx,
+  payments: { id: string }[],
+): Promise<Rows> {
+  if (payments.length === 0) return [];
+  const allocations = await prisma.paymentAllocation.findMany({
+    where: {
+      payment: { schoolId: ctx.schoolId, id: { in: payments.map((p) => p.id) } },
+    },
+    include: {
+      payment: {
+        select: {
+          paidAt: true,
+          receiptNumber: true,
+          status: true,
+          student: {
+            select: { matricule: true, firstName: true, lastName: true },
+          },
+        },
+      },
+      installment: {
+        select: {
+          label: true,
+          dueDate: true,
+          charge: { select: { category: { select: { label: true } } } },
+        },
+      },
+    },
+    orderBy: { id: "asc" },
+  });
+  return allocations.map((a) => [
+    iso(a.payment.paidAt),
+    a.payment.receiptNumber ?? "",
+    a.payment.student.matricule,
+    a.payment.student.lastName,
+    a.payment.student.firstName,
+    a.installment.charge.category.label,
+    a.installment.label ?? "",
+    iso(a.installment.dueDate),
+    a.amount,
+    PAYMENT_STATUS[a.payment.status] ?? a.payment.status,
+  ]);
+}
+
+/** Journal des paiements — lignes formatées pour l'export standardisé. */
+export async function buildPaymentsExport(
+  ctx: SchoolCtx,
+  filters: PaymentsExportFilters,
+  opts: { maxRows?: number } = {},
+): Promise<{ payments: Rows; allocations: Rows; truncated: boolean }> {
+  const cap = opts.maxRows ?? MAX_ROWS;
+  const { payments: all, truncated } = await listAllPayments(ctx, filters, opts);
+  const payments = all.slice(0, cap);
 
   const paymentsRows = payments.map((p) => [
     iso(p.paidAt),
@@ -336,55 +398,11 @@ export async function buildPaymentsExport(
     p.cancelReason ?? "",
   ]);
 
-  const allocationRows: Rows = payments.length
-    ? (
-        await prisma.paymentAllocation.findMany({
-          where: {
-            payment: {
-              schoolId: ctx.schoolId,
-              id: { in: payments.map((p) => p.id) },
-            },
-          },
-          include: {
-            payment: {
-              select: {
-                paidAt: true,
-                receiptNumber: true,
-                status: true,
-                student: {
-                  select: {
-                    matricule: true,
-                    firstName: true,
-                    lastName: true,
-                  },
-                },
-              },
-            },
-            installment: {
-              select: {
-                label: true,
-                dueDate: true,
-                charge: {
-                  select: { category: { select: { label: true } } },
-                },
-              },
-            },
-          },
-          orderBy: { id: "asc" },
-        })
-      ).map((a) => [
-        iso(a.payment.paidAt),
-        a.payment.receiptNumber ?? "",
-        a.payment.student.matricule,
-        a.payment.student.lastName,
-        a.payment.student.firstName,
-        a.installment.charge.category.label,
-        a.installment.label ?? "",
-        iso(a.installment.dueDate),
-        a.amount,
-        PAYMENT_STATUS[a.payment.status] ?? a.payment.status,
-      ])
-    : [];
-
-  return { payments: paymentsRows, allocations: allocationRows, truncated };
+  const allocationRows = await buildAllocationRows(ctx, payments);
+  // Les ventilations aussi sont bornées : au-delà, la route refuse.
+  return {
+    payments: paymentsRows,
+    allocations: allocationRows,
+    truncated: truncated || allocationRows.length > cap,
+  };
 }

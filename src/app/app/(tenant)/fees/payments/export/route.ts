@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import {
   ALLOCATIONS_HEADERS,
@@ -48,6 +48,12 @@ export async function GET(req: NextRequest) {
     },
   );
 
+  if (truncated) {
+    return new NextResponse(
+      "Export trop volumineux — réduisez les filtres ou la période, puis réessayez.",
+      { status: 413 },
+    );
+  }
   const ventilations = p("view") === "allocations";
   return exportFile({
     format: p("format") === "xlsx" ? "xlsx" : "csv",
@@ -68,6 +74,5 @@ export async function GET(req: NextRequest) {
             rows: allocations,
           },
         ],
-    truncated,
   });
 }

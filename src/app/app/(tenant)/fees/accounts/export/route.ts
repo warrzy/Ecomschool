@@ -36,11 +36,16 @@ export async function GET(req: NextRequest) {
     classroomId: p("classroom"),
     studentId: p("student"),
   });
+  if (truncated) {
+    return new NextResponse(
+      "Export trop volumineux — réduisez les filtres ou la période, puis réessayez.",
+      { status: 413 },
+    );
+  }
 
   return exportFile({
     format: p("format") === "xlsx" ? "xlsx" : "csv",
     filename: "comptes-eleves",
     sheets: [{ name: "Comptes", headers: ACCOUNTS_HEADERS, rows }],
-    truncated,
   });
 }

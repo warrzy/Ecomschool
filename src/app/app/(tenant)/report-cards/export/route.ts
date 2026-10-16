@@ -56,6 +56,12 @@ export async function GET(req: NextRequest) {
   }
 
   const { registry, versions, truncated } = res.result;
+  if (truncated) {
+    return new NextResponse(
+      "Export trop volumineux — réduisez les filtres ou la période, puis réessayez.",
+      { status: 413 },
+    );
+  }
   return exportFile({
     format: p("format") === "xlsx" ? "xlsx" : "csv",
     filename: "registre-bulletins",
@@ -63,6 +69,5 @@ export async function GET(req: NextRequest) {
       { name: "Registre", headers: REGISTRY_HEADERS, rows: registry },
       { name: "Versions", headers: VERSIONS_HEADERS, rows: versions },
     ],
-    truncated,
   });
 }

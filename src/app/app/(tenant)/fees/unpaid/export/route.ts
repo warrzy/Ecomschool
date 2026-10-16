@@ -38,11 +38,16 @@ export async function GET(req: NextRequest) {
     studentId: p("student"),
     lateOnly: p("late") === "1",
   });
+  if (truncated) {
+    return new NextResponse(
+      "Export trop volumineux — réduisez les filtres ou la période, puis réessayez.",
+      { status: 413 },
+    );
+  }
 
   return exportFile({
     format: p("format") === "xlsx" ? "xlsx" : "csv",
     filename: "impayes",
     sheets: [{ name: "Impayés", headers: UNPAID_HEADERS, rows }],
-    truncated,
   });
 }

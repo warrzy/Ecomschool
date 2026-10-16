@@ -87,6 +87,14 @@ export default async function AccountsPage(props: {
             </a>
           </div>
         ) : null}
+        {canReport ? (
+          <p className="mt-2 text-xs text-zinc-500">
+            Export « Échéances » : reste contractuel (montant − encaissements
+            ventilés). Export « Impayés » : reste net après imputation des
+            réductions (FIFO) — les deux montants peuvent donc différer pour
+            un élève bénéficiant de remises.
+          </p>
+        ) : null}
       </div>
 
       <div className={card}>

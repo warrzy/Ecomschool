@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { prisma, ACCOUNTS } from "./helpers";
 import { listAccounts } from "../src/lib/services/finance/accounts";
 import { listUnpaid } from "../src/lib/services/finance/payments";
+import { buildPaymentsExport } from "../src/lib/export/finance";
 
 /**
  * P5c — exports financiers (comptes, échéances, impayés, journal des
@@ -256,12 +257,25 @@ test.describe("P5c — journal des paiements", () => {
     ).text();
     expect(header(csvA)).toContain("montant_alloue_xof");
 
-    // 5. rétrocompatibilité : URL historique /csv
+    // 5. rétrocompatibilité : URL historique /csv — CONTRAT D'ORIGINE
+    //    (en-têtes accentués, élève en une colonne, enums bruts, cellules
+    //    systématiquement quotées, nom de fichier fixe)
     const legacy = await request.get(`/app/fees/payments/csv?year=${yearId}`);
     expect(legacy.status()).toBe(200);
+    expect(legacy.headers()["content-disposition"]).toContain(
+      "journal-paiements.csv",
+    );
     const legacyCsv = await legacy.text();
-    expect(header(legacyCsv)).toContain("montant_xof");
-    expect(legacyCsv).toContain("P5C-ANNUL");
+    expect(header(legacyCsv)).toBe(
+      "date;reçu;matricule;élève;mode;référence;montant;statut;motif_annulation",
+    );
+    expect(legacyCsv).toContain('"P5C-ANNUL"');
+    expect(legacyCsv).toContain('"CANCELLED"');
+    expect(legacyCsv).toContain('"CASH"');
+    expect(legacyCsv).toContain('"Erreur de saisie"');
+    for (const c of rows(legacyCsv)[0].split(";")) {
+      expect(c.startsWith('"')).toBeTruthy();
+    }
     const legacyA = await (
       await request.get(
         `/app/fees/payments/csv?view=allocations&year=${yearId}`,
@@ -297,6 +311,19 @@ test.describe("P5c — journal des paiements", () => {
     expect(rows(csv).length).toBe(expected);
   });
 
+  test("plafond : truncated signalé par le builder (les routes → 413)", async () => {
+    const { ctx } = await demoCtx();
+    const capped = await buildPaymentsExport(
+      ctx,
+      { academicYearId: yearId },
+      { maxRows: 2 },
+    );
+    expect(capped.truncated).toBeTruthy();
+    expect(capped.payments.length).toBe(2);
+    const full = await buildPaymentsExport(ctx, { academicYearId: yearId });
+    expect(full.truncated).toBeFalsy();
+  });
+
   test("injection de formules neutralisée dans le journal", async ({
     request,
   }) => {
@@ -323,7 +350,7 @@ test.describe("P5c — journal des paiements", () => {
     const row = rows(csv).find(
       (l) => Number(cell(l, col(csv, "montant_xof"))) === 500001,
     )!;
-    const unquote = (v: string) => v.replace(/^"(.*)"$/s, "$1");
+    const unquote = (v: string) => v.replace(/^"([\s\S]*)"$/, "$1");
     expect(unquote(cell(row, col(csv, "reference"))).startsWith("'")).toBeTruthy();
     expect(unquote(cell(row, col(csv, "prenom"))).startsWith("'")).toBeTruthy();
     for (const l of rows(csv)) {

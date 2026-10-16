@@ -104,6 +104,11 @@ export default async function UnpaidPage(props: {
             </a>
           </div>
         ) : null}
+        <p className="mt-2 text-xs text-zinc-500">
+          Le reste des impayés tient compte de l&apos;imputation des réductions
+          sur les échéances (FIFO) ; il peut différer du reste contractuel
+          affiché par l&apos;export « Échéances ».
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
