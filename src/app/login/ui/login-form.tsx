@@ -56,6 +56,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <div className="space-y-1">
             <label htmlFor="email" className="text-sm font-medium text-zinc-800">
               Email
@@ -63,9 +64,10 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             <input
               id="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               placeholder="vous@ecole.bf"
               required
             />
@@ -81,15 +83,16 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             <input
               id="password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               required
             />
           </div>
 
           {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               {error}
             </div>
           ) : null}

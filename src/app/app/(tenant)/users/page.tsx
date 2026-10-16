@@ -8,6 +8,7 @@ import {
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
 import { okMessage } from "@/lib/ui/okLabels";
+import { roleLabel } from "@/lib/ui/roleLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 
 export const instant = false;
@@ -90,14 +91,14 @@ export default async function UsersPage(props: {
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Administration</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Utilisateurs
-            </div>
+            </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <a
               href="/app/users/export?format=csv"
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
@@ -120,27 +121,27 @@ export default async function UsersPage(props: {
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
         {sp.ok === "reset" ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Lien de réinitialisation émis (valable 24 h) — envoyé par email si le
             canal est configuré.
           </div>
         ) : null}
         {sp.ok && sp.ok !== "reset" ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(typeof sp.ok === "string" ? sp.ok : undefined)}
           </div>
         ) : null}
 
         <form className="mt-4" action="/app/users" method="get">
           <input
-            name="q"
+            aria-label="Recherche" name="q"
             defaultValue={q}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             placeholder="Rechercher (email, prénom, nom)"
           />
         </form>
@@ -148,19 +149,19 @@ export default async function UsersPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Utilisateurs" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">
+                <th scope="col" className="py-2 pr-4">
                   <Link href={sortLink("email")} className="hover:text-zinc-800">
                     Email
                   </Link>
                 </th>
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Rôle</th>
-                <th className="py-2 pr-4">Membership</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4">
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Rôle</th>
+                <th scope="col" className="py-2 pr-4">Membership</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4">
                   <Link
                     href={sortLink("createdAt")}
                     className="hover:text-zinc-800"
@@ -168,7 +169,7 @@ export default async function UsersPage(props: {
                     Créé le
                   </Link>
                 </th>
-                <th className="py-2 pr-4">Actions</th>
+                <th scope="col" className="py-2 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -182,14 +183,14 @@ export default async function UsersPage(props: {
                       .filter(Boolean)
                       .join(" ") || "-"}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.role.name}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{roleLabel(m.role.name)}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("membership", m.status)}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("user", m.user.status)}</td>
                   <td className="py-2 pr-4 text-zinc-700">
                     {m.user.createdAt.toISOString().slice(0, 10)}
                   </td>
                   <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/app/users/${m.user.id}/edit`}
                         className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"

@@ -56,10 +56,10 @@ export default async function UnpaidPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Impayés
         </div>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             Soldes restants & échéances dépassées ({unpaid.length})
-          </div>
+          </h1>
           <Link
             href="/app/fees"
             className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -68,23 +68,25 @@ export default async function UnpaidPage(props: {
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div>
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div>
         ) : null}
       </div>
 
       <div className={card}>
         <form method="GET" className="flex flex-wrap items-end gap-3">
-          <select name="year" defaultValue={yearId ?? ""} className={input}>
+          <select
+                  aria-label="Année scolaire" name="year" defaultValue={yearId ?? ""} className={input}>
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
-          <select name="classroom" defaultValue={classroomId ?? ""} className={input}>
+          <select
+                  aria-label="Toutes les classes" name="classroom" defaultValue={classroomId ?? ""} className={input}>
             <option value="">Toutes les classes</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
@@ -118,7 +120,7 @@ export default async function UnpaidPage(props: {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">En retard par classe</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="En retard par classe" className="w-full text-left text-sm">
             <tbody>
               {[...byClassroom.entries()].map(([k, v]) => (
                 <tr key={k} className="border-b border-zinc-100 last:border-0">
@@ -134,7 +136,7 @@ export default async function UnpaidPage(props: {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">En retard par niveau</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="En retard par niveau" className="w-full text-left text-sm">
             <tbody>
               {[...byLevel.entries()].map(([k, v]) => (
                 <tr key={k} className="border-b border-zinc-100 last:border-0">
@@ -151,16 +153,16 @@ export default async function UnpaidPage(props: {
 
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Élèves en retard de paiement" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Élève</th>
-              <th className="py-2">Classe</th>
-              <th className="py-2">Catégorie</th>
-              <th className="py-2">Échéance</th>
-              <th className="py-2 text-right">Reste</th>
-              <th className="py-2">Retard</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Élève</th>
+              <th scope="col" className="py-2">Classe</th>
+              <th scope="col" className="py-2">Catégorie</th>
+              <th scope="col" className="py-2">Échéance</th>
+              <th scope="col" className="py-2 text-right">Reste</th>
+              <th scope="col" className="py-2">Retard</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -183,7 +185,7 @@ export default async function UnpaidPage(props: {
                   <form action={remindAction} className="flex items-center justify-end gap-1">
                     <input type="hidden" name="studentId" value={u.student.id} />
                     <input type="hidden" name="installmentId" value={u.id} />
-                    <input name="note" placeholder="Message de relance" required className="w-40 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
+                    <input aria-label="Note" name="note" placeholder="Message de relance" required className="w-40 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
                     <SubmitButton className="text-xs text-zinc-700 underline">Relancer</SubmitButton>
                   </form>
                 </td>
@@ -200,12 +202,12 @@ export default async function UnpaidPage(props: {
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Historique des relances</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Historique des relances" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Date</th>
-              <th className="py-2">Élève</th>
-              <th className="py-2">Message</th>
+              <th scope="col" className="py-2">Date</th>
+              <th scope="col" className="py-2">Élève</th>
+              <th scope="col" className="py-2">Message</th>
             </tr>
           </thead>
           <tbody>

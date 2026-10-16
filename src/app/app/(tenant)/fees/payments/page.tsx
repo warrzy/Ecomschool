@@ -129,10 +129,10 @@ export default async function PaymentsJournalPage(props: {
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Journal des paiements
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             Encaissements ({payments.length}) — aujourd&apos;hui : {fmt(totalDay)}
-          </div>
-          <div className="flex items-center gap-2">
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
             <a href={csvHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
               Export CSV
             </a>
@@ -150,12 +150,12 @@ export default async function PaymentsJournalPage(props: {
           </div>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "cancelled" ? "Paiement annulé (contre-écriture auditée)." : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "CLOSED_DAY" ? "Journée déjà clôturée." : error === "ALREADY_CANCELLED" ? "Paiement déjà annulé." : errorMessage(error)}
           </div>
         ) : null}
@@ -164,9 +164,10 @@ export default async function PaymentsJournalPage(props: {
       <div className={card}>
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="year" value={yearId ?? ""} />
-          <input name="from" type="date" defaultValue={from ?? ""} className={input} />
-          <input name="to" type="date" defaultValue={to ?? ""} className={input} />
-          <select name="method" defaultValue={method ?? ""} className={input}>
+          <input aria-label="Du" name="from" type="date" defaultValue={from ?? ""} className={input} />
+          <input aria-label="Au" name="to" type="date" defaultValue={to ?? ""} className={input} />
+          <select
+                  aria-label="Tous modes" name="method" defaultValue={method ?? ""} className={input}>
             <option value="">Tous modes</option>
             {Object.entries(METHOD_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -183,17 +184,17 @@ export default async function PaymentsJournalPage(props: {
 
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Paiements" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Date</th>
-              <th className="py-2">Reçu</th>
-              <th className="py-2">Élève</th>
-              <th className="py-2">Mode</th>
-              <th className="py-2">Référence</th>
-              <th className="py-2 text-right">Montant</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Date</th>
+              <th scope="col" className="py-2">Reçu</th>
+              <th scope="col" className="py-2">Élève</th>
+              <th scope="col" className="py-2">Mode</th>
+              <th scope="col" className="py-2">Référence</th>
+              <th scope="col" className="py-2 text-right">Montant</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -236,12 +237,12 @@ export default async function PaymentsJournalPage(props: {
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Clôtures de caisse</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Clôtures de caisse" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Date</th>
-              <th className="py-2 text-right">Total</th>
-              <th className="py-2 text-right">Paiements</th>
+              <th scope="col" className="py-2">Date</th>
+              <th scope="col" className="py-2 text-right">Total</th>
+              <th scope="col" className="py-2 text-right">Paiements</th>
             </tr>
           </thead>
           <tbody>

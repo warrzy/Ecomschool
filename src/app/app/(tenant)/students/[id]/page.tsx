@@ -262,12 +262,12 @@ export default async function StudentDetailPage({
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Élève</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {student.lastName} {student.firstName}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               Matricule {student.matricule} · {statusLabel("student", student.status)}
               {student.sex
@@ -283,12 +283,12 @@ export default async function StudentDetailPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -298,42 +298,43 @@ export default async function StudentDetailPage({
         <div className="text-sm font-medium text-zinc-900">Identité</div>
         {canManage ? (
           <form action={updateStudentAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <input type="hidden" name="id" value={student.id} />
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-1">
                   Matricule
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-1"
                   name="matricule"
                   defaultValue={student.matricule}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Nom</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-2">Nom</label>
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-2"
                   name="lastName"
                   defaultValue={student.lastName}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-3">
                   Prénom
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-3"
                   name="firstName"
                   defaultValue={student.firstName}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Sexe</label>
-                <select
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-4">Sexe</label>
+                <select id="fld-src-app-app-tenant-students-id-page-tsx-4"
                   name="sex"
                   defaultValue={student.sex ?? ""}
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -344,73 +345,73 @@ export default async function StudentDetailPage({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-5">
                   Date de naissance
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-5"
                   name="birthDate"
                   type="date"
                   defaultValue={d(student.birthDate)}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-6">
                   Lieu de naissance
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-6"
                   name="birthPlace"
                   defaultValue={student.birthPlace ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-7">
                   Téléphone
                 </label>
-                <input
+                <input type="tel" id="fld-src-app-app-tenant-students-id-page-tsx-7"
                   name="phone"
                   defaultValue={student.phone ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-8">
                   Email
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-8"
                   name="email"
                   type="email"
                   defaultValue={student.email ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-9">
                   Adresse
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-9"
                   name="address"
                   defaultValue={student.address ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-10">
                   Photo (URL)
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-students-id-page-tsx-10"
                   name="photoUrl"
                   type="url"
                   defaultValue={student.photoUrl ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-students-id-page-tsx-11">
                   Statut
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-students-id-page-tsx-11"
                   name="status"
                   defaultValue={student.status}
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -471,7 +472,7 @@ export default async function StudentDetailPage({
               {student.enrollments.map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <Link
@@ -509,7 +510,7 @@ export default async function StudentDetailPage({
               {student.guardians.map((l) => (
                 <li
                   key={l.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <Link
@@ -545,6 +546,7 @@ export default async function StudentDetailPage({
                 <input type="hidden" name="studentId" value={student.id} />
                 <div className="flex items-end gap-2">
                   <select
+                  aria-label="Tuteur à associer"
                     name="guardianId"
                     required
                     className="h-10 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -557,6 +559,7 @@ export default async function StudentDetailPage({
                     ))}
                   </select>
                   <select
+                  aria-label="Lien de parenté"
                     name="relation"
                     required
                     className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -589,34 +592,35 @@ export default async function StudentDetailPage({
                 <input type="hidden" name="studentId" value={student.id} />
                 <div className="grid gap-3 md:grid-cols-2">
                   <input
-                    name="lastName"
+                    aria-label="Nom" name="lastName"
                     placeholder="Nom"
                     required
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                   <input
-                    name="firstName"
+                    aria-label="Prénom" name="firstName"
                     placeholder="Prénom"
                     required
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                   <input
-                    name="phone"
+                    aria-label="Téléphone" type="tel" name="phone"
                     placeholder="Téléphone"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                   <input
-                    name="email"
+                    aria-label="Adresse e-mail" name="email"
                     type="email"
                     placeholder="Email"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                   <input
-                    name="address"
+                    aria-label="Adresse" name="address"
                     placeholder="Adresse"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                   <select
+                  aria-label="Lien de parenté"
                     name="relation"
                     required
                     className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -650,7 +654,7 @@ export default async function StudentDetailPage({
               </div>
             ) : null}
             <ul className="mt-3 space-y-2 text-sm">
-              <li className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2">
+              <li className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2">
                 <span>
                   <span className="font-medium text-zinc-900">Compte élève</span>{" "}
                   <span className="text-zinc-500">
@@ -694,7 +698,7 @@ export default async function StudentDetailPage({
                     <form action={inviteStudentAction} className="flex items-center gap-1">
                       <input type="hidden" name="studentId" value={student.id} />
                       <input
-                        name="email"
+                        aria-label="Adresse e-mail" name="email"
                         type="email"
                         required
                         placeholder="Email du compte"
@@ -710,7 +714,7 @@ export default async function StudentDetailPage({
               {access.student.guardians.map((g) => (
                 <li
                   key={g.guardian.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <span className="font-medium text-zinc-900">
@@ -759,7 +763,7 @@ export default async function StudentDetailPage({
                         <input type="hidden" name="studentId" value={student.id} />
                         <input type="hidden" name="guardianId" value={g.guardian.id} />
                         <input
-                          name="email"
+                          aria-label="Adresse e-mail" name="email"
                           type="email"
                           required
                           placeholder="Email"
@@ -792,7 +796,7 @@ export default async function StudentDetailPage({
                 {gradeRows.slice(0, 15).map((g) => (
                   <li
                     key={g.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                   >
                     <span className="font-medium text-zinc-900">
                       {g.assessment.subject.name} — {g.assessment.title}
@@ -824,7 +828,7 @@ export default async function StudentDetailPage({
                   {periodResults.map((r) => (
                     <li
                       key={r.id}
-                      className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                      className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                     >
                       <span className="font-medium text-zinc-900">
                         {r.academicPeriod.academicYear.name} — {r.academicPeriod.name}
@@ -856,12 +860,12 @@ export default async function StudentDetailPage({
                 {reportCards.map((card) => (
                   <li
                     key={card.id}
-                    className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                   >
                     <span className="font-medium text-zinc-900">
                       {card.academicPeriod.academicYear.name} — {card.academicPeriod.name}
                     </span>
-                    <span className="flex items-center gap-2 text-xs text-zinc-600">
+                    <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-600">
                       v{card.currentVersion} · {statusLabel("reportCard", card.status)}
                       {canPrintCards ? (
                         <a
@@ -904,7 +908,7 @@ export default async function StudentDetailPage({
               {weekSlots.map((s) => (
                 <li
                   key={`${s.source}-${s.id}`}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {s.subjectName ?? "Cours"}
@@ -949,7 +953,7 @@ export default async function StudentDetailPage({
                     key={r.id}
                     className="rounded-xl border border-zinc-100 px-3 py-2"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between">
                       <span className="text-zinc-900">
                         {d(r.date)} — {ATT_LABEL[r.status]}
                       </span>
@@ -989,7 +993,7 @@ export default async function StudentDetailPage({
                     key={r.id}
                     className="rounded-xl border border-zinc-100 px-3 py-2"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between">
                       <span className="text-zinc-900">{d(r.date)}</span>
                       <span className="text-xs text-zinc-500">
                         {r.durationMin != null ? `${r.durationMin} min` : ""}

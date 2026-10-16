@@ -20,9 +20,9 @@ export default async function ModulesPage() {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Modules
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Catalogue des modules ({modules.length})
-        </div>
+        </h1>
         <p className="mt-2 text-xs text-zinc-500">
           Les modules restreignent les permissions côté serveur — pas seulement la navigation.
           Les activations par établissement se gèrent depuis la fiche école.
@@ -31,15 +31,15 @@ export default async function ModulesPage() {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Catalogue des modules" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Code</th>
-              <th className="py-2">Module</th>
-              <th className="py-2">Dépendances</th>
-              <th className="py-2">Commercial</th>
-              <th className="py-2 text-right">Offres</th>
-              <th className="py-2">Statut</th>
+              <th scope="col" className="py-2">Code</th>
+              <th scope="col" className="py-2">Module</th>
+              <th scope="col" className="py-2">Dépendances</th>
+              <th scope="col" className="py-2">Commercial</th>
+              <th scope="col" className="py-2 text-right">Offres</th>
+              <th scope="col" className="py-2">Statut</th>
             </tr>
           </thead>
           <tbody>

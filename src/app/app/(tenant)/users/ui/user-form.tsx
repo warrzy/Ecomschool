@@ -89,26 +89,27 @@ export default function UserForm(props: {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
       <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-800">Email</label>
-        <input
+        <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-1">Email</label>
+        <input id="fld-src-app-app-tenant-users-ui-user-form-ts-1"
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
           required
         />
       </div>
 
       <div className="space-y-1">
-        <label className="text-sm font-medium text-zinc-800">
+        <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-2">
           Mot de passe{props.mode === "edit" ? " (optionnel)" : ""}
         </label>
-        <input
+        <input id="fld-src-app-app-tenant-users-ui-user-form-ts-2"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
           required={props.mode === "create"}
           minLength={8}
         />
@@ -116,31 +117,31 @@ export default function UserForm(props: {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-800">Prénom</label>
-          <input
+          <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-3">Prénom</label>
+          <input id="fld-src-app-app-tenant-users-ui-user-form-ts-3"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
           />
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-800">Nom</label>
-          <input
+          <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-4">Nom</label>
+          <input id="fld-src-app-app-tenant-users-ui-user-form-ts-4"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
           />
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-800">Statut</label>
-          <select
+          <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-5">Statut</label>
+          <select id="fld-src-app-app-tenant-users-ui-user-form-ts-5"
             value={status}
             onChange={(e) => setStatus(e.target.value as "ACTIVE" | "DISABLED")}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
           >
             <option value="ACTIVE">ACTIF</option>
             <option value="DISABLED">DÉSACTIVÉ</option>
@@ -148,11 +149,11 @@ export default function UserForm(props: {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-800">Rôle</label>
-          <select
+          <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-users-ui-user-form-ts-6">Rôle</label>
+          <select id="fld-src-app-app-tenant-users-ui-user-form-ts-6"
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             required={props.mode === "create"}
           >
             <option value="" disabled>
@@ -168,7 +169,7 @@ export default function UserForm(props: {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {errorMessage(error)}
         </div>
       ) : null}

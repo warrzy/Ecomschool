@@ -38,28 +38,29 @@ export default async function SupportPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Assistance
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Assistance contrôlée ({sessions.filter((s) => s.status === "ACTIVE").length} active(s))
-        </div>
+        </h1>
         <p className="mt-2 text-xs text-zinc-500">
           Chaque session est motivée, limitée dans le temps (max 72 h), journalisée et visible par l&apos;établissement.
           Aucune permission scolaire n&apos;est contournée.
         </p>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Ouvrir une session</div>
         <form action={startSupportSessionAction} className="flex flex-wrap items-end gap-2">
-          <select name="schoolId" required className={input}>
+          <select
+                  aria-label="Établissement" name="schoolId" required className={input}>
             <option value="">Établissement…</option>
             {schools.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <input name="reason" placeholder="Motif obligatoire" required className={input} />
+          <input aria-label="Motif" name="reason" placeholder="Motif obligatoire" required className={input} />
           <input
-            name="authorizedEmail"
+            aria-label="E-mail autorisé" name="authorizedEmail"
             type="email"
             placeholder="Email du responsable qui autorise"
             required
@@ -74,16 +75,16 @@ export default async function SupportPage(props: {
 
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Sessions d'assistance" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">École</th>
-              <th className="py-2">Agent</th>
-              <th className="py-2">Motif</th>
-              <th className="py-2">Début</th>
-              <th className="py-2">Expiration</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">École</th>
+              <th scope="col" className="py-2">Agent</th>
+              <th scope="col" className="py-2">Motif</th>
+              <th scope="col" className="py-2">Début</th>
+              <th scope="col" className="py-2">Expiration</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>

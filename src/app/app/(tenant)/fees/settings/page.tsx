@@ -90,10 +90,10 @@ export default async function FeeSettingsPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Configuration
         </div>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             Catégories & tarifs
-          </div>
+          </h1>
           <Link
             href="/app/fees"
             className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -102,12 +102,12 @@ export default async function FeeSettingsPage(props: {
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "DUPLICATE" ? "Code déjà utilisé." : errorMessage(error)}
           </div>
         ) : null}
@@ -116,21 +116,21 @@ export default async function FeeSettingsPage(props: {
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Catégories de frais</div>
         <form action={createCategoryAction} className="mb-4 flex flex-wrap items-end gap-3">
-          <input name="code" placeholder="Code" required className={input} />
-          <input name="label" placeholder="Libellé" required className={input} />
-          <input name="description" placeholder="Description" className={input} />
+          <input aria-label="Code" name="code" placeholder="Code" required className={input} />
+          <input aria-label="Libellé" name="label" placeholder="Libellé" required className={input} />
+          <input aria-label="Description" name="description" placeholder="Description" className={input} />
           <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
             Ajouter
           </SubmitButton>
         </form>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Catégories de frais" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Code</th>
-              <th className="py-2">Libellé</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Code</th>
+              <th scope="col" className="py-2">Libellé</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -160,7 +160,8 @@ export default async function FeeSettingsPage(props: {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-medium text-zinc-900">Tarifs</div>
           <form method="GET">
-            <select name="year" defaultValue={yearId ?? ""} className={input} onChange={undefined}>
+            <select
+                  aria-label="Année scolaire" name="year" defaultValue={yearId ?? ""} className={input} onChange={undefined}>
               {years.map((y) => (
                 <option key={y.id} value={y.id}>{y.name}</option>
               ))}
@@ -174,26 +175,30 @@ export default async function FeeSettingsPage(props: {
         {canManage && yearId ? (
           <form action={createTariffAction} className="mb-4 flex flex-wrap items-end gap-3">
             <input type="hidden" name="academicYearId" value={yearId} />
-            <select name="categoryId" required className={input}>
+            <select
+                  aria-label="Catégorie" name="categoryId" required className={input}>
               <option value="">Catégorie…</option>
               {categories.filter((cc) => cc.status === "ACTIVE").map((cc) => (
                 <option key={cc.id} value={cc.id}>{cc.label}</option>
               ))}
             </select>
-            <select name="levelId" className={input}>
+            <select
+                  aria-label="Tous niveaux" name="levelId" className={input}>
               <option value="">Tous niveaux</option>
               {levels.map((l) => (
                 <option key={l.id} value={l.id}>{l.name}</option>
               ))}
             </select>
-            <select name="classroomId" className={input}>
+            <select
+                  aria-label="Toutes classes" name="classroomId" className={input}>
               <option value="">Toutes classes</option>
               {classrooms.map((cl) => (
                 <option key={cl.id} value={cl.id}>{cl.name}</option>
               ))}
             </select>
-            <input name="amount" type="number" min="0" placeholder="Montant FCFA" required className={input} />
-            <select name="paymentPlan" className={input}>
+            <input aria-label="Montant" name="amount" type="number" min="0" placeholder="Montant FCFA" required className={input} />
+            <select
+                  aria-label="Plan de paiement" name="paymentPlan" className={input}>
               <option value="SINGLE">Paiement unique</option>
               <option value="INSTALLMENTS">Échelonné</option>
             </select>
@@ -208,17 +213,17 @@ export default async function FeeSettingsPage(props: {
         ) : null}
 
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Tarifs" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Catégorie</th>
-              <th className="py-2">Niveau</th>
-              <th className="py-2">Classe</th>
-              <th className="py-2 text-right">Montant</th>
-              <th className="py-2">Échéances</th>
-              <th className="py-2">Portée</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Catégorie</th>
+              <th scope="col" className="py-2">Niveau</th>
+              <th scope="col" className="py-2">Classe</th>
+              <th scope="col" className="py-2 text-right">Montant</th>
+              <th scope="col" className="py-2">Échéances</th>
+              <th scope="col" className="py-2">Portée</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -233,9 +238,9 @@ export default async function FeeSettingsPage(props: {
                 <td className="py-2">{t.status === "ACTIVE" ? "Actif" : "Archivé"}</td>
                 <td className="py-2 text-right">
                   {canManage && t.status === "ACTIVE" ? (
-                    <form action={updateTariffAmountAction} className="flex items-center justify-end gap-2">
+                    <form action={updateTariffAmountAction} className="flex flex-wrap items-center justify-end gap-2">
                       <input type="hidden" name="id" value={t.id} />
-                      <input name="amount" type="number" min="0" placeholder="Nouveau montant" className="w-32 rounded-lg border border-zinc-300 px-2 py-1 text-xs" />
+                      <input aria-label="Montant" name="amount" type="number" min="0" placeholder="Nouveau montant" className="w-32 rounded-lg border border-zinc-300 px-2 py-1 text-xs" />
                       <SubmitButton className="text-xs text-zinc-600 hover:underline" title="Crée une nouvelle version du tarif (l'ancien est archivé)">
                         Réviser
                       </SubmitButton>

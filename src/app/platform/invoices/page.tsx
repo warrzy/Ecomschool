@@ -41,13 +41,13 @@ export default async function InvoicesPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Factures SaaS
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Facturation ECOM-TOUCH ({invoices.length})
-        </div>
+        </h1>
         <p className="mt-2 text-xs text-zinc-500">
           Domaine indépendant de la comptabilité scolaire. Les factures se génèrent depuis la fiche établissement.
         </p>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       {unpaid.length > 0 ? (
@@ -84,17 +84,17 @@ export default async function InvoicesPage(props: {
       ) : null}
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Facturation ECOM-TOUCH" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">N°</th>
-              <th className="py-2">École</th>
-              <th className="py-2">Émission</th>
-              <th className="py-2">Échéance</th>
-              <th className="py-2 text-right">Total</th>
-              <th className="py-2 text-right">Solde</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">N°</th>
+              <th scope="col" className="py-2">École</th>
+              <th scope="col" className="py-2">Émission</th>
+              <th scope="col" className="py-2">Échéance</th>
+              <th scope="col" className="py-2 text-right">Total</th>
+              <th scope="col" className="py-2 text-right">Solde</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>

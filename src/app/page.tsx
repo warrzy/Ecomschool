@@ -403,7 +403,7 @@ export default async function Home() {
               className="hero-in absolute -right-4 -top-6 hidden rounded-xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur lg:block"
               style={{ animationDelay: "850ms" }}
             >
-              <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-500">
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
                   <Icon d={ICONS.check} className="h-3.5 w-3.5" />
                 </span>
@@ -420,7 +420,7 @@ export default async function Home() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {BENEFITS.map((b, i) => (
               <Reveal key={b.label} delay={i * 90}>
-                <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white">
                     <Icon d={b.icon} className="h-4.5 w-4.5" />
                   </span>

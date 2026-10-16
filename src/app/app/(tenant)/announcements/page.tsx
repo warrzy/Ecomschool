@@ -184,9 +184,9 @@ export default async function AnnouncementsPage(props: {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Communication</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Annonces de l&apos;établissement ({items.length})
-            </div>
+            </h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-500">
               Les annonces publiées sont visibles sur les portails des
               destinataires et déclenchent une notification interne. Les
@@ -319,7 +319,7 @@ export default async function AnnouncementsPage(props: {
       ) : null}
 
       {canManage && confirmTarget && confirmKind === "delete" ? (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-6 shadow-sm">
+        <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-6 shadow-sm">
           <div className="text-sm font-semibold text-red-900">
             Confirmer la suppression définitive
           </div>
@@ -349,7 +349,7 @@ export default async function AnnouncementsPage(props: {
       {/* Consultation détaillée */}
       {viewing ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-zinc-900">
                 {viewing.title}
@@ -380,7 +380,7 @@ export default async function AnnouncementsPage(props: {
 
       {canManage ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between">
             <div className="text-sm font-semibold text-zinc-900">
               {editing ? "Modifier l'annonce" : "Nouvelle annonce"}
             </div>
@@ -396,6 +396,7 @@ export default async function AnnouncementsPage(props: {
             }
             className="grid gap-4"
           >
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             {editing ? (
               <input type="hidden" name="id" value={editing.id} />
             ) : null}
@@ -534,14 +535,14 @@ export default async function AnnouncementsPage(props: {
           </form>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Annonces de l&apos;établissement" className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                <th className="py-2 pr-3">Titre</th>
-                <th className="py-2 pr-3">Audience</th>
-                <th className="py-2 pr-3">Statut</th>
-                <th className="py-2 pr-3">Date</th>
-                {canManage ? <th className="py-2">Actions</th> : null}
+                <th scope="col" className="py-2 pr-3">Titre</th>
+                <th scope="col" className="py-2 pr-3">Audience</th>
+                <th scope="col" className="py-2 pr-3">Statut</th>
+                <th scope="col" className="py-2 pr-3">Date</th>
+                {canManage ? <th scope="col" className="py-2">Actions</th> : null}
               </tr>
             </thead>
             <tbody>

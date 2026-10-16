@@ -203,9 +203,9 @@ export default async function GradingPolicyPage(props: {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Configuration</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Règles de notation
-            </div>
+            </h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-500">
               Une politique par année scolaire, éventuellement spécifique à un
               niveau. Toute modification crée une nouvelle version — les bulletins
@@ -520,6 +520,7 @@ export default async function GradingPolicyPage(props: {
           </div>
         ) : null}
         <form action={upsertPolicyAction} className="space-y-5">
+          <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <Section
             title="Portée"
             description="À quelle année scolaire et (optionnellement) à quel niveau ces règles s'appliquent."
@@ -738,7 +739,7 @@ export default async function GradingPolicyPage(props: {
               name="perSubjectRank"
               hint="Ajoute un classement des élèves dans chaque matière, en plus du rang général."
             >
-              <label className="flex h-[38px] items-center gap-2 text-sm text-zinc-700">
+              <label className="flex flex-wrap h-[38px] items-center gap-2 text-sm text-zinc-700">
                 <input
                   id="perSubjectRank"
                   type="checkbox"
@@ -861,19 +862,19 @@ export default async function GradingPolicyPage(props: {
           Politiques configurées
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Règles de notation" className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                <th className="py-2 pr-3">Année</th>
-                <th className="py-2 pr-3">Niveau</th>
-                <th className="py-2 pr-3">Barème</th>
-                <th className="py-2 pr-3">Seuil</th>
-                <th className="py-2 pr-3">Cas particuliers</th>
-                <th className="py-2 pr-3">Ex æquo</th>
-                <th className="py-2 pr-3">Mentions</th>
-                <th className="py-2 pr-3">Version</th>
-                <th className="py-2 pr-3">Statut</th>
-                <th className="py-2">Action</th>
+                <th scope="col" className="py-2 pr-3">Année</th>
+                <th scope="col" className="py-2 pr-3">Niveau</th>
+                <th scope="col" className="py-2 pr-3">Barème</th>
+                <th scope="col" className="py-2 pr-3">Seuil</th>
+                <th scope="col" className="py-2 pr-3">Cas particuliers</th>
+                <th scope="col" className="py-2 pr-3">Ex æquo</th>
+                <th scope="col" className="py-2 pr-3">Mentions</th>
+                <th scope="col" className="py-2 pr-3">Version</th>
+                <th scope="col" className="py-2 pr-3">Statut</th>
+                <th scope="col" className="py-2">Action</th>
               </tr>
             </thead>
             <tbody>

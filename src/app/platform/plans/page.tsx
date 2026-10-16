@@ -32,27 +32,28 @@ export default async function PlansPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Offres
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Offres commerciales ({plans.length})
-        </div>
-        {ok ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Offre enregistrée.</div> : null}
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error === "DUPLICATE" ? "Code déjà utilisé." : errorMessage(error)}</div> : null}
+        </h1>
+        {ok ? <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Offre enregistrée.</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error === "DUPLICATE" ? "Code déjà utilisé." : errorMessage(error)}</div> : null}
       </div>
 
       {canManage ? (
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Nouvelle offre</div>
           <form action={createPlanAction} className="flex flex-wrap items-end gap-2">
-            <input name="code" placeholder="Code" required className={input} />
-            <input name="name" placeholder="Nom" required className={input} />
-            <input name="description" placeholder="Description" className={input} />
-            <input name="monthlyPrice" type="number" min="0" placeholder="Prix mensuel FCFA" required className={input} />
-            <input name="yearlyPrice" type="number" min="0" placeholder="Prix annuel FCFA" required className={input} />
-            <input name="maxStudents" type="number" min="0" placeholder="Max élèves" className={input} />
-            <input name="maxUsers" type="number" min="0" placeholder="Max utilisateurs" className={input} />
-            <input name="trialDays" type="number" min="0" placeholder="Essai (j)" className={input} />
+            <input aria-label="Code" name="code" placeholder="Code" required className={input} />
+            <input aria-label="Nom" name="name" placeholder="Nom" required className={input} />
+            <input aria-label="Description" name="description" placeholder="Description" className={input} />
+            <input aria-label="Prix mensuel (XOF)" name="monthlyPrice" type="number" min="0" placeholder="Prix mensuel FCFA" required className={input} />
+            <input aria-label="Prix annuel (XOF)" name="yearlyPrice" type="number" min="0" placeholder="Prix annuel FCFA" required className={input} />
+            <input aria-label="Nombre maximum d'élèves" name="maxStudents" type="number" min="0" placeholder="Max élèves" className={input} />
+            <input aria-label="Nombre maximum d'utilisateurs" name="maxUsers" type="number" min="0" placeholder="Max utilisateurs" className={input} />
+            <input aria-label="Jours d'essai" name="trialDays" type="number" min="0" placeholder="Essai (j)" className={input} />
             <input name="graceDays" type="number" min="0" defaultValue="7" title="Grâce (j)" className={input} />
-            <select name="moduleCodes" multiple size={4} className={input} title="Modules inclus">
+            <select
+                  aria-label="Modules inclus" name="moduleCodes" multiple size={4} className={input} title="Modules inclus">
               {modules.map((m) => (
                 <option key={m.code} value={m.code}>{m.name}</option>
               ))}
@@ -96,14 +97,15 @@ export default async function PlansPage(props: {
               <summary className="cursor-pointer text-xs text-zinc-600 hover:underline">Modifier</summary>
               <form action={updatePlanAction} className="mt-3 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="id" value={p.id} />
-                <input name="name" defaultValue={p.name} className={input} />
-                <input name="monthlyPrice" type="number" min="0" defaultValue={p.monthlyPrice} className={input} />
-                <input name="yearlyPrice" type="number" min="0" defaultValue={p.yearlyPrice} className={input} />
-                <input name="maxStudents" type="number" min="0" defaultValue={p.maxStudents ?? ""} className={input} />
-                <input name="maxUsers" type="number" min="0" defaultValue={p.maxUsers ?? ""} className={input} />
-                <input name="trialDays" type="number" min="0" defaultValue={p.trialDays} className={input} />
-                <input name="graceDays" type="number" min="0" defaultValue={p.graceDays} className={input} />
+                <input aria-label="Nom" name="name" defaultValue={p.name} className={input} />
+                <input aria-label="Prix mensuel (XOF)" name="monthlyPrice" type="number" min="0" defaultValue={p.monthlyPrice} className={input} />
+                <input aria-label="Prix annuel (XOF)" name="yearlyPrice" type="number" min="0" defaultValue={p.yearlyPrice} className={input} />
+                <input aria-label="Nombre maximum d'élèves" name="maxStudents" type="number" min="0" defaultValue={p.maxStudents ?? ""} className={input} />
+                <input aria-label="Nombre maximum d'utilisateurs" name="maxUsers" type="number" min="0" defaultValue={p.maxUsers ?? ""} className={input} />
+                <input aria-label="Jours d'essai" name="trialDays" type="number" min="0" defaultValue={p.trialDays} className={input} />
+                <input aria-label="Jours de grâce" name="graceDays" type="number" min="0" defaultValue={p.graceDays} className={input} />
                 <select
+                  aria-label="Modules inclus"
                   name="moduleCodes"
                   multiple
                   size={4}

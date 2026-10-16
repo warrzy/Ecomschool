@@ -75,12 +75,12 @@ export default async function GuardianDetailPage({
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Parent / tuteur</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {guardian.lastName} {guardian.firstName}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               {statusLabel("guardian", guardian.status)}
             </div>
@@ -93,12 +93,12 @@ export default async function GuardianDetailPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -109,66 +109,67 @@ export default async function GuardianDetailPage({
           <div className="text-sm font-medium text-zinc-900">Coordonnées</div>
           {canManage ? (
             <form action={updateGuardianAction} className="mt-4 space-y-4">
+              <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
               <input type="hidden" name="id" value={guardian.id} />
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-1">
                     Nom
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-guardians-id-page-tsx-1"
                     name="lastName"
                     defaultValue={guardian.lastName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-2">
                     Prénom
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-guardians-id-page-tsx-2"
                     name="firstName"
                     defaultValue={guardian.firstName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-3">
                     Téléphone
                   </label>
-                  <input
+                  <input type="tel" id="fld-src-app-app-tenant-guardians-id-page-tsx-3"
                     name="phone"
                     defaultValue={guardian.phone ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-4">
                     Email
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-guardians-id-page-tsx-4"
                     name="email"
                     type="email"
                     defaultValue={guardian.email ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-5">
                     Adresse
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-guardians-id-page-tsx-5"
                     name="address"
                     defaultValue={guardian.address ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-guardians-id-page-tsx-6">
                     Statut
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-guardians-id-page-tsx-6"
                     name="status"
                     defaultValue={guardian.status}
                     className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -225,7 +226,7 @@ export default async function GuardianDetailPage({
               {guardian.students.map((l) => (
                 <li
                   key={l.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <Link
@@ -265,7 +266,7 @@ export default async function GuardianDetailPage({
         {canManage ? (
           <form action={setGuardianConsentAction} className="mt-4 space-y-3 text-sm">
             <input type="hidden" name="id" value={guardian.id} />
-            <label className="flex items-center gap-2">
+            <label className="flex flex-wrap items-center gap-2">
               <input
                 type="checkbox"
                 name="smsOptIn"
@@ -273,7 +274,7 @@ export default async function GuardianDetailPage({
               />
               <span>Consentement SMS</span>
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex flex-wrap items-center gap-2">
               <input
                 type="checkbox"
                 name="whatsappOptIn"
@@ -281,7 +282,7 @@ export default async function GuardianDetailPage({
               />
               <span>Consentement WhatsApp Business</span>
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex flex-wrap items-center gap-2">
               <input
                 type="checkbox"
                 name="optOutAll"
@@ -306,7 +307,7 @@ export default async function GuardianDetailPage({
           </div>
         )}
         {consent ? (
-          <div className="mt-2 text-xs text-zinc-400">
+          <div className="mt-2 text-xs text-zinc-500">
             Mis à jour le {consent.updatedAt.toLocaleString("fr-FR")}
           </div>
         ) : null}

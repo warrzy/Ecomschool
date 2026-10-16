@@ -41,7 +41,7 @@ export default function ScreenshotCarousel({ slides }: { slides: Slide[] }) {
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           onClick={() => go(index - 1)}

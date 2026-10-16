@@ -279,12 +279,12 @@ export default async function ClassroomDetailPage({
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Classe</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {classroom.name}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               Niveau {classroom.level.name} · Année{" "}
               {classroom.academicYear.name}
@@ -300,12 +300,12 @@ export default async function ClassroomDetailPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -337,15 +337,15 @@ export default async function ClassroomDetailPage({
               : ""}
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Élèves inscrits" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Matricule</th>
-                  <th className="py-2 pr-4">Nom</th>
-                  <th className="py-2 pr-4">Prénom</th>
-                  <th className="py-2 pr-4">Sexe</th>
-                  <th className="py-2 pr-4">Inscrit le</th>
-                  <th className="py-2 pr-4"></th>
+                  <th scope="col" className="py-2 pr-4">Matricule</th>
+                  <th scope="col" className="py-2 pr-4">Nom</th>
+                  <th scope="col" className="py-2 pr-4">Prénom</th>
+                  <th scope="col" className="py-2 pr-4">Sexe</th>
+                  <th scope="col" className="py-2 pr-4">Inscrit le</th>
+                  <th scope="col" className="py-2 pr-4"></th>
                 </tr>
               </thead>
               <tbody>
@@ -397,13 +397,13 @@ export default async function ClassroomDetailPage({
             Matières de la classe ({classSubjects.length})
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Matières de la classe" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Matière</th>
-                  <th className="py-2 pr-4">Coefficient</th>
-                  <th className="py-2 pr-4">Enseignant</th>
-                  {canManage ? <th className="py-2 pr-4"></th> : null}
+                  <th scope="col" className="py-2 pr-4">Matière</th>
+                  <th scope="col" className="py-2 pr-4">Coefficient</th>
+                  <th scope="col" className="py-2 pr-4">Enseignant</th>
+                  {canManage ? <th scope="col" className="py-2 pr-4"></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -450,6 +450,7 @@ export default async function ClassroomDetailPage({
           </div>
           {canManage ? (
             <form action={setClassroomSubjectAction} className="mt-4">
+              <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
               <input type="hidden" name="classroomId" value={id} />
               <input
                 type="hidden"
@@ -458,10 +459,10 @@ export default async function ClassroomDetailPage({
               />
               <div className="grid items-end gap-3 md:grid-cols-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-500">
+                  <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-1">
                     Matière
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-classrooms-id-page-ts-1"
                     name="subjectId"
                     required
                     className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -475,23 +476,23 @@ export default async function ClassroomDetailPage({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-500">
+                  <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-2">
                     Coefficient
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-classrooms-id-page-ts-2"
                     name="coefficient"
                     type="number"
                     step="0.5"
                     min="0.5"
                     required
-                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-500">
+                  <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-3">
                     Enseignant
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-classrooms-id-page-ts-3"
                     name="teacherId"
                     className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                   >
@@ -523,11 +524,11 @@ export default async function ClassroomDetailPage({
             Enseignants affectés ({classTeachers.length})
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Enseignants affectés" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Enseignant</th>
-                  <th className="py-2 pr-4">Matière</th>
+                  <th scope="col" className="py-2 pr-4">Enseignant</th>
+                  <th scope="col" className="py-2 pr-4">Matière</th>
                 </tr>
               </thead>
               <tbody>
@@ -562,24 +563,25 @@ export default async function ClassroomDetailPage({
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           {canManage ? (
             <form action={updateClassroomAction}>
+              <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
               <input type="hidden" name="id" value={classroom.id} />
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-4">
                     Nom
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-classrooms-id-page-ts-4"
                     name="name"
                     defaultValue={classroom.name}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-5">
                     Niveau
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-classrooms-id-page-ts-5"
                     name="levelId"
                     defaultValue={classroom.level.id}
                     className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -592,42 +594,42 @@ export default async function ClassroomDetailPage({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-6">
                     Section
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-classrooms-id-page-ts-6"
                     name="section"
                     defaultValue={classroom.section ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-7">
                     Capacité
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-classrooms-id-page-ts-7"
                     name="capacity"
                     type="number"
                     min={0}
                     defaultValue={classroom.capacity ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-8">
                     Salle
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-classrooms-id-page-ts-8"
                     name="room"
                     defaultValue={classroom.room ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-9">
                     Professeur principal
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-classrooms-id-page-ts-9"
                     name="headTeacherId"
                     defaultValue={classroom.headTeacher?.id ?? ""}
                     className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -641,10 +643,10 @@ export default async function ClassroomDetailPage({
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-id-page-ts-10">
                     Statut
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-classrooms-id-page-ts-10"
                     name="status"
                     defaultValue={classroom.status}
                     className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -706,7 +708,7 @@ export default async function ClassroomDetailPage({
         </div>
       ) : activeTab === "timetable" ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-zinc-900">
               Emploi du temps — semaine en cours
             </div>
@@ -768,18 +770,18 @@ export default async function ClassroomDetailPage({
             Séances ({classSessions.length})
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Séances" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Horaire</th>
-                  <th className="py-2 pr-4">Matière</th>
-                  <th className="py-2 pr-4">Enseignant</th>
-                  <th className="py-2 pr-4">Salle</th>
-                  <th className="py-2 pr-4">Statut</th>
-                  <th className="py-2 pr-4">Appel</th>
-                  <th className="py-2 pr-4">Cahier</th>
-                  <th className="py-2 pr-4"></th>
+                  <th scope="col" className="py-2 pr-4">Date</th>
+                  <th scope="col" className="py-2 pr-4">Horaire</th>
+                  <th scope="col" className="py-2 pr-4">Matière</th>
+                  <th scope="col" className="py-2 pr-4">Enseignant</th>
+                  <th scope="col" className="py-2 pr-4">Salle</th>
+                  <th scope="col" className="py-2 pr-4">Statut</th>
+                  <th scope="col" className="py-2 pr-4">Appel</th>
+                  <th scope="col" className="py-2 pr-4">Cahier</th>
+                  <th scope="col" className="py-2 pr-4"></th>
                 </tr>
               </thead>
               <tbody>
@@ -849,14 +851,14 @@ export default async function ClassroomDetailPage({
             <p className="text-sm text-zinc-600">Aucun enregistrement.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table aria-label="Absences et retards des élèves" className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                    <th className="py-2 pr-4">Date</th>
-                    <th className="py-2 pr-4">Élève</th>
-                    <th className="py-2 pr-4">Type</th>
-                    <th className="py-2 pr-4">Détails</th>
-                    <th className="py-2 pr-4">Justification</th>
+                    <th scope="col" className="py-2 pr-4">Date</th>
+                    <th scope="col" className="py-2 pr-4">Élève</th>
+                    <th scope="col" className="py-2 pr-4">Type</th>
+                    <th scope="col" className="py-2 pr-4">Détails</th>
+                    <th scope="col" className="py-2 pr-4">Justification</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -936,16 +938,16 @@ export default async function ClassroomDetailPage({
           {classAssessments.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Aucune évaluation.</p>
           ) : (
-            <table className="mt-3 w-full text-left text-sm">
+            <table aria-label="Émargements" className="mt-3 w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                  <th className="py-2 pr-4">Date</th>
-                  <th className="py-2 pr-4">Titre</th>
-                  <th className="py-2 pr-4">Matière</th>
-                  <th className="py-2 pr-4">Type</th>
-                  <th className="py-2 pr-4">Période</th>
-                  <th className="py-2 pr-4">Notes</th>
-                  <th className="py-2">Statut</th>
+                  <th scope="col" className="py-2 pr-4">Date</th>
+                  <th scope="col" className="py-2 pr-4">Titre</th>
+                  <th scope="col" className="py-2 pr-4">Matière</th>
+                  <th scope="col" className="py-2 pr-4">Type</th>
+                  <th scope="col" className="py-2 pr-4">Période</th>
+                  <th scope="col" className="py-2 pr-4">Notes</th>
+                  <th scope="col" className="py-2">Statut</th>
                 </tr>
               </thead>
               <tbody>
@@ -987,16 +989,16 @@ export default async function ClassroomDetailPage({
               en choisissant la période.
             </p>
           ) : (
-            <table className="mt-3 w-full text-left text-sm">
+            <table aria-label="Évaluations de la classe" className="mt-3 w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                  <th className="py-2 pr-4">Période</th>
-                  <th className="py-2 pr-4">Rang</th>
-                  <th className="py-2 pr-4">Matricule</th>
-                  <th className="py-2 pr-4">Élève</th>
-                  <th className="py-2 pr-4">Moyenne</th>
-                  <th className="py-2 pr-4">Mention</th>
-                  <th className="py-2">Statut</th>
+                  <th scope="col" className="py-2 pr-4">Période</th>
+                  <th scope="col" className="py-2 pr-4">Rang</th>
+                  <th scope="col" className="py-2 pr-4">Matricule</th>
+                  <th scope="col" className="py-2 pr-4">Élève</th>
+                  <th scope="col" className="py-2 pr-4">Moyenne</th>
+                  <th scope="col" className="py-2 pr-4">Mention</th>
+                  <th scope="col" className="py-2">Statut</th>
                 </tr>
               </thead>
               <tbody>
@@ -1035,15 +1037,15 @@ export default async function ClassroomDetailPage({
               Aucun bulletin — générez-les depuis la page Bulletins après calcul des moyennes.
             </p>
           ) : (
-            <table className="mt-3 w-full text-left text-sm">
+            <table aria-label="Récapitulatif" className="mt-3 w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                  <th className="py-2 pr-4">Période</th>
-                  <th className="py-2 pr-4">Identifiant</th>
-                  <th className="py-2 pr-4">Élève</th>
-                  <th className="py-2 pr-4">Version</th>
-                  <th className="py-2 pr-4">Statut</th>
-                  <th className="py-2">PDF</th>
+                  <th scope="col" className="py-2 pr-4">Période</th>
+                  <th scope="col" className="py-2 pr-4">Identifiant</th>
+                  <th scope="col" className="py-2 pr-4">Élève</th>
+                  <th scope="col" className="py-2 pr-4">Version</th>
+                  <th scope="col" className="py-2 pr-4">Statut</th>
+                  <th scope="col" className="py-2">PDF</th>
                 </tr>
               </thead>
               <tbody>

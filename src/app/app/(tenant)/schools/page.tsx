@@ -22,20 +22,20 @@ export default async function SchoolsPage() {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Établissement
-        </div>
+        </h1>
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Établissement" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Code</th>
-                <th className="py-2 pr-4">Ville</th>
-                <th className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Code</th>
+                <th scope="col" className="py-2 pr-4">Ville</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
               </tr>
             </thead>
             <tbody>

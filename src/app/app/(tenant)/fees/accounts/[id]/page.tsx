@@ -31,7 +31,7 @@ const INST_CLS: Record<string, string> = {
   PARTIAL: "text-amber-700",
   PAID: "text-emerald-700",
   LATE: "text-red-700",
-  CANCELLED: "text-zinc-400",
+  CANCELLED: "text-zinc-500",
 };
 const DISCOUNT_LABELS: Record<string, string> = {
   FIXED_AMOUNT: "Remise fixe",
@@ -113,13 +113,14 @@ export default async function StudentAccountPage(props: {
           <Link href="/app/fees/accounts" className="hover:underline">Comptes élèves</Link> / Dossier
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             {account.student.firstName} {account.student.lastName}
             <span className="ml-2 font-mono text-sm font-normal text-zinc-500">{account.student.matricule}</span>
-          </div>
-          <div className="flex items-center gap-2">
+          </h1>
+          <div className="flex flex-wrap items-center gap-2">
             <form method="GET">
-              <select name="year" defaultValue={yearId} className={input}>
+              <select
+                  aria-label="Année scolaire" name="year" defaultValue={yearId} className={input}>
                 {allYears.map((y) => (
                   <option key={y.id} value={y.id}>{y.name}</option>
                 ))}
@@ -140,12 +141,12 @@ export default async function StudentAccountPage(props: {
           Classe : {account.student.classroomName ?? "—"}
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "payment" ? `Paiement enregistré — reçu ${sp.receipt ?? ""}.` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "CLOSED_DAY" ? "Journée de caisse clôturée — encaissement refusé." : errorMessage(error)}
           </div>
         ) : null}
@@ -169,17 +170,17 @@ export default async function StudentAccountPage(props: {
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Échéances</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Échéances" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Catégorie</th>
-              <th className="py-2">Tranche</th>
-              <th className="py-2">Échéance</th>
-              <th className="py-2 text-right">Montant</th>
-              <th className="py-2 text-right">Payé</th>
-              <th className="py-2 text-right">Reste</th>
-              <th className="py-2">Statut</th>
-              {canManage ? <th className="py-2"></th> : null}
+              <th scope="col" className="py-2">Catégorie</th>
+              <th scope="col" className="py-2">Tranche</th>
+              <th scope="col" className="py-2">Échéance</th>
+              <th scope="col" className="py-2 text-right">Montant</th>
+              <th scope="col" className="py-2 text-right">Payé</th>
+              <th scope="col" className="py-2 text-right">Reste</th>
+              <th scope="col" className="py-2">Statut</th>
+              {canManage ? <th scope="col" className="py-2"></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -200,8 +201,8 @@ export default async function StudentAccountPage(props: {
                       <input type="hidden" name="id" value={i.id} />
                       <input type="hidden" name="studentId" value={id} />
                       <input type="hidden" name="academicYearId" value={yearId} />
-                      <input name="dueDate" type="date" defaultValue={dstr(i.dueDate)} className="w-32 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
-                      <input name="amount" type="number" min="0" defaultValue={i.amount} className="w-24 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
+                      <input aria-label="Date d'échéance" name="dueDate" type="date" defaultValue={dstr(i.dueDate)} className="w-32 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
+                      <input aria-label="Montant" name="amount" type="number" min="0" defaultValue={i.amount} className="w-24 rounded border border-zinc-200 px-1 py-0.5 text-xs" />
                       <button type="submit" className="text-xs text-zinc-600 hover:underline">OK</button>
                     </form>
                   </td>
@@ -220,7 +221,7 @@ export default async function StudentAccountPage(props: {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Réductions & bourses</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Réductions et bourses" className="w-full text-left text-sm">
             <tbody>
               {account.discounts.map((d) => (
                 <tr key={d.id} className="border-b border-zinc-100 last:border-0">
@@ -254,7 +255,8 @@ export default async function StudentAccountPage(props: {
             <form action={createDiscountAction} className="mt-4 flex flex-wrap items-end gap-2">
               <input type="hidden" name="studentId" value={id} />
               <input type="hidden" name="academicYearId" value={yearId} />
-              <select name="type" className={input}>
+              <select
+                  aria-label="Type" name="type" className={input}>
                 <option value="FIXED_AMOUNT">Remise fixe</option>
                 <option value="PERCENT">Remise %</option>
                 <option value="SCHOLARSHIP">Bourse</option>
@@ -262,8 +264,8 @@ export default async function StudentAccountPage(props: {
                 <option value="FAMILY">Familiale</option>
                 <option value="EXCEPTIONAL">Exceptionnelle</option>
               </select>
-              <input name="value" type="number" min="0" placeholder="Montant ou %" required className={input} />
-              <input name="reason" placeholder="Motif" required className={input} />
+              <input aria-label="Valeur" name="value" type="number" min="0" placeholder="Montant ou %" required className={input} />
+              <input aria-label="Motif" name="reason" placeholder="Motif" required className={input} />
               <button type="submit" className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white">
                 Ajouter
               </button>
@@ -278,16 +280,17 @@ export default async function StudentAccountPage(props: {
               <input type="hidden" name="studentId" value={id} />
               <input type="hidden" name="academicYearId" value={yearId} />
               <input type="hidden" name="idempotencyKey" value={globalThis.crypto?.randomUUID?.() ?? ""} />
-              <input name="amount" type="number" min="1" placeholder={`Montant (solde ${fmt(account.totals.balance)})`} required className={input} />
-              <select name="method" className={input}>
+              <input aria-label="Montant" name="amount" type="number" min="1" placeholder={`Montant (solde ${fmt(account.totals.balance)})`} required className={input} />
+              <select
+                  aria-label="Mode de paiement" name="method" className={input}>
                 <option value="CASH">Espèces</option>
                 <option value="BANK_TRANSFER">Virement</option>
                 <option value="CHECK">Chèque</option>
                 <option value="MOBILE_MONEY">Mobile Money</option>
                 <option value="OTHER">Autre</option>
               </select>
-              <input name="reference" placeholder="Référence" className={input} />
-              <input name="observation" placeholder="Observation" className={input} />
+              <input aria-label="Référence" name="reference" placeholder="Référence" className={input} />
+              <input aria-label="Observation" name="observation" placeholder="Observation" className={input} />
               <SubmitButton
                 pendingLabel="Encaissement…"
                 className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
@@ -307,16 +310,16 @@ export default async function StudentAccountPage(props: {
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Historique des paiements</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Historique des paiements" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Date</th>
-              <th className="py-2">Reçu</th>
-              <th className="py-2">Mode</th>
-              <th className="py-2">Référence</th>
-              <th className="py-2 text-right">Montant</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Date</th>
+              <th scope="col" className="py-2">Reçu</th>
+              <th scope="col" className="py-2">Mode</th>
+              <th scope="col" className="py-2">Référence</th>
+              <th scope="col" className="py-2 text-right">Montant</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>

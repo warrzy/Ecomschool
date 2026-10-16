@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 /**
  * Panneau de confirmation partagé pour les actions sensibles.
@@ -54,15 +55,55 @@ export function ConfirmPanel({
   const [typed, setTyped] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const descId = useId();
+  const router = useRouter();
   const locked = !!requireText && typed.trim() !== requireText;
 
   // Focus visible dès l'ouverture : champ de frappe sinon bouton Annuler.
+  // Au démontage (Escape ou Annuler), le focus revient à l'élément
+  // déclencheur s'il est encore présent dans le document.
   useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
     const el = panelRef.current?.querySelector<HTMLElement>(
       requireText ? "input[data-confirm-text]" : "a[data-cancel]",
     );
     el?.focus();
+    return () => {
+      if (previous?.isConnected) previous.focus();
+    };
   }, [requireText]);
+
+  // Clavier : Escape annule (navigation vers l'URL sans ?confirm= —
+  // aucune action n'est déclenchée) et Tab reste capturé dans le panneau.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        router.push(cancelHref);
+        return;
+      }
+      if (e.key === "Tab" && panelRef.current) {
+        const focusables = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(
+            "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+          ),
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && (active === first || !panelRef.current.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !panelRef.current.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [cancelHref, router]);
 
   const palette =
     tone === "danger"
@@ -74,26 +115,35 @@ export function ConfirmPanel({
       ref={panelRef}
       role="alertdialog"
       aria-labelledby={titleId}
+      aria-describedby={descId}
       className={`rounded-2xl border p-6 shadow-sm ${palette}`}
     >
       <div id={titleId} className="text-sm font-semibold">
         {title}
       </div>
-      <div className="mt-2 text-sm">{children}</div>
+      <div id={descId} className="mt-2 text-sm">{children}</div>
       <form action={action} className="mt-4">
+        {inputs?.some((f) => f.required) || requireText ? (
+          <p className="mb-3 w-full text-xs text-zinc-500">
+            Les champs marqués d’un astérisque (*) sont obligatoires.
+          </p>
+        ) : null}
         {Object.entries(fields).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}
         {inputs?.map((f) => (
           <label key={f.name} className="mb-3 block text-sm">
             {f.label}
+            {f.required ? (
+              <span aria-hidden="true" className="text-red-600"> *</span>
+            ) : null}
             <input
               name={f.name}
               type={f.type ?? "text"}
               required={f.required}
               defaultValue={f.defaultValue}
               placeholder={f.placeholder}
-              className="ml-2 h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-900"
+              className="ml-2 h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </label>
         ))}
@@ -101,12 +151,13 @@ export function ConfirmPanel({
           <label className="mb-3 block text-sm">
             Saisissez «{" "}
             <span className="font-mono font-semibold">{requireText}</span> »
-            pour confirmer :
+            pour confirmer
+            <span aria-hidden="true" className="text-red-600"> *</span> :
             <input
               data-confirm-text
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="ml-2 h-9 w-44 rounded-lg border border-zinc-300 bg-white px-2 font-mono text-sm outline-none focus:border-zinc-900"
+              className="ml-2 h-9 w-44 rounded-lg border border-zinc-300 bg-white px-2 font-mono text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               autoComplete="off"
             />
           </label>

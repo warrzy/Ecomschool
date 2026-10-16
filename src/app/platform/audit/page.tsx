@@ -20,14 +20,14 @@ export default async function PlatformAuditPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Plateforme</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Journal d&apos;audit
-        </div>
+        </h1>
         <form className="mt-4" action="/platform/audit" method="get">
           <input
-            name="entity"
+            aria-label="Entité" name="entity"
             defaultValue={entity ?? ""}
-            className="h-11 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             placeholder="Filtrer par entité (User, School...)"
           />
         </form>
@@ -35,14 +35,14 @@ export default async function PlatformAuditPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Journal d&apos;audit" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Date</th>
-                <th className="py-2 pr-4">Action</th>
-                <th className="py-2 pr-4">Entité</th>
-                <th className="py-2 pr-4">Établissement</th>
-                <th className="py-2 pr-4">Acteur</th>
+                <th scope="col" className="py-2 pr-4">Date</th>
+                <th scope="col" className="py-2 pr-4">Action</th>
+                <th scope="col" className="py-2 pr-4">Entité</th>
+                <th scope="col" className="py-2 pr-4">Établissement</th>
+                <th scope="col" className="py-2 pr-4">Acteur</th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +78,7 @@ export default async function PlatformAuditPage(props: {
         </div>
 
         {pageCount > 1 ? (
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
               <Link
                 key={p}

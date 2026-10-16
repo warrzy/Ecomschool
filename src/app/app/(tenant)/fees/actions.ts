@@ -131,7 +131,7 @@ export async function generateChargesAction(formData: FormData) {
   const res = await generateCharges(ctx(tenant), { academicYearId, classroomId });
   back(
     res.ok
-      ? `/app/fees?ok=charges&count=${res.result.created}&year=${academicYearId}`
+      ? `/app/fees?ok=charges&count=${res.result.created}&existing=${res.result.existing}&year=${academicYearId}`
       : `/app/fees?error=${res.error}&year=${academicYearId}`,
   );
 }

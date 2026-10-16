@@ -40,9 +40,9 @@ export default async function PreferencesPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Préférences de communication</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Canaux facultatifs
-        </div>
+        </h1>
         <p className="mt-2 text-sm text-zinc-600">
           Les communications transactionnelles (sécurité, compte, convocations)
           sont toujours actives. Vous pouvez désactiver les autres sujets par
@@ -58,19 +58,19 @@ export default async function PreferencesPage(props: {
           {status.map((s) => (
             <span key={s.channel}>
               {s.channel} :{" "}
-              <span className={s.configured ? "text-emerald-600" : "text-zinc-400"}>
+              <span className={s.configured ? "text-emerald-600" : "text-zinc-500"}>
                 {s.configured ? "configuré" : "indisponible"}
               </span>
             </span>
           ))}
         </div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table aria-label="Canaux facultatifs" className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-zinc-500">
-              <th className="py-2">Sujet</th>
+              <th scope="col" className="py-2">Sujet</th>
               {CHANNELS.map((c) => (
-                <th key={c.value} className="py-2">
+                <th scope="col" key={c.value} className="py-2">
                   {c.label}
                 </th>
               ))}
@@ -120,12 +120,12 @@ export default async function PreferencesPage(props: {
         {history.length > 0 ? (
           <ul className="divide-y divide-zinc-100 text-sm">
             {history.map((h) => (
-              <li key={h.id} className="flex justify-between py-2">
+              <li key={h.id} className="flex flex-wrap justify-between py-2">
                 <span className="text-zinc-700">
                   {h.action === "OPT_IN" ? "Réactivation" : "Désinscription"} —{" "}
                   {h.channel} / {h.topic}
                 </span>
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   {h.createdAt.toLocaleString("fr-FR")}
                 </span>
               </li>

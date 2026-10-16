@@ -23,7 +23,7 @@ type SchoolCtx = { userId: string; schoolId: string };
 export async function generateCharges(
   ctx: SchoolCtx,
   input: { academicYearId: string; classroomId?: string },
-): Promise<AccountsResult<{ created: number; skipped: number }>> {
+): Promise<AccountsResult<{ created: number; existing: number; skipped: number }>> {
   const year = await prisma.academicYear.findFirst({
     where: { id: input.academicYearId, schoolId: ctx.schoolId },
     select: { id: true },
@@ -63,6 +63,7 @@ export async function generateCharges(
   });
 
   let created = 0;
+  let existing = 0;
   let skipped = 0;
   for (const en of enrollments) {
     for (const t of tariffs) {
@@ -82,17 +83,12 @@ export async function generateCharges(
       }
       if (t.levelId && en.classroom.levelId !== t.levelId) continue;
 
+      // La contrainte unique (studentId, academicYearId, categoryId) est la
+      // source de vérité : `create` + P2002 donne un comptage exact même si
+      // deux générations tournent en concurrence — aucun doublon possible.
       try {
-        const charge = await prisma.studentFeeCharge.upsert({
-          where: {
-            studentId_academicYearId_categoryId: {
-              studentId: en.studentId,
-              academicYearId: year.id,
-              categoryId: t.categoryId,
-            },
-          },
-          update: {},
-          create: {
+        const charge = await prisma.studentFeeCharge.create({
+          data: {
             schoolId: ctx.schoolId,
             studentId: en.studentId,
             academicYearId: year.id,
@@ -100,21 +96,50 @@ export async function generateCharges(
             tariffId: t.id,
             amount: t.amount,
           },
-          select: { id: true, createdAt: true },
+          select: { id: true },
         });
-        const hasInstallments = await prisma.feeInstallment.count({
-          where: { chargeId: charge.id },
-        });
-        if (hasInstallments === 0) {
-          await createInstallments(charge.id, ctx.schoolId, en.studentId, year.id, {
-            amount: t.amount,
-            count: t.installmentCount,
-            from: t.effectiveFrom,
-          });
-        }
         created++;
-      } catch {
-        skipped++;
+        await createInstallments(charge.id, ctx.schoolId, en.studentId, year.id, {
+          amount: t.amount,
+          count: t.installmentCount,
+          from: t.effectiveFrom,
+        });
+      } catch (e) {
+        if ((e as { code?: string })?.code === "P2002") {
+          existing++;
+          // La créance existait déjà : garantir ses échéances si absentes
+          // (ex. créance créée avant la définition du plan de paiement).
+          const charge = await prisma.studentFeeCharge.findUnique({
+            where: {
+              studentId_academicYearId_categoryId: {
+                studentId: en.studentId,
+                academicYearId: year.id,
+                categoryId: t.categoryId,
+              },
+            },
+            select: { id: true },
+          });
+          if (
+            charge &&
+            (await prisma.feeInstallment.count({
+              where: { chargeId: charge.id },
+            })) === 0
+          ) {
+            await createInstallments(
+              charge.id,
+              ctx.schoolId,
+              en.studentId,
+              year.id,
+              {
+                amount: t.amount,
+                count: t.installmentCount,
+                from: t.effectiveFrom,
+              },
+            );
+          }
+        } else {
+          skipped++;
+        }
       }
     }
   }
@@ -125,9 +150,9 @@ export async function generateCharges(
     action: "finance.charges.generate",
     entity: "AcademicYear",
     entityId: year.id,
-    metadata: { created, skipped, classroomId: input.classroomId },
+    metadata: { created, existing, skipped, classroomId: input.classroomId },
   });
-  return { ok: true, result: { created, skipped } };
+  return { ok: true, result: { created, existing, skipped } };
 }
 
 /** Répartition en n échéances mensuelles (reliquat sur la dernière). */

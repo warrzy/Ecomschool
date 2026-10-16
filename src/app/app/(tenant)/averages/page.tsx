@@ -135,16 +135,16 @@ export default async function AveragesPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Résultats</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Moyennes, classements et résultats annuels
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "INVALID_STATUS" ? "Transition de statut non autorisée." : errorMessage(error)}
           </div>
         ) : null}
@@ -152,18 +152,21 @@ export default async function AveragesPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
-          <select name="year" defaultValue={selYear ?? ""} className={inputCls}>
+          <select
+                  aria-label="Année scolaire" name="year" defaultValue={selYear ?? ""} className={inputCls}>
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}{y.isCurrent ? " (courante)" : ""}</option>
             ))}
           </select>
-          <select name="classroom" defaultValue={classroomId ?? ""} required className={inputCls}>
+          <select
+                  aria-label="Classe" name="classroom" defaultValue={classroomId ?? ""} required className={inputCls}>
             <option value="">Classe…</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <select name="period" defaultValue={periodId ?? ""} required className={inputCls}>
+          <select
+                  aria-label="Période" name="period" defaultValue={periodId ?? ""} required className={inputCls}>
             <option value="">Période…</option>
             {periods.map((p) => (
               <option key={p.id} value={p.id}>{p.name}{p.isLocked ? " (verrouillée)" : ""}</option>
@@ -253,15 +256,15 @@ export default async function AveragesPage(props: {
           </div>
 
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Moyennes par élève" className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                <th className="py-2 pr-3">Rang</th>
-                <th className="py-2 pr-3">Matricule</th>
-                <th className="py-2 pr-3">Élève</th>
-                <th className="py-2 pr-3">Moyenne</th>
-                <th className="py-2 pr-3">Mention</th>
-                <th className="py-2">Complet</th>
+                <th scope="col" className="py-2 pr-3">Rang</th>
+                <th scope="col" className="py-2 pr-3">Matricule</th>
+                <th scope="col" className="py-2 pr-3">Élève</th>
+                <th scope="col" className="py-2 pr-3">Moyenne</th>
+                <th scope="col" className="py-2 pr-3">Mention</th>
+                <th scope="col" className="py-2">Complet</th>
               </tr>
             </thead>
             <tbody>
@@ -286,9 +289,9 @@ export default async function AveragesPage(props: {
       ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">Résultats annuels</div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
           {yearId ? (
             <>
               <a
@@ -317,15 +320,15 @@ export default async function AveragesPage(props: {
         </div>
         {annualResults.length > 0 ? (
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Résultats annuels" className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                <th className="py-2 pr-3">Rang</th>
-                <th className="py-2 pr-3">Matricule</th>
-                <th className="py-2 pr-3">Élève</th>
-                <th className="py-2 pr-3">Moyenne annuelle</th>
-                <th className="py-2 pr-3">Mention</th>
-                <th className="py-2">Décision</th>
+                <th scope="col" className="py-2 pr-3">Rang</th>
+                <th scope="col" className="py-2 pr-3">Matricule</th>
+                <th scope="col" className="py-2 pr-3">Élève</th>
+                <th scope="col" className="py-2 pr-3">Moyenne annuelle</th>
+                <th scope="col" className="py-2 pr-3">Mention</th>
+                <th scope="col" className="py-2">Décision</th>
               </tr>
             </thead>
             <tbody>

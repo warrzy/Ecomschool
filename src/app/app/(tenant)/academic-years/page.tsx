@@ -71,16 +71,16 @@ export default async function AcademicYearsPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Années scolaires
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -92,39 +92,40 @@ export default async function AcademicYearsPage(props: {
             Nouvelle année scolaire
           </div>
           <form action={createYearAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Nom</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-academic-years-page-t-1">Nom</label>
+                <input id="fld-src-app-app-tenant-academic-years-page-t-1"
                   name="name"
                   placeholder="2026-2027"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Début</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-academic-years-page-t-2">Début</label>
+                <input id="fld-src-app-app-tenant-academic-years-page-t-2"
                   name="startDate"
                   type="date"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Fin</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-academic-years-page-t-3">Fin</label>
+                <input id="fld-src-app-app-tenant-academic-years-page-t-3"
                   name="endDate"
                   type="date"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-academic-years-page-t-4">
                   Découpage
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-academic-years-page-t-4"
                   name="periodType"
                   defaultValue="TRIMESTER"
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -133,7 +134,7 @@ export default async function AcademicYearsPage(props: {
                   <option value="SEMESTER">Semestres</option>
                 </select>
               </div>
-              <label className="flex items-center gap-2 pt-6 text-sm text-zinc-800">
+              <label className="flex flex-wrap items-center gap-2 pt-6 text-sm text-zinc-800">
                 <input type="checkbox" name="isCurrent" />
                 Définir comme année courante
               </label>
@@ -150,16 +151,16 @@ export default async function AcademicYearsPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Années scolaires" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Début</th>
-                <th className="py-2 pr-4">Fin</th>
-                <th className="py-2 pr-4">Périodes</th>
-                <th className="py-2 pr-4">Courante</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4">Actions</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Début</th>
+                <th scope="col" className="py-2 pr-4">Fin</th>
+                <th scope="col" className="py-2 pr-4">Périodes</th>
+                <th scope="col" className="py-2 pr-4">Courante</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -178,7 +179,7 @@ export default async function AcademicYearsPage(props: {
                     {statusLabel("academicYear", y.status)}
                   </td>
                   <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/app/academic-years/${y.id}/periods`}
                         className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"

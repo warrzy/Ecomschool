@@ -101,12 +101,12 @@ export default async function TeacherDetailPage({
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Enseignant</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {teacher.lastName} {teacher.firstName}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               {statusLabel("teacher", teacher.status)}
               {teacher.userId
@@ -122,12 +122,12 @@ export default async function TeacherDetailPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -140,56 +140,57 @@ export default async function TeacherDetailPage({
           </div>
           {canManage ? (
             <form action={updateTeacherAction} className="mt-4 space-y-4">
+              <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
               <input type="hidden" name="id" value={teacher.id} />
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-1">
                     Nom
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-teachers-id-page-tsx-1"
                     name="lastName"
                     defaultValue={teacher.lastName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-2">
                     Prénom
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-teachers-id-page-tsx-2"
                     name="firstName"
                     defaultValue={teacher.firstName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-3">
                     Email
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-teachers-id-page-tsx-3"
                     name="email"
                     type="email"
                     defaultValue={teacher.email ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-4">
                     Téléphone
                   </label>
-                  <input
+                  <input type="tel" id="fld-src-app-app-tenant-teachers-id-page-tsx-4"
                     name="phone"
                     defaultValue={teacher.phone ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium text-zinc-800">
+                  <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-5">
                     Statut
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-teachers-id-page-tsx-5"
                     name="status"
                     defaultValue={teacher.status}
                     className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -258,7 +259,7 @@ export default async function TeacherDetailPage({
                   email renseigné).
                 </p>
                 <input
-                  name="password"
+                  aria-label="Nouveau mot de passe" autoComplete="new-password" name="password"
                   type="password"
                   placeholder="Mot de passe (min. 8)"
                   minLength={8}
@@ -318,14 +319,14 @@ export default async function TeacherDetailPage({
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm font-medium text-zinc-900">Affectations</div>
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Affectations de l&apos;enseignant" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Classe</th>
-                <th className="py-2 pr-4">Niveau</th>
-                <th className="py-2 pr-4">Matière</th>
-                <th className="py-2 pr-4">Année</th>
-                {canManage ? <th className="py-2 pr-4"></th> : null}
+                <th scope="col" className="py-2 pr-4">Classe</th>
+                <th scope="col" className="py-2 pr-4">Niveau</th>
+                <th scope="col" className="py-2 pr-4">Matière</th>
+                <th scope="col" className="py-2 pr-4">Année</th>
+                {canManage ? <th scope="col" className="py-2 pr-4"></th> : null}
               </tr>
             </thead>
             <tbody>
@@ -373,13 +374,14 @@ export default async function TeacherDetailPage({
 
         {canManage ? (
           <form action={assignTeacherAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <input type="hidden" name="teacherId" value={teacher.id} />
             <div className="grid items-end gap-4 md:grid-cols-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-6">
                   Année
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-teachers-id-page-tsx-6"
                   name="academicYearId"
                   defaultValue={currentYear?.id ?? ""}
                   required
@@ -394,10 +396,10 @@ export default async function TeacherDetailPage({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-7">
                   Classe
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-teachers-id-page-tsx-7"
                   name="classroomId"
                   required
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -410,10 +412,10 @@ export default async function TeacherDetailPage({
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-id-page-tsx-8">
                   Matière (optionnel)
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-teachers-id-page-tsx-8"
                   name="subjectId"
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >

@@ -17,14 +17,14 @@ export default function Faq({ items }: { items: FaqItem[] }) {
             onClick={() => setOpen(open === i ? null : i)}
             aria-expanded={open === i}
             aria-controls={`faq-panel-${i}`}
-            className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left"
+            className="flex flex-wrap w-full items-center justify-between gap-4 px-6 py-4 text-left"
           >
             <span className="text-sm font-medium text-zinc-900 sm:text-base">
               {item.q}
             </span>
             <span
               aria-hidden="true"
-              className={`shrink-0 text-zinc-400 transition-transform duration-300 ${
+              className={`shrink-0 text-zinc-500 transition-transform duration-300 ${
                 open === i ? "rotate-45" : ""
               }`}
             >

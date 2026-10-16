@@ -72,6 +72,7 @@ const OK_LABELS: Record<string, string> = {
 
   // Communication / plateforme
   sent: "Envoi lancé.",
+  request: "Demande envoyée.",
   reviewed: "Demande traitée.",
   subscription: "Abonnement enregistré.",
   suspended: "Suspension effectuée.",

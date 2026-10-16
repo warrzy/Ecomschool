@@ -18,12 +18,13 @@ function Field({ label, name, value, type = "text" }: {
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-zinc-800">{label}</label>
-      <input
+      <label className="text-sm font-medium text-zinc-800" htmlFor={`fld-${name}`}>{label}</label>
+      <input id={`fld-${name}`}
         name={name}
-        type={type}
+        type={name === "phone" ? "tel" : type}
+        autoComplete={name === "phone" ? "tel" : undefined}
         defaultValue={value ?? ""}
-        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
       />
     </div>
   );
@@ -51,19 +52,19 @@ export default async function SettingsPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Administration</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Paramètres de l&apos;établissement
-        </div>
+        </h1>
         <div className="mt-1 text-sm text-zinc-600">
           {school.code} · {statusLabel("school", school.status)}
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Paramètres enregistrés
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -83,8 +84,8 @@ export default async function SettingsPage(props: {
             <Field label="Email" name="email" type="email" value={school.email} />
             <Field label="Site web" name="website" type="url" value={school.website} />
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Type</label>
-              <select
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-settings-page-tsx-2">Type</label>
+              <select id="fld-src-app-app-tenant-settings-page-tsx-2"
                 name="type"
                 defaultValue={school.type ?? ""}
                 className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -98,10 +99,10 @@ export default async function SettingsPage(props: {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-settings-page-tsx-3">
                 Système scolaire
               </label>
-              <select
+              <select id="fld-src-app-app-tenant-settings-page-tsx-3"
                 name="schoolSystem"
                 defaultValue={school.schoolSystem ?? ""}
                 className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -117,17 +118,17 @@ export default async function SettingsPage(props: {
           </div>
 
           <div className="mt-4 space-y-1">
-            <label className="text-sm font-medium text-zinc-800">
+            <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-settings-page-tsx-4">
               Paramètres pédagogiques (JSON)
             </label>
-            <textarea
+            <textarea id="fld-src-app-app-tenant-settings-page-tsx-4"
               name="settings"
               rows={4}
               defaultValue={
                 school.settings ? JSON.stringify(school.settings, null, 2) : ""
               }
               placeholder='{"periodesParDefaut":"TRIMESTER"}'
-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 font-mono text-xs outline-none focus:border-zinc-900"
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 font-mono text-xs outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
 

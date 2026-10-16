@@ -71,16 +71,16 @@ export default async function ClassroomsPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Classes
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -89,8 +89,8 @@ export default async function ClassroomsPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Année</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-1">Année</label>
+            <select id="fld-src-app-app-tenant-classrooms-page-tsx-1"
               name="year"
               defaultValue={yearId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -105,8 +105,8 @@ export default async function ClassroomsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Niveau</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-2">Niveau</label>
+            <select id="fld-src-app-app-tenant-classrooms-page-tsx-2"
               name="level"
               defaultValue={levelId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -120,8 +120,8 @@ export default async function ClassroomsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Statut</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-3">Statut</label>
+            <select id="fld-src-app-app-tenant-classrooms-page-tsx-3"
               name="status"
               defaultValue={status}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -131,14 +131,14 @@ export default async function ClassroomsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-4">
               Recherche
             </label>
-            <input
+            <input id="fld-src-app-app-tenant-classrooms-page-tsx-4"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Nom, section…"
-              className="h-10 w-52 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-10 w-52 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
           <button
@@ -168,21 +168,22 @@ export default async function ClassroomsPage(props: {
             Nouvelle classe
           </div>
           <form action={createClassroomAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Nom</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-5">Nom</label>
+                <input id="fld-src-app-app-tenant-classrooms-page-tsx-5"
                   name="name"
                   placeholder="6e A"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-6">
                   Année scolaire
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-classrooms-page-tsx-6"
                   name="academicYearId"
                   required
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -196,10 +197,10 @@ export default async function ClassroomsPage(props: {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-7">
                   Niveau
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-classrooms-page-tsx-7"
                   name="levelId"
                   required
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -212,38 +213,38 @@ export default async function ClassroomsPage(props: {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-8">
                   Section
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-classrooms-page-tsx-8"
                   name="section"
                   placeholder="A, B, C, D…"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-9">
                   Capacité
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-classrooms-page-tsx-9"
                   name="capacity"
                   type="number"
                   min={0}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Salle</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-10">Salle</label>
+                <input id="fld-src-app-app-tenant-classrooms-page-tsx-10"
                   name="room"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-classrooms-page-tsx-11">
                   Professeur principal
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-classrooms-page-tsx-11"
                   name="headTeacherId"
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >
@@ -271,18 +272,18 @@ export default async function ClassroomsPage(props: {
           {total} classe{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Classes" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Niveau</th>
-                <th className="py-2 pr-4">Section</th>
-                <th className="py-2 pr-4">Année</th>
-                <th className="py-2 pr-4">Capacité</th>
-                <th className="py-2 pr-4">Salle</th>
-                <th className="py-2 pr-4">Prof. principal</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4"></th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Niveau</th>
+                <th scope="col" className="py-2 pr-4">Section</th>
+                <th scope="col" className="py-2 pr-4">Année</th>
+                <th scope="col" className="py-2 pr-4">Capacité</th>
+                <th scope="col" className="py-2 pr-4">Salle</th>
+                <th scope="col" className="py-2 pr-4">Prof. principal</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4"></th>
               </tr>
             </thead>
             <tbody>
@@ -321,7 +322,7 @@ export default async function ClassroomsPage(props: {
               {items.length === 0 ? (
                 <tr>
                   <td className="py-6 text-zinc-500" colSpan={9}>
-                    Aucune classe
+                    {q || levelId ? "Aucune classe ne correspond à la recherche." : "Aucune classe pour cette année — créez-la ci-dessus."}
                   </td>
                 </tr>
               ) : null}
@@ -329,7 +330,7 @@ export default async function ClassroomsPage(props: {
           </table>
         </div>
         {totalPages > 1 ? (
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             {page > 1 ? (
               <a
                 href={pageHref(page - 1)}

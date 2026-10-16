@@ -67,9 +67,9 @@ export default async function DashboardPage() {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Tableau de bord</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           {dash.school ? dash.school.name : "ECOM-SCHOOL"}
-        </div>
+        </h1>
         <div className="mt-1 text-sm text-zinc-600">
           {dash.school?.city ?? ""}
           {dash.currentYear
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
               {dash.byLevel.map((l) => (
                 <li
                   key={l.level}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">{l.level}</span>
                   <span className="text-zinc-600">{l.count} élève(s)</span>
@@ -134,7 +134,7 @@ export default async function DashboardPage() {
               {dash.latestEnrollments.map((e) => (
                 <li
                   key={e.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <Link
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
 
       {finance ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between">
             <div className="text-sm font-medium text-zinc-900">
               Finances — année courante
             </div>

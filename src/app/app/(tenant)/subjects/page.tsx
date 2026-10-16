@@ -37,20 +37,20 @@ export default async function SubjectsPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Matières
-        </div>
+        </h1>
         <div className="mt-1 text-sm text-zinc-600">
           Les coefficients se définissent par niveau et par classe depuis la
           fiche matière.
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -59,19 +59,19 @@ export default async function SubjectsPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-subjects-page-tsx-1">
               Recherche
             </label>
-            <input
+            <input id="fld-src-app-app-tenant-subjects-page-tsx-1"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Nom, code…"
-              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Statut</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-subjects-page-tsx-2">Statut</label>
+            <select id="fld-src-app-app-tenant-subjects-page-tsx-2"
               name="status"
               defaultValue={status}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -98,21 +98,22 @@ export default async function SubjectsPage(props: {
             action={createSubjectAction}
             className="mt-4 flex flex-wrap items-end gap-4"
           >
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Nom</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-subjects-page-tsx-3">Nom</label>
+              <input id="fld-src-app-app-tenant-subjects-page-tsx-3"
                 name="name"
                 placeholder="Mathématiques"
                 required
-                className="h-11 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Code</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-subjects-page-tsx-4">Code</label>
+              <input id="fld-src-app-app-tenant-subjects-page-tsx-4"
                 name="code"
                 placeholder="MATH"
-                className="h-11 w-32 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-32 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <button
@@ -130,15 +131,15 @@ export default async function SubjectsPage(props: {
           {total} matière{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Matières" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Code</th>
-                <th className="py-2 pr-4">Niveaux</th>
-                <th className="py-2 pr-4">Classes</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4"></th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Code</th>
+                <th scope="col" className="py-2 pr-4">Niveaux</th>
+                <th scope="col" className="py-2 pr-4">Classes</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4"></th>
               </tr>
             </thead>
             <tbody>

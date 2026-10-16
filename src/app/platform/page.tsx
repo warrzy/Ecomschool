@@ -25,9 +25,9 @@ export default async function PlatformDashboard() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">ECOM-TOUCH</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Tableau de bord plateforme
-            </div>
+            </h1>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
             <Link href="/platform/schools" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">Établissements</Link>
@@ -53,7 +53,7 @@ export default async function PlatformDashboard() {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Répartition par offre</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Abonnements récents" className="w-full text-left text-sm">
             <tbody>
               {d.byPlan.map((p) => (
                 <tr key={p.plan} className="border-b border-zinc-100 last:border-0">
@@ -69,7 +69,7 @@ export default async function PlatformDashboard() {
           </div>
         </div>
         <div className={card}>
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3 flex flex-wrap items-center justify-between">
             <div className="text-sm font-medium text-zinc-900">Échéances sous 30 jours</div>
             {d.pendingRequests > 0 ? (
               <Link href="/platform/subscriptions" className="text-xs text-amber-700 underline">
@@ -78,7 +78,7 @@ export default async function PlatformDashboard() {
             ) : null}
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Demandes d'offre" className="w-full text-left text-sm">
             <tbody>
               {d.renewals.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-100 last:border-0">

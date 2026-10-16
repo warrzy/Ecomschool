@@ -32,9 +32,9 @@ export default async function MonitoringPage() {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Supervision
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Supervision technique — mesures réelles
-        </div>
+        </h1>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -66,7 +66,7 @@ export default async function MonitoringPage() {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Utilisation globale</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Tâches planifiées" className="w-full text-left text-sm">
             <tbody>
               {[
                 ["Établissements", `${m.usage.activeSchools} actifs / ${m.usage.schools}`],
@@ -88,7 +88,7 @@ export default async function MonitoringPage() {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Abonnements par statut</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Événements récents" className="w-full text-left text-sm">
             <tbody>
               {Object.entries(m.subscriptions).map(([k, v]) => (
                 <tr key={k} className="border-b border-zinc-100 last:border-0">

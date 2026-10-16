@@ -57,14 +57,14 @@ export function GradeImportWizard({
       blockingErrors
       renderCells={(r) => (
         <>
-          <td className="px-2 py-2 text-zinc-400">{r.line}</td>
+          <td className="px-2 py-2 text-zinc-500">{r.line}</td>
           <td className="px-2 py-2 font-mono text-xs">{r.matricule}</td>
           <td className="px-2 py-2">{r.name}</td>
           <td className="px-2 py-2 text-xs">{fmt(r.from)}</td>
           <td className="px-2 py-2 text-xs font-medium">
             {fmt(r.to)}
             {r.to.observation ? (
-              <span className="text-zinc-400"> — {r.to.observation}</span>
+              <span className="text-zinc-500"> — {r.to.observation}</span>
             ) : null}
           </td>
           <td className="px-2 py-2">{ACTION_LABEL[r.action] ?? r.action}</td>

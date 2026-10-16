@@ -137,16 +137,16 @@ export default async function ReportCardsPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Bulletins</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Bulletins scolaires ({cards.length})
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "generated" ? `Bulletins générés (${sp.count ?? ""}).` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "INVALID_STATUS" ? "Calculez les moyennes avant de générer les bulletins." : errorMessage(error)}
           </div>
         ) : null}
@@ -154,19 +154,22 @@ export default async function ReportCardsPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
-          <select name="classroom" defaultValue={classroomId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les classes" name="classroom" defaultValue={classroomId ?? ""} className={inputCls}>
             <option value="">Toutes les classes</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <select name="period" defaultValue={periodId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les périodes" name="period" defaultValue={periodId ?? ""} className={inputCls}>
             <option value="">Toutes les périodes</option>
             {periods.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <select name="status" defaultValue={status ?? ""} className={inputCls}>
+          <select
+                  aria-label="Tous les statuts" name="status" defaultValue={status ?? ""} className={inputCls}>
             <option value="">Tous les statuts</option>
             {Object.entries(STATUS_LABELS).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
@@ -209,16 +212,16 @@ export default async function ReportCardsPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Bulletins scolaires" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2 pr-3">Identifiant</th>
-              <th className="py-2 pr-3">Élève</th>
-              <th className="py-2 pr-3">Classe</th>
-              <th className="py-2 pr-3">Période</th>
-              <th className="py-2 pr-3">Version</th>
-              <th className="py-2 pr-3">Statut</th>
-              <th className="py-2">Actions</th>
+              <th scope="col" className="py-2 pr-3">Identifiant</th>
+              <th scope="col" className="py-2 pr-3">Élève</th>
+              <th scope="col" className="py-2 pr-3">Classe</th>
+              <th scope="col" className="py-2 pr-3">Période</th>
+              <th scope="col" className="py-2 pr-3">Version</th>
+              <th scope="col" className="py-2 pr-3">Statut</th>
+              <th scope="col" className="py-2">Actions</th>
             </tr>
           </thead>
           <tbody>

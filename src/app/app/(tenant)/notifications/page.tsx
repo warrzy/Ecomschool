@@ -59,12 +59,12 @@ export default async function NotificationsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>
           <div className="text-sm text-zinc-500">Centre de notifications</div>
-          <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
             {unread} non lue{unread > 1 ? "s" : ""}
-          </div>
+          </h1>
         </div>
         <div className="flex gap-2">
           <a
@@ -122,7 +122,7 @@ export default async function NotificationsPage(props: {
         {items.length > 0 ? (
           <ul className="divide-y divide-zinc-100">
             {items.map((n) => (
-              <li key={n.id} className="flex items-start justify-between py-3">
+              <li key={n.id} className="flex flex-wrap items-start justify-between py-3">
                 <div>
                   <div className="text-sm font-medium text-zinc-900">
                     {!n.readAt ? (
@@ -142,7 +142,7 @@ export default async function NotificationsPage(props: {
                     </a>
                   ) : null}
                 </div>
-                <div className="ml-4 shrink-0 text-right text-xs text-zinc-400">
+                <div className="ml-4 shrink-0 text-right text-xs text-zinc-500">
                   {TYPE_LABELS[n.type] ?? n.type}
                   <br />
                   {n.createdAt.toLocaleDateString("fr-FR")}

@@ -96,16 +96,16 @@ export default async function AttendancePage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Pédagogie</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Présences, absences et retards
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -116,8 +116,8 @@ export default async function AttendancePage(props: {
         <div className="text-sm font-medium text-zinc-900">Appel journalier</div>
         <form method="GET" className="mt-3 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Classe</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-attendance-page-tsx-1">Classe</label>
+            <select id="fld-src-app-app-tenant-attendance-page-tsx-1"
               name="classroomId"
               defaultValue={classroomId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -131,8 +131,8 @@ export default async function AttendancePage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Date</label>
-            <input
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-attendance-page-tsx-2">Date</label>
+            <input id="fld-src-app-app-tenant-attendance-page-tsx-2"
               name="date"
               type="date"
               defaultValue={date}
@@ -152,15 +152,15 @@ export default async function AttendancePage(props: {
             <input type="hidden" name="classroomId" value={classroomId} />
             <input type="hidden" name="date" value={date} />
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table aria-label="Feuille d'appel du jour" className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-                    <th className="py-2 pr-3">Matricule</th>
-                    <th className="py-2 pr-3">Élève</th>
-                    <th className="py-2 pr-3">Statut</th>
-                    <th className="py-2 pr-3">Heure prévue</th>
-                    <th className="py-2 pr-3">Arrivée</th>
-                    <th className="py-2 pr-3">Motif</th>
+                    <th scope="col" className="py-2 pr-3">Matricule</th>
+                    <th scope="col" className="py-2 pr-3">Élève</th>
+                    <th scope="col" className="py-2 pr-3">Statut</th>
+                    <th scope="col" className="py-2 pr-3">Heure prévue</th>
+                    <th scope="col" className="py-2 pr-3">Arrivée</th>
+                    <th scope="col" className="py-2 pr-3">Motif</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -201,6 +201,7 @@ export default async function AttendancePage(props: {
                             name={`expected_${s.id}`}
                             type="time"
                             defaultValue={minToTime(rec?.expectedMin)}
+                            aria-label={`Heure prévue — ${s.lastName} ${s.firstName}`}
                             className="h-8 rounded-lg border border-zinc-200 px-2 text-xs"
                           />
                         </td>
@@ -209,6 +210,7 @@ export default async function AttendancePage(props: {
                             name={`arrival_${s.id}`}
                             type="time"
                             defaultValue={minToTime(rec?.arrivalMin)}
+                            aria-label={`Heure d'arrivée — ${s.lastName} ${s.firstName}`}
                             className="h-8 rounded-lg border border-zinc-200 px-2 text-xs"
                           />
                         </td>
@@ -216,6 +218,7 @@ export default async function AttendancePage(props: {
                           <input
                             name={`reason_${s.id}`}
                             defaultValue={rec?.reason ?? ""}
+                            aria-label={`Motif — ${s.lastName} ${s.firstName}`}
                             className="h-8 w-36 rounded-lg border border-zinc-200 px-2 text-xs"
                           />
                         </td>
@@ -252,6 +255,7 @@ export default async function AttendancePage(props: {
           <form action={addAttendanceRecordAction} className="mt-3">
             <div className="grid items-end gap-3 md:grid-cols-6">
               <select
+                  aria-label="Élève"
                 name="studentId"
                 required
                 className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm md:col-span-2"
@@ -264,13 +268,14 @@ export default async function AttendancePage(props: {
                 ))}
               </select>
               <input
-                name="date"
+                aria-label="Date" name="date"
                 type="date"
                 defaultValue={date}
                 required
                 className="h-10 rounded-xl border border-zinc-200 px-3 text-sm"
               />
               <select
+                  aria-label="Statut"
                 name="status"
                 defaultValue="ABSENT"
                 className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -278,7 +283,7 @@ export default async function AttendancePage(props: {
                 <option value="ABSENT">Absence</option>
                 <option value="LATE">Retard</option>
               </select>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   name="expectedTime"
                   type="time"
@@ -293,7 +298,7 @@ export default async function AttendancePage(props: {
                 />
               </div>
               <input
-                name="reason"
+                aria-label="Motif" name="reason"
                 placeholder="Motif"
                 className="h-10 rounded-xl border border-zinc-200 px-3 text-sm"
               />
@@ -319,6 +324,7 @@ export default async function AttendancePage(props: {
             ) : null}
             <input type="hidden" name="date" value={date} />
             <select
+                  aria-label="Statut"
               name="status"
               defaultValue={statusFilter}
               className="h-9 rounded-lg border border-zinc-200 bg-white px-2 text-xs"
@@ -327,6 +333,7 @@ export default async function AttendancePage(props: {
               <option value="LATE">Retards</option>
             </select>
             <select
+                  aria-label="Filtrer par justification"
               name="justified"
               defaultValue={
                 justifiedFilter === undefined
@@ -351,16 +358,16 @@ export default async function AttendancePage(props: {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Historique des présences" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-                <th className="py-2 pr-3">Date</th>
-                <th className="py-2 pr-3">Élève</th>
-                <th className="py-2 pr-3">Séance / Classe</th>
-                <th className="py-2 pr-3">Détails</th>
-                <th className="py-2 pr-3">Motif</th>
-                <th className="py-2 pr-3">Justification</th>
-                {canJustify ? <th className="py-2"></th> : null}
+                <th scope="col" className="py-2 pr-3">Date</th>
+                <th scope="col" className="py-2 pr-3">Élève</th>
+                <th scope="col" className="py-2 pr-3">Séance / Classe</th>
+                <th scope="col" className="py-2 pr-3">Détails</th>
+                <th scope="col" className="py-2 pr-3">Motif</th>
+                <th scope="col" className="py-2 pr-3">Justification</th>
+                {canJustify ? <th scope="col" className="py-2"></th> : null}
               </tr>
             </thead>
             <tbody>
@@ -395,11 +402,11 @@ export default async function AttendancePage(props: {
                       (r.status === "ABSENT" || r.status === "LATE") ? (
                         <form
                           action={justifyAttendanceAction}
-                          className="flex items-center gap-2"
+                          className="flex flex-wrap items-center gap-2"
                         >
                           <input type="hidden" name="id" value={r.id} />
                           <input
-                            name="justification"
+                            aria-label="Justification" name="justification"
                             required
                             placeholder="Justification"
                             className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"

@@ -49,9 +49,9 @@ export default async function SubscriptionsPage(props: {
             <div className="text-sm text-zinc-500">
               <Link href="/platform" className="hover:underline">Plateforme</Link> / Abonnements
             </div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Abonnements ({subs.length})
-            </div>
+            </h1>
           </div>
           <form action={sweepSubscriptionsAction}>
             <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
@@ -59,7 +59,7 @@ export default async function SubscriptionsPage(props: {
             </button>
           </form>
         </div>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       {requests.length > 0 ? (
@@ -68,7 +68,7 @@ export default async function SubscriptionsPage(props: {
             Demandes de changement d&apos;offre ({requests.length})
           </div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Demandes de changement d'offre" className="w-full text-left text-sm">
             <tbody>
               {requests.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-100 last:border-0">
@@ -96,15 +96,15 @@ export default async function SubscriptionsPage(props: {
 
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Abonnements" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">École</th>
-              <th className="py-2">Offre</th>
-              <th className="py-2">Cycle</th>
-              <th className="py-2">Statut</th>
-              <th className="py-2">Échéance</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">École</th>
+              <th scope="col" className="py-2">Offre</th>
+              <th scope="col" className="py-2">Cycle</th>
+              <th scope="col" className="py-2">Statut</th>
+              <th scope="col" className="py-2">Échéance</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>

@@ -145,16 +145,16 @@ export default async function EnrollmentsPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Scolarité</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Inscriptions
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -163,8 +163,8 @@ export default async function EnrollmentsPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Année</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-1">Année</label>
+            <select id="fld-src-app-app-tenant-enrollments-page-tsx-1"
               name="year"
               defaultValue={yearId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -179,8 +179,8 @@ export default async function EnrollmentsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Classe</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-2">Classe</label>
+            <select id="fld-src-app-app-tenant-enrollments-page-tsx-2"
               name="classroom"
               defaultValue={classroomId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -194,8 +194,8 @@ export default async function EnrollmentsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Statut</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-3">Statut</label>
+            <select id="fld-src-app-app-tenant-enrollments-page-tsx-3"
               name="status"
               defaultValue={status}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -207,14 +207,14 @@ export default async function EnrollmentsPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-4">
               Recherche
             </label>
-            <input
+            <input id="fld-src-app-app-tenant-enrollments-page-tsx-4"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Élève, matricule…"
-              className="h-10 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-10 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
           <button
@@ -232,12 +232,13 @@ export default async function EnrollmentsPage(props: {
             Nouvelle inscription
           </div>
           <form action={enrollStudentAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="grid items-end gap-4 md:grid-cols-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-5">
                   Élève
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-enrollments-page-tsx-5"
                   name="studentId"
                   required
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -251,10 +252,10 @@ export default async function EnrollmentsPage(props: {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-6">
                   Année
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-enrollments-page-tsx-6"
                   name="academicYearId"
                   defaultValue={currentYear?.id ?? ""}
                   required
@@ -269,10 +270,10 @@ export default async function EnrollmentsPage(props: {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-7">
                   Classe
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-enrollments-page-tsx-7"
                   name="classroomId"
                   required
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -304,16 +305,16 @@ export default async function EnrollmentsPage(props: {
           {total} inscription{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Inscriptions" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Élève</th>
-                <th className="py-2 pr-4">Classe</th>
-                <th className="py-2 pr-4">Année</th>
-                <th className="py-2 pr-4">Du</th>
-                <th className="py-2 pr-4">Au</th>
-                <th className="py-2 pr-4">Statut</th>
-                {canManage ? <th className="py-2 pr-4">Actions</th> : null}
+                <th scope="col" className="py-2 pr-4">Élève</th>
+                <th scope="col" className="py-2 pr-4">Classe</th>
+                <th scope="col" className="py-2 pr-4">Année</th>
+                <th scope="col" className="py-2 pr-4">Du</th>
+                <th scope="col" className="py-2 pr-4">Au</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                {canManage ? <th scope="col" className="py-2 pr-4">Actions</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -349,11 +350,12 @@ export default async function EnrollmentsPage(props: {
                   {canManage ? (
                     <td className="py-2 pr-4">
                       {e.status === "ENROLLED" ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {/* GET vers ?confirm=transfer — la vraie action est
                               dans le panneau de confirmation. */}
                           <form id={`tr-${e.id}`} method="GET" action="/app/enrollments" />
                           <select
+                  aria-label="Classe de destination"
                             form={`tr-${e.id}`}
                             name="to"
                             required
@@ -396,7 +398,7 @@ export default async function EnrollmentsPage(props: {
               {items.length === 0 ? (
                 <tr>
                   <td className="py-6 text-zinc-500" colSpan={7}>
-                    Aucune inscription
+                    {q ? "Aucune inscription ne correspond à la recherche." : "Aucune inscription pour cette année."}
                   </td>
                 </tr>
               ) : null}
@@ -404,7 +406,7 @@ export default async function EnrollmentsPage(props: {
           </table>
         </div>
         {totalPages > 1 ? (
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             {page > 1 ? (
               <Link
                 href={pageHref(page - 1)}

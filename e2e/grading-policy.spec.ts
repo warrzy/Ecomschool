@@ -12,9 +12,10 @@ test.describe("Règles de notation — interface", () => {
   test("le formulaire est sectionné et les champs libellés", async ({ page }) => {
     await page.goto("/app/grading-policy");
     await expect(
-      page.getByRole("heading", { name: /règles de notation/i }).or(
-        page.getByText("Règles de notation", { exact: true }).first(),
-      ),
+      page
+        .locator("main")
+        .getByRole("heading", { name: /règles de notation/i })
+        .first(),
     ).toBeVisible();
 
     // Sections

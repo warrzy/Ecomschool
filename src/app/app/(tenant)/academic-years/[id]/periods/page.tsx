@@ -58,12 +58,12 @@ export default async function AcademicPeriodsPage({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Référentiel</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Périodes — {year.name}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               Statut de l&apos;année : {statusLabel("academicYear", year.status)}
             </div>
@@ -76,17 +76,20 @@ export default async function AcademicPeriodsPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
       </div>
 
+      {canManage && periods.length > 0 ? (
+        <p className="text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
+      ) : null}
       <div className="space-y-3">
         {periods.map((p) => (
           <div
@@ -99,41 +102,41 @@ export default async function AcademicPeriodsPage({
                 <input type="hidden" name="yearId" value={year.id} />
                 <div className="grid items-end gap-4 md:grid-cols-5">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-zinc-500">
+                    <label className="text-xs font-medium text-zinc-500" htmlFor={`per-${p.id}-name`}>
                       #{p.number} — Nom
                     </label>
-                    <input
+                    <input id={`per-${p.id}-name`}
                       name="name"
                       defaultValue={p.name}
                       required
-                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-zinc-500">
+                    <label className="text-xs font-medium text-zinc-500" htmlFor={`per-${p.id}-start`}>
                       Début
                     </label>
-                    <input
+                    <input id={`per-${p.id}-start`}
                       name="startDate"
                       type="date"
                       defaultValue={d(p.startDate)}
                       required
-                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-zinc-500">
+                    <label className="text-xs font-medium text-zinc-500" htmlFor={`per-${p.id}-end`}>
                       Fin
                     </label>
-                    <input
+                    <input id={`per-${p.id}-end`}
                       name="endDate"
                       type="date"
                       defaultValue={d(p.endDate)}
                       required
-                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                      className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                     />
                   </div>
-                  <label className="flex items-center gap-2 pb-2 text-sm text-zinc-800">
+                  <label className="flex flex-wrap items-center gap-2 pb-2 text-sm text-zinc-800">
                     <input
                       type="checkbox"
                       name="isLocked"
@@ -149,7 +152,7 @@ export default async function AcademicPeriodsPage({
                 </div>
               </form>
             ) : (
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-wrap items-center justify-between text-sm">
                 <div className="font-medium text-zinc-900">
                   #{p.number} — {p.name}
                 </div>

@@ -42,16 +42,16 @@ export default async function RoomsPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Salles
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -60,19 +60,19 @@ export default async function RoomsPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-1">
               Recherche
             </label>
-            <input
+            <input id="fld-src-app-app-tenant-rooms-page-tsx-1"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Code, nom, bâtiment…"
-              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Statut</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-2">Statut</label>
+            <select id="fld-src-app-app-tenant-rooms-page-tsx-2"
               name="status"
               defaultValue={status}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -96,57 +96,58 @@ export default async function RoomsPage(props: {
             Nouvelle salle
           </div>
           <form action={createRoomAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="grid items-end gap-4 md:grid-cols-7">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Code</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-3">Code</label>
+                <input id="fld-src-app-app-tenant-rooms-page-tsx-3"
                   name="code"
                   placeholder="S01"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1 md:col-span-2">
-                <label className="text-sm font-medium text-zinc-800">Nom</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-4">Nom</label>
+                <input id="fld-src-app-app-tenant-rooms-page-tsx-4"
                   name="name"
                   placeholder="Salle informatique"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-5">
                   Capacité
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-rooms-page-tsx-5"
                   name="capacity"
                   type="number"
                   min={0}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-6">
                   Bâtiment
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-rooms-page-tsx-6"
                   name="building"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-7">
                   Étage
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-rooms-page-tsx-7"
                   name="floor"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Type</label>
-                <select
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-8">Type</label>
+                <select id="fld-src-app-app-tenant-rooms-page-tsx-8"
                   name="type"
                   defaultValue="CLASSROOM"
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -172,17 +173,17 @@ export default async function RoomsPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="mb-3 text-sm text-zinc-600">{total} salle(s)</div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Salles" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Code</th>
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Capacité</th>
-                <th className="py-2 pr-4">Bâtiment</th>
-                <th className="py-2 pr-4">Étage</th>
-                <th className="py-2 pr-4">Statut</th>
-                {canManage ? <th className="py-2 pr-4"></th> : null}
+                <th scope="col" className="py-2 pr-4">Code</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Type</th>
+                <th scope="col" className="py-2 pr-4">Capacité</th>
+                <th scope="col" className="py-2 pr-4">Bâtiment</th>
+                <th scope="col" className="py-2 pr-4">Étage</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                {canManage ? <th scope="col" className="py-2 pr-4"></th> : null}
               </tr>
             </thead>
             <tbody>

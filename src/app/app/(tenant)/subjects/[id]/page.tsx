@@ -68,12 +68,12 @@ export default async function SubjectDetailPage({
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Matière</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {subject.name}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               {subject.code ? `${subject.code} · ` : ""}
               {statusLabel("subject", subject.status)}
@@ -87,12 +87,12 @@ export default async function SubjectDetailPage({
           </Link>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -102,32 +102,33 @@ export default async function SubjectDetailPage({
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="text-sm font-medium text-zinc-900">Informations</div>
           <form action={updateSubjectAction} className="mt-4">
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <input type="hidden" name="id" value={subject.id} />
             <div className="grid items-end gap-4 md:grid-cols-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">Nom</label>
-                <input
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-subjects-id-page-tsx-1">Nom</label>
+                <input id="fld-src-app-app-tenant-subjects-id-page-tsx-1"
                   name="name"
                   defaultValue={subject.name}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-subjects-id-page-tsx-2">
                   Code
                 </label>
-                <input
+                <input id="fld-src-app-app-tenant-subjects-id-page-tsx-2"
                   name="code"
                   defaultValue={subject.code ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-zinc-800">
+                <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-subjects-id-page-tsx-3">
                   Statut
                 </label>
-                <select
+                <select id="fld-src-app-app-tenant-subjects-id-page-tsx-3"
                   name="status"
                   defaultValue={subject.status}
                   className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -153,12 +154,12 @@ export default async function SubjectDetailPage({
             Coefficients par niveau
           </div>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Coefficients par niveau" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Niveau</th>
-                  <th className="py-2 pr-4">Coefficient</th>
-                  {canManage ? <th className="py-2 pr-4"></th> : null}
+                  <th scope="col" className="py-2 pr-4">Niveau</th>
+                  <th scope="col" className="py-2 pr-4">Coefficient</th>
+                  {canManage ? <th scope="col" className="py-2 pr-4"></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -192,13 +193,14 @@ export default async function SubjectDetailPage({
           </div>
           {canManage ? (
             <form action={setLevelCoefficientAction} className="mt-4">
+              <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
               <input type="hidden" name="subjectId" value={subject.id} />
               <div className="flex items-end gap-3">
                 <div className="flex-1 space-y-1">
-                  <label className="text-xs font-medium text-zinc-500">
+                  <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-subjects-id-page-tsx-4">
                     Niveau
                   </label>
-                  <select
+                  <select id="fld-src-app-app-tenant-subjects-id-page-tsx-4"
                     name="levelId"
                     required
                     className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -211,16 +213,16 @@ export default async function SubjectDetailPage({
                   </select>
                 </div>
                 <div className="w-28 space-y-1">
-                  <label className="text-xs font-medium text-zinc-500">
+                  <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-subjects-id-page-tsx-5">
                     Coef.
                   </label>
-                  <input
+                  <input id="fld-src-app-app-tenant-subjects-id-page-tsx-5"
                     name="coefficient"
                     type="number"
                     step="0.5"
                     min="0.5"
                     required
-                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                   />
                 </div>
                 <button
@@ -239,13 +241,13 @@ export default async function SubjectDetailPage({
             Affectations par classe
           </div>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Affectations par classe" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                  <th className="py-2 pr-4">Classe</th>
-                  <th className="py-2 pr-4">Année</th>
-                  <th className="py-2 pr-4">Coef.</th>
-                  <th className="py-2 pr-4">Enseignant</th>
+                  <th scope="col" className="py-2 pr-4">Classe</th>
+                  <th scope="col" className="py-2 pr-4">Année</th>
+                  <th scope="col" className="py-2 pr-4">Coef.</th>
+                  <th scope="col" className="py-2 pr-4">Enseignant</th>
                 </tr>
               </thead>
               <tbody>

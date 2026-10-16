@@ -109,10 +109,10 @@ export default async function SessionDetailPage(props: {
           </Link>{" "}
           / Séance
         </div>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             {session.subject?.name ?? "Cours"} — {session.classroom.name}
-          </div>
+          </h1>
           <Link
             href="/app/schedules"
             className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -133,12 +133,12 @@ export default async function SessionDetailPage(props: {
           {session.status === "CANCELLED" || session.status === "POSTPONED" ? null : null}
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -153,7 +153,7 @@ export default async function SessionDetailPage(props: {
             <form action={moveSessionAction} className="mt-3 space-y-2">
               <input type="hidden" name="id" value={id} />
               <input
-                name="date"
+                aria-label="Date" name="date"
                 type="date"
                 defaultValue={session.date.toISOString().slice(0, 10)}
                 required
@@ -161,14 +161,14 @@ export default async function SessionDetailPage(props: {
               />
               <div className="flex gap-2">
                 <input
-                  name="startTime"
+                  aria-label="Heure de début" name="startTime"
                   type="time"
                   defaultValue={minToTime(session.startMin)}
                   required
                   className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                 />
                 <input
-                  name="endTime"
+                  aria-label="Heure de fin" name="endTime"
                   type="time"
                   defaultValue={minToTime(session.endMin)}
                   required
@@ -190,6 +190,7 @@ export default async function SessionDetailPage(props: {
             <form action={replaceTeacherAction} className="mt-3 space-y-2">
               <input type="hidden" name="id" value={id} />
               <select
+                  aria-label="Nouvel enseignant"
                 name="teacherId"
                 required
                 className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -214,6 +215,7 @@ export default async function SessionDetailPage(props: {
             <form action={setSessionStatusAction} className="mt-3 space-y-2">
               <input type="hidden" name="id" value={id} />
               <select
+                  aria-label="Statut"
                 name="status"
                 defaultValue={session.status}
                 className="h-10 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -225,7 +227,7 @@ export default async function SessionDetailPage(props: {
                 ))}
               </select>
               <input
-                name="cancellationReason"
+                aria-label="Motif d'annulation" name="cancellationReason"
                 placeholder="Motif (annulation/report)"
                 className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
               />
@@ -248,14 +250,14 @@ export default async function SessionDetailPage(props: {
           <form action={saveSessionAttendanceAction} className="mt-3">
             <input type="hidden" name="sessionId" value={id} />
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table aria-label={`Présences — ${session.subject?.name ?? "Cours"} (${session.classroom.name})`} className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-                    <th className="py-2 pr-3">Matricule</th>
-                    <th className="py-2 pr-3">Élève</th>
-                    <th className="py-2 pr-3">Statut</th>
-                    <th className="py-2 pr-3">Arrivée (retard)</th>
-                    <th className="py-2 pr-3">Motif</th>
+                    <th scope="col" className="py-2 pr-3">Matricule</th>
+                    <th scope="col" className="py-2 pr-3">Élève</th>
+                    <th scope="col" className="py-2 pr-3">Statut</th>
+                    <th scope="col" className="py-2 pr-3">Arrivée (retard)</th>
+                    <th scope="col" className="py-2 pr-3">Motif</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,6 +274,7 @@ export default async function SessionDetailPage(props: {
                         <td className="py-2 pr-3" colSpan={3}>
                           <MarkRow
                             studentId={s.id}
+                            studentName={`${s.lastName} ${s.firstName}`}
                             current={rec?.status ?? null}
                             arrival={rec?.arrivalMin}
                             reason={rec?.reason}
@@ -302,41 +305,41 @@ export default async function SessionDetailPage(props: {
             <input type="hidden" name="sessionId" value={id} />
             <div className="grid gap-3 md:grid-cols-2">
               <input
-                name="theme"
+                aria-label="Thème" name="theme"
                 defaultValue={content?.theme ?? ""}
                 placeholder="Thème"
                 className="h-10 rounded-xl border border-zinc-200 px-3 text-sm"
               />
               <input
-                name="chapter"
+                aria-label="Chapitre" name="chapter"
                 defaultValue={content?.chapter ?? ""}
                 placeholder="Chapitre"
                 className="h-10 rounded-xl border border-zinc-200 px-3 text-sm"
               />
             </div>
             <textarea
-              name="objective"
+              aria-label="Objectif pédagogique" name="objective"
               defaultValue={content?.objective ?? ""}
               placeholder="Objectif pédagogique"
               rows={2}
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
             />
             <textarea
-              name="content"
+              aria-label="Contenu de la séance" name="content"
               defaultValue={content?.content ?? ""}
               placeholder="Contenu du cours"
               rows={4}
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
             />
             <textarea
-              name="homework"
+              aria-label="Travail à la maison" name="homework"
               defaultValue={content?.homework ?? ""}
               placeholder="Travail à faire"
               rows={2}
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
             />
             <textarea
-              name="notes"
+              aria-label="Notes internes" name="notes"
               defaultValue={content?.notes ?? ""}
               placeholder="Observations"
               rows={2}
@@ -394,11 +397,13 @@ export default async function SessionDetailPage(props: {
 
 function MarkRow({
   studentId,
+  studentName,
   current,
   arrival,
   reason,
 }: {
   studentId: string;
+  studentName: string;
   current: string | null;
   arrival?: number | null;
   reason?: string | null;
@@ -424,12 +429,14 @@ function MarkRow({
         name={`arrival_${studentId}`}
         type="time"
         defaultValue={minToTime(arrival)}
+        aria-label={`Heure d'arrivée — ${studentName}`}
         className="h-8 rounded-lg border border-zinc-200 px-2 text-xs"
       />
       <input
         name={`reason_${studentId}`}
         defaultValue={reason ?? ""}
         placeholder="Motif"
+        aria-label={`Motif — ${studentName}`}
         className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"
       />
     </div>

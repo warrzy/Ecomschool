@@ -21,19 +21,20 @@ export default async function ResetPasswordPage(props: {
           réinitialisation (valable 24 h) vous sera envoyé.
         </p>
         {sp.ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Si ce compte existe, un lien de réinitialisation vient d&apos;être
             envoyé. Pensez à vérifier vos courriers indésirables.
           </div>
         ) : null}
         <form action={requestResetAction} className="mt-5 space-y-4">
+          <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <div className="space-y-1">
-            <label className="text-sm font-medium text-zinc-800">Email</label>
-            <input
+            <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-reset-password-page-tsx-1">Email</label>
+            <input id="fld-src-app-reset-password-page-tsx-1"
               type="email"
-              name="email"
+              autoComplete="email" name="email"
               required
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               placeholder="vous@ecole.bf"
             />
           </div>

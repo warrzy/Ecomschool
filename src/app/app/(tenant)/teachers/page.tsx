@@ -61,16 +61,16 @@ export default async function TeachersPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Enseignants
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -79,19 +79,19 @@ export default async function TeachersPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-1">
               Recherche
             </label>
-            <input
+            <input id="fld-src-app-app-tenant-teachers-page-tsx-1"
               name="q"
               defaultValue={q ?? ""}
               placeholder="Nom, prénom, email…"
-              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Statut</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-2">Statut</label>
+            <select id="fld-src-app-app-tenant-teachers-page-tsx-2"
               name="status"
               defaultValue={status}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -119,6 +119,7 @@ export default async function TeachersPage(props: {
           className="flex flex-wrap items-end gap-3"
         >
           <select
+                  aria-label="Toutes les années (affectations)"
             name="year"
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
@@ -128,6 +129,7 @@ export default async function TeachersPage(props: {
             ))}
           </select>
           <select
+                  aria-label="Tous statuts"
             name="status"
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
@@ -136,6 +138,7 @@ export default async function TeachersPage(props: {
             <option value="ARCHIVED">Archivés</option>
           </select>
           <select
+                  aria-label="Format d'export"
             name="format"
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
@@ -143,7 +146,7 @@ export default async function TeachersPage(props: {
             <option value="xlsx">Excel (.xlsx)</option>
           </select>
           {canManage ? (
-            <label className="flex h-10 items-center gap-2 text-sm text-zinc-700">
+            <label className="flex flex-wrap h-10 items-center gap-2 text-sm text-zinc-700">
               <input type="checkbox" name="full" value="1" />
               Coordonnées incluses
             </label>
@@ -186,39 +189,40 @@ export default async function TeachersPage(props: {
             action={createTeacherAction}
             className="mt-4 grid items-end gap-4 md:grid-cols-5"
           >
+            <p className="col-span-full w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Nom</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-3">Nom</label>
+              <input id="fld-src-app-app-tenant-teachers-page-tsx-3"
                 name="lastName"
                 required
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-4">
                 Prénom
               </label>
-              <input
+              <input id="fld-src-app-app-tenant-teachers-page-tsx-4"
                 name="firstName"
                 required
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Email</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-5">Email</label>
+              <input id="fld-src-app-app-tenant-teachers-page-tsx-5"
                 name="email"
                 type="email"
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-6">
                 Téléphone
               </label>
-              <input
+              <input type="tel" id="fld-src-app-app-tenant-teachers-page-tsx-6"
                 name="phone"
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <button
@@ -236,17 +240,17 @@ export default async function TeachersPage(props: {
           {total} enseignant{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Enseignants" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Téléphone</th>
-                <th className="py-2 pr-4">Affectations</th>
-                <th className="py-2 pr-4">PP</th>
-                <th className="py-2 pr-4">Compte</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4"></th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Email</th>
+                <th scope="col" className="py-2 pr-4">Téléphone</th>
+                <th scope="col" className="py-2 pr-4">Affectations</th>
+                <th scope="col" className="py-2 pr-4">PP</th>
+                <th scope="col" className="py-2 pr-4">Compte</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4"></th>
               </tr>
             </thead>
             <tbody>
@@ -280,7 +284,7 @@ export default async function TeachersPage(props: {
               {items.length === 0 ? (
                 <tr>
                   <td className="py-6 text-zinc-500" colSpan={8}>
-                    Aucun enseignant
+                    {q || sp.status ? "Aucun enseignant ne correspond aux filtres." : "Aucun enseignant enregistré pour le moment."}
                   </td>
                 </tr>
               ) : null}
@@ -288,7 +292,7 @@ export default async function TeachersPage(props: {
           </table>
         </div>
         {totalPages > 1 ? (
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             {page > 1 ? (
               <a
                 href={pageHref(page - 1)}

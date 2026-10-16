@@ -91,9 +91,9 @@ export default async function InvoiceDetailPage(props: {
             <div className="text-sm text-zinc-500">
               <Link href="/platform/invoices" className="hover:underline">Factures</Link> / {invoice.invoiceNumber}
             </div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {fmt(invoice.total)} — {STATUS[invoice.status] ?? invoice.status}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               <Link href={`/platform/schools/${invoice.schoolId}`} className="hover:underline">
                 {invoice.school.name}
@@ -109,13 +109,13 @@ export default async function InvoiceDetailPage(props: {
             PDF
           </a>
         </div>
-        {error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
+        {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
 
       <div className={card}>
         <div className="mb-3 text-sm font-medium text-zinc-900">Lignes</div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Lignes de la facture" className="w-full text-left text-sm">
           <tbody>
             {invoice.lines.map((l) => (
               <tr key={l.id} className="border-b border-zinc-100 last:border-0">
@@ -136,9 +136,9 @@ export default async function InvoiceDetailPage(props: {
             <input type="hidden" name="invoiceId" value={invoice.id} />
             <input type="hidden" name="schoolId" value={invoice.schoolId} />
             <input type="hidden" name="idempotencyKey" value={globalThis.crypto?.randomUUID?.() ?? ""} />
-            <input name="amount" type="number" min="1" max={balance} defaultValue={balance} required className={input} />
-            <input name="method" placeholder="Mode (virement, espèces…)" className={input} />
-            <input name="reference" placeholder="Référence" className={input} />
+            <input aria-label="Montant" name="amount" type="number" min="1" max={balance} defaultValue={balance} required className={input} />
+            <input aria-label="Mode de paiement" name="method" placeholder="Mode (virement, espèces…)" className={input} />
+            <input aria-label="Référence" name="reference" placeholder="Référence" className={input} />
             <SubmitButton
               pendingLabel="Encaissement…"
               className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
@@ -153,7 +153,7 @@ export default async function InvoiceDetailPage(props: {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Règlements ({invoice.payments.length})</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Paiements de la facture" className="w-full text-left text-sm">
             <tbody>
               {invoice.payments.map((p) => (
                 <tr key={p.id} className="border-b border-zinc-100 last:border-0">
@@ -183,7 +183,7 @@ export default async function InvoiceDetailPage(props: {
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Avoirs ({invoice.creditNotes.length})</div>
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label="Avoirs émis" className="w-full text-left text-sm">
             <tbody>
               {invoice.creditNotes.map((c) => (
                 <tr key={c.id} className="border-b border-zinc-100 last:border-0">
@@ -202,8 +202,8 @@ export default async function InvoiceDetailPage(props: {
             <form action={issueCreditNoteAction} className="mt-3 flex flex-wrap items-end gap-2">
               <input type="hidden" name="invoiceId" value={invoice.id} />
               <input type="hidden" name="schoolId" value={invoice.schoolId} />
-              <input name="amount" type="number" min="1" max={balance} placeholder="Montant" required className={input} />
-              <input name="reason" placeholder="Motif" required className={input} />
+              <input aria-label="Montant" name="amount" type="number" min="1" max={balance} placeholder="Montant" required className={input} />
+              <input aria-label="Motif" name="reason" placeholder="Motif" required className={input} />
               <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
                 Émettre un avoir
               </SubmitButton>

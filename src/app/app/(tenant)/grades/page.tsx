@@ -144,16 +144,16 @@ export default async function GradesPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Évaluations</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Notes et évaluations ({total})
-        </div>
+        </h1>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "FORBIDDEN"
               ? "Action non autorisée pour ce couple classe/matière."
               : error === "OUT_OF_RANGE"
@@ -168,8 +168,9 @@ export default async function GradesPage(props: {
       {canCreate ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
           <div className="mb-3 text-sm font-medium text-zinc-900">Nouvelle évaluation</div>
-          <form action={createAssessmentAction} className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <select name="academicYearId" required className={inputCls}>
+          <form action={createAssessmentAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
+            <select
+                  aria-label="Année scolaire" name="academicYearId" required className={inputCls}>
               <option value="">Année scolaire…</option>
               {years.map((y) => (
                 <option key={y.id} value={y.id}>
@@ -178,41 +179,46 @@ export default async function GradesPage(props: {
                 </option>
               ))}
             </select>
-            <select name="academicPeriodId" className={inputCls}>
+            <select
+                  aria-label="Période (optionnel)" name="academicPeriodId" className={inputCls}>
               <option value="">Période (optionnel)</option>
               {periods.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <select name="classroomId" required className={inputCls}>
+            <select
+                  aria-label="Classe" name="classroomId" required className={inputCls}>
               <option value="">Classe…</option>
               {classrooms.map((cl) => (
                 <option key={cl.id} value={cl.id}>{cl.name}</option>
               ))}
             </select>
-            <select name="subjectId" required className={inputCls}>
+            <select
+                  aria-label="Matière" name="subjectId" required className={inputCls}>
               <option value="">Matière…</option>
               {subjects.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
-            <select name="teacherId" className={inputCls}>
+            <select
+                  aria-label="Enseignant" name="teacherId" className={inputCls}>
               <option value="">Enseignant…</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.lastName} {t.firstName}</option>
               ))}
             </select>
-            <select name="typeId" required className={inputCls}>
+            <select
+                  aria-label="Type" name="typeId" required className={inputCls}>
               <option value="">Type…</option>
               {types.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
-            <input name="title" required placeholder="Titre" className={inputCls} />
-            <input name="date" type="date" required className={inputCls} />
-            <input name="maxScore" type="number" step="0.5" min="1" defaultValue="20" placeholder="Barème" className={inputCls} />
-            <input name="coefficient" type="number" step="0.5" min="0.5" defaultValue="1" placeholder="Coefficient" className={inputCls} />
-            <input name="description" placeholder="Description" className={inputCls} />
+            <input aria-label="Titre de l'évaluation" name="title" required placeholder="Titre" className={inputCls} />
+            <input aria-label="Date" name="date" type="date" required className={inputCls} />
+            <input aria-label="Note maximale" name="maxScore" type="number" step="0.5" min="1" defaultValue="20" placeholder="Barème" className={inputCls} />
+            <input aria-label="Coefficient" name="coefficient" type="number" step="0.5" min="0.5" defaultValue="1" placeholder="Coefficient" className={inputCls} />
+            <input aria-label="Description" name="description" placeholder="Description" className={inputCls} />
             <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
               Créer
             </SubmitButton>
@@ -222,19 +228,22 @@ export default async function GradesPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <form method="GET" className="mb-4 flex flex-wrap items-end gap-3">
-          <select name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les années" name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
             <option value="">Toutes les années</option>
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
-          <select name="classroom" defaultValue={filters.classroomId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les classes" name="classroom" defaultValue={filters.classroomId ?? ""} className={inputCls}>
             <option value="">Toutes les classes</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <select name="status" defaultValue={filters.status ?? ""} className={inputCls}>
+          <select
+                  aria-label="Tous les statuts" name="status" defaultValue={filters.status ?? ""} className={inputCls}>
             <option value="">Tous les statuts</option>
             {Object.entries(STATUS_LABELS).map(([k, l]) => (
               <option key={k} value={k}>{l}</option>
@@ -253,39 +262,45 @@ export default async function GradesPage(props: {
           <span className="text-xs font-semibold uppercase text-zinc-500">
             Exporter les notes
           </span>
-          <select name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les années" name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
             <option value="">Toutes les années</option>
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
-          <select name="period" defaultValue={filters.academicPeriodId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les périodes" name="period" defaultValue={filters.academicPeriodId ?? ""} className={inputCls}>
             <option value="">Toutes les périodes</option>
             {periods.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
-          <select name="classroom" defaultValue={filters.classroomId ?? ""} className={inputCls}>
+          <select
+                  aria-label="Toutes les classes" name="classroom" defaultValue={filters.classroomId ?? ""} className={inputCls}>
             <option value="">Toutes les classes</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <select name="subject" className={inputCls}>
+          <select
+                  aria-label="Toutes les matières" name="subject" className={inputCls}>
             <option value="">Toutes les matières</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
           {canManage ? (
-            <select name="teacher" className={inputCls}>
+            <select
+                  aria-label="Tous les enseignants" name="teacher" className={inputCls}>
               <option value="">Tous les enseignants</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>{t.lastName} {t.firstName}</option>
               ))}
             </select>
           ) : null}
-          <select name="format" defaultValue="xlsx" className={inputCls}>
+          <select
+                  aria-label="Format d'export" name="format" defaultValue="xlsx" className={inputCls}>
             <option value="xlsx">Excel (.xlsx)</option>
             <option value="csv">CSV</option>
           </select>
@@ -300,20 +315,20 @@ export default async function GradesPage(props: {
         </form>
 
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Notes et évaluations" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2 pr-3">Date</th>
-              <th className="py-2 pr-3">Titre</th>
-              <th className="py-2 pr-3">Type</th>
-              <th className="py-2 pr-3">Classe</th>
-              <th className="py-2 pr-3">Matière</th>
-              <th className="py-2 pr-3">Enseignant</th>
-              <th className="py-2 pr-3">Barème</th>
-              <th className="py-2 pr-3">Coef.</th>
-              <th className="py-2 pr-3">Notes</th>
-              <th className="py-2 pr-3">Statut</th>
-              <th className="py-2">Actions</th>
+              <th scope="col" className="py-2 pr-3">Date</th>
+              <th scope="col" className="py-2 pr-3">Titre</th>
+              <th scope="col" className="py-2 pr-3">Type</th>
+              <th scope="col" className="py-2 pr-3">Classe</th>
+              <th scope="col" className="py-2 pr-3">Matière</th>
+              <th scope="col" className="py-2 pr-3">Enseignant</th>
+              <th scope="col" className="py-2 pr-3">Barème</th>
+              <th scope="col" className="py-2 pr-3">Coef.</th>
+              <th scope="col" className="py-2 pr-3">Notes</th>
+              <th scope="col" className="py-2 pr-3">Statut</th>
+              <th scope="col" className="py-2">Actions</th>
             </tr>
           </thead>
           <tbody>

@@ -75,9 +75,9 @@ export default async function MessagesPage(props: {
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Communication</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Messagerie de l&apos;établissement
-        </div>
+        </h1>
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-500">
           <span>{stats.messages.SENT ?? 0} envoyés</span>
           <span>{stats.messages.DRAFT ?? 0} brouillons</span>
@@ -109,13 +109,15 @@ export default async function MessagesPage(props: {
           Nouveau message
         </div>
         <form action={createMessageAction} className="grid gap-3 md:grid-cols-2">
+          <p className="col-span-full w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <input
-            name="subject"
+            aria-label="Objet du message" name="subject"
             required
             placeholder="Objet"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           />
           <select
+                  aria-label="Audience du message"
             name="audience"
             className="rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           >
@@ -126,7 +128,7 @@ export default async function MessagesPage(props: {
             ))}
           </select>
           <textarea
-            name="body"
+            aria-label="Contenu du message" name="body"
             required
             placeholder="Contenu du message"
             rows={3}
@@ -198,9 +200,9 @@ export default async function MessagesPage(props: {
       </div>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">Historique</div>
-          <div className="flex gap-2 text-xs">
+          <div className="flex flex-wrap gap-2 text-xs">
             {["", "DRAFT", "SCHEDULED", "SENT", "FAILED"].map((s) => (
               <a
                 key={s}
@@ -215,7 +217,7 @@ export default async function MessagesPage(props: {
         {messages.length > 0 ? (
           <ul className="divide-y divide-zinc-100">
             {messages.map((m) => (
-              <li key={m.id} className="flex items-start justify-between py-3">
+              <li key={m.id} className="flex flex-wrap items-start justify-between py-3">
                 <div>
                   <div className="text-sm font-medium text-zinc-900">
                     {m.subject}
@@ -228,7 +230,7 @@ export default async function MessagesPage(props: {
                       : ""}
                   </div>
                 </div>
-                <div className="ml-4 flex shrink-0 items-center gap-2">
+                <div className="ml-4 flex flex-wrap shrink-0 items-center gap-2">
                   <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs text-zinc-600">
                     {STATUS_LABELS[m.status] ?? m.status}
                   </span>
@@ -254,13 +256,13 @@ export default async function MessagesPage(props: {
           Statistiques par canal
         </div>
         <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table aria-label="Messagerie de l&apos;établissement" className="w-full text-sm">
           <thead>
             <tr className="text-left text-xs text-zinc-500">
-              <th className="py-1">Canal</th>
-              <th className="py-1">Statut</th>
-              <th className="py-1">Nombre</th>
-              <th className="py-1">Coût (unités)</th>
+              <th scope="col" className="py-1">Canal</th>
+              <th scope="col" className="py-1">Statut</th>
+              <th scope="col" className="py-1">Nombre</th>
+              <th scope="col" className="py-1">Coût (unités)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">

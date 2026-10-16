@@ -32,6 +32,7 @@ import {
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { statusLabel } from "@/lib/ui/statusLabels";
 import { okMessage } from "@/lib/ui/okLabels";
+import { roleLabel } from "@/lib/ui/roleLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
@@ -68,13 +69,13 @@ function Field({ label, name, value, type = "text", required = false }: {
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-zinc-800">{label}</label>
-      <input
+      <label className="text-sm font-medium text-zinc-800" htmlFor={`fld-school-${name}`}>{label}</label>
+      <input id={`fld-school-${name}`}
         name={name}
         type={type}
         defaultValue={value ?? ""}
         required={required}
-        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
       />
     </div>
   );
@@ -226,17 +227,17 @@ export default async function PlatformSchoolDetailPage(props: {
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Établissement</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               {school.name}
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-600">
               {school.code} · {school.city ?? "-"} · {statusLabel("school", school.status)}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {canManageSchool ? (
               <Link
                 href={`${selfHref}?confirm=school-status`}
@@ -259,12 +260,12 @@ export default async function PlatformSchoolDetailPage(props: {
         </div>
 
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -294,6 +295,7 @@ export default async function PlatformSchoolDetailPage(props: {
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm font-medium text-zinc-900">Informations</div>
         <form action={updateSchoolAction} className="mt-4">
+          <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <input type="hidden" name="id" value={school.id} />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Nom" name="name" value={school.name} required />
@@ -306,8 +308,8 @@ export default async function PlatformSchoolDetailPage(props: {
             <Field label="Site web" name="website" type="url" value={school.website} />
             <Field label="Logo (URL)" name="logoUrl" type="url" value={school.logoUrl} />
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Type</label>
-              <select
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-platform-schools-id-page-tsx-2">Type</label>
+              <select id="fld-src-app-platform-schools-id-page-tsx-2"
                 name="type"
                 defaultValue={school.type ?? ""}
                 className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -321,10 +323,10 @@ export default async function PlatformSchoolDetailPage(props: {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-platform-schools-id-page-tsx-3">
                 Système scolaire
               </label>
-              <select
+              <select id="fld-src-app-platform-schools-id-page-tsx-3"
                 name="schoolSystem"
                 defaultValue={school.schoolSystem ?? ""}
                 className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -351,14 +353,14 @@ export default async function PlatformSchoolDetailPage(props: {
           Membres ({school.memberships.length})
         </div>
         <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Membres de l'établissement" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Rôle</th>
-                <th className="py-2 pr-4">Membership</th>
-                <th className="py-2 pr-4">Compte</th>
+                <th scope="col" className="py-2 pr-4">Email</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Rôle</th>
+                <th scope="col" className="py-2 pr-4">Membership</th>
+                <th scope="col" className="py-2 pr-4">Compte</th>
               </tr>
             </thead>
             <tbody>
@@ -370,7 +372,7 @@ export default async function PlatformSchoolDetailPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">
                     {[m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || "-"}
                   </td>
-                  <td className="py-2 pr-4 text-zinc-700">{m.role.name}</td>
+                  <td className="py-2 pr-4 text-zinc-700">{roleLabel(m.role.name)}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("membership", m.status)}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("user", m.user.status)}</td>
                 </tr>
@@ -392,6 +394,7 @@ export default async function PlatformSchoolDetailPage(props: {
           Créer un administrateur
         </div>
         <form action={createSchoolAdminAction} className="mt-4">
+          <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
           <input type="hidden" name="schoolId" value={school.id} />
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Email" name="email" type="email" required />
@@ -458,7 +461,7 @@ export default async function PlatformSchoolDetailPage(props: {
                 <form action={extendTrialAction} className="flex gap-1">
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="schoolId" value={school.id} />
-                  <input name="days" type="number" min="1" max="365" defaultValue="7" className={`${input} w-16`} />
+                  <input aria-label="Nombre de jours" name="days" type="number" min="1" max="365" defaultValue="7" className={`${input} w-16`} />
                   <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">+ jours essai</SubmitButton>
                 </form>
               ) : null}
@@ -502,7 +505,8 @@ export default async function PlatformSchoolDetailPage(props: {
               <form action={changePlanAction} className="flex items-end gap-2">
                 <input type="hidden" name="subscriptionId" value={subscription.id} />
                 <input type="hidden" name="schoolId" value={school.id} />
-                <select name="planId" required className={input}>
+                <select
+                  aria-label="Formule d'abonnement" name="planId" required className={input}>
                   {plans.filter((p) => p.id !== subscription.planId).map((p) => (
                     <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
                   ))}
@@ -513,6 +517,7 @@ export default async function PlatformSchoolDetailPage(props: {
               <form action={assignSubscriptionAction} className="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="schoolId" value={school.id} />
                 <select
+                  aria-label="Formule d'abonnement"
                   name="planId"
                   required
                   className={input}
@@ -526,7 +531,8 @@ export default async function PlatformSchoolDetailPage(props: {
                     <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
                   ))}
                 </select>
-                <select name="cycle" className={input}>
+                <select
+                  aria-label="Cycle" name="cycle" className={input}>
                   <option value="MONTHLY">Mensuel</option>
                   <option value="YEARLY">Annuel</option>
                 </select>
@@ -543,13 +549,13 @@ export default async function PlatformSchoolDetailPage(props: {
       {/* Modules effectifs */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm font-medium text-zinc-900">Modules ({catalog.length})</div>
-        <table className="mt-3 w-full text-left text-sm">
+        <table aria-label="Modules effectifs" className="mt-3 w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Module</th>
-              <th className="py-2">Offre</th>
-              <th className="py-2">Effectif</th>
-              <th className="py-2">Override</th>
+              <th scope="col" className="py-2">Module</th>
+              <th scope="col" className="py-2">Offre</th>
+              <th scope="col" className="py-2">Effectif</th>
+              <th scope="col" className="py-2">Override</th>
             </tr>
           </thead>
           <tbody>
@@ -563,7 +569,7 @@ export default async function PlatformSchoolDetailPage(props: {
                     <span className="font-mono text-xs">{m.code}</span> {m.name}
                   </td>
                   <td className="py-2 text-xs">{inPlan === null ? "—" : inPlan ? "inclus" : "non inclus"}</td>
-                  <td className={`py-2 text-xs font-medium ${enabled ? "text-emerald-700" : "text-zinc-400"}`}>
+                  <td className={`py-2 text-xs font-medium ${enabled ? "text-emerald-700" : "text-zinc-500"}`}>
                     {enabled ? "activé" : "désactivé"}
                   </td>
                   <td className="py-2">
@@ -583,7 +589,7 @@ export default async function PlatformSchoolDetailPage(props: {
                         )}
                       </form>
                     ) : (
-                      <span className="text-xs text-zinc-400">{ov === true ? "forcé" : ov === false ? "bloqué" : "—"}</span>
+                      <span className="text-xs text-zinc-500">{ov === true ? "forcé" : ov === false ? "bloqué" : "—"}</span>
                     )}
                   </td>
                 </tr>
@@ -601,7 +607,8 @@ export default async function PlatformSchoolDetailPage(props: {
             <form action={generateInvoiceAction} className="flex items-end gap-2">
               <input type="hidden" name="schoolId" value={school.id} />
               {subscription ? <input type="hidden" name="subscriptionId" value={subscription.id} /> : null}
-              <select name="cycle" className={input}>
+              <select
+                  aria-label="Cycle" name="cycle" className={input}>
                 <option value="MONTHLY">Mensuelle</option>
                 <option value="YEARLY">Annuelle</option>
               </select>
@@ -609,7 +616,7 @@ export default async function PlatformSchoolDetailPage(props: {
             </form>
           ) : null}
         </div>
-        <table className="mt-3 w-full text-left text-sm">
+        <table aria-label="Historique des abonnements" className="mt-3 w-full text-left text-sm">
           <tbody>
             {invoices.map((i) => (
               <tr key={i.id} className="border-b border-zinc-100 last:border-0">

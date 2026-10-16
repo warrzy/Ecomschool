@@ -35,19 +35,19 @@ export default async function LevelsPage(props: {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Niveaux
-        </div>
+        </h1>
         <div className="mt-1 text-sm text-zinc-600">
           Exemples configurables : CP1, CE2, 6e, Terminale…
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -60,23 +60,24 @@ export default async function LevelsPage(props: {
             action={createLevelAction}
             className="mt-4 flex flex-wrap items-end gap-4"
           >
+            <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Nom</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-levels-page-tsx-1">Nom</label>
+              <input id="fld-src-app-app-tenant-levels-page-tsx-1"
                 name="name"
                 placeholder="6e"
                 required
-                className="h-11 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium text-zinc-800">Ordre</label>
-              <input
+              <label className="text-sm font-medium text-zinc-800" htmlFor="fld-src-app-app-tenant-levels-page-tsx-2">Ordre</label>
+              <input id="fld-src-app-app-tenant-levels-page-tsx-2"
                 name="order"
                 type="number"
                 min={0}
                 defaultValue={0}
-                className="h-11 w-28 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900"
+                className="h-11 w-28 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
               />
             </div>
             <button
@@ -90,7 +91,7 @@ export default async function LevelsPage(props: {
       ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">
             {levels.length} niveau{levels.length > 1 ? "x" : ""}
           </div>
@@ -102,14 +103,14 @@ export default async function LevelsPage(props: {
           </a>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Niveaux" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Ordre</th>
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Classes</th>
-                <th className="py-2 pr-4">Statut</th>
-                {canManage ? <th className="py-2 pr-4">Actions</th> : null}
+                <th scope="col" className="py-2 pr-4">Ordre</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Classes</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                {canManage ? <th scope="col" className="py-2 pr-4">Actions</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -129,7 +130,7 @@ export default async function LevelsPage(props: {
                     <td className="py-2 pr-4">
                       <form
                         action={updateLevelAction}
-                        className="flex items-center gap-2"
+                        className="flex flex-wrap items-center gap-2"
                       >
                         <input type="hidden" name="id" value={l.id} />
                         <input type="hidden" name="order" value={l.order} />

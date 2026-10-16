@@ -116,3 +116,15 @@ body {
     scroll-behavior: auto;
   }
 }
+
+/* ---------- Accessibilité ---------- */
+
+/* Indicateur visuel « * » des champs obligatoires : purement décoratif
+   (contenu généré CSS) — ni le textContent ni le nom accessible du label
+   ne sont modifiés. */
+label:has(+ :is(input, select, textarea)[required])::after,
+label:has(+ * > :is(input, select, textarea)[required])::after,
+label:has(> :is(input, select, textarea)[required])::after {
+  content: " *";
+  color: #dc2626;
+}

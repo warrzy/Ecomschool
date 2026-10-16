@@ -87,16 +87,16 @@ export default async function SubscriptionPage(props: {
     <div className="space-y-4">
       <div className={card}>
         <div className="text-sm text-zinc-500">ECOM-SCHOOL</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Mon abonnement
-        </div>
+        </h1>
         {ok === "request" ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Demande envoyée — elle sera appliquée après validation par ECOM-TOUCH.
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "INVALID_STATUS" ? "Une demande est déjà en attente." : errorMessage(error)}
           </div>
         ) : null}
@@ -151,7 +151,7 @@ export default async function SubscriptionPage(props: {
                   <span
                     key={m.code}
                     className={`rounded-full px-2 py-0.5 text-xs ${
-                      on ? "bg-emerald-50 text-emerald-800" : "bg-zinc-100 text-zinc-400 line-through"
+                      on ? "bg-emerald-50 text-emerald-800" : "bg-zinc-100 text-zinc-500 line-through"
                     }`}
                   >
                     {m.name}
@@ -184,7 +184,8 @@ export default async function SubscriptionPage(props: {
             La demande est transmise à ECOM-TOUCH — aucune activation automatique.
           </p>
           <form action={requestPlanChangeAction} className="flex flex-wrap items-end gap-2">
-            <select name="planId" required className={input}>
+            <select
+                  aria-label="Formule d'abonnement" name="planId" required className={`${input} w-full min-w-0 sm:w-auto`}>
               {plans
                 .filter((p) => p.id !== subscription?.planId)
                 .map((p) => (
@@ -193,7 +194,7 @@ export default async function SubscriptionPage(props: {
                   </option>
                 ))}
             </select>
-            <input name="note" placeholder="Motif (optionnel)" className={input} />
+            <input aria-label="Note" name="note" placeholder="Motif (optionnel)" className={`${input} min-w-0 flex-1`} />
             <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
               Envoyer la demande
             </button>
@@ -206,7 +207,7 @@ export default async function SubscriptionPage(props: {
           Factures SaaS ({invoices.length})
         </div>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Mon abonnement" className="w-full text-left text-sm">
           <tbody>
             {invoices.map((i) => (
               <tr key={i.id} className="border-b border-zinc-100 last:border-0">

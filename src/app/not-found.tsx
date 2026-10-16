@@ -4,7 +4,7 @@ export default function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
       <div className="max-w-lg text-center">
-        <div className="text-6xl font-bold text-zinc-300">404</div>
+        <div aria-hidden="true" className="text-6xl font-bold text-zinc-300">404</div>
         <h1 className="mt-4 text-xl font-semibold text-zinc-900">
           Page introuvable
         </h1>

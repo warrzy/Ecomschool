@@ -222,11 +222,11 @@ export default async function SchedulesPage(props: {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Pédagogie</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Emplois du temps
-            </div>
+            </h1>
           </div>
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <a
               href={baseQuery({ week: fmtDate(prevWeek) })}
               className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
@@ -265,12 +265,12 @@ export default async function SchedulesPage(props: {
           </div>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {errorMessage(error)}
           </div>
         ) : null}
@@ -281,8 +281,8 @@ export default async function SchedulesPage(props: {
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="week" value={fmtDate(ws)} />
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Vue</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-1">Vue</label>
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-1"
               name="view"
               defaultValue={view}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -294,10 +294,10 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-2">
               Année scolaire
             </label>
-            <select
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-2"
               name="year"
               defaultValue={academicYearId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -312,8 +312,8 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Niveau</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-3">Niveau</label>
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-3"
               name="level"
               defaultValue={levelId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -327,10 +327,10 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-4">
               {view === "classroom" ? "Classe (obligatoire)" : "Classe"}
             </label>
-            <select
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-4"
               name={view === "classroom" ? "id" : "classroom"}
               defaultValue={classroomId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -344,10 +344,10 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-5">
               {view === "teacher" ? "Enseignant (obligatoire)" : "Enseignant"}
             </label>
-            <select
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-5"
               name={view === "teacher" ? "id" : "teacher"}
               defaultValue={teacherId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -361,8 +361,8 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">Matière</label>
-            <select
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-6">Matière</label>
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-6"
               name="subject"
               defaultValue={subjectId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -376,10 +376,10 @@ export default async function SchedulesPage(props: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-zinc-500">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-schedules-page-tsx-7">
               {view === "room" ? "Salle (obligatoire)" : "Salle"}
             </label>
-            <select
+            <select id="fld-src-app-app-tenant-schedules-page-tsx-7"
               name={view === "room" ? "id" : "room"}
               defaultValue={roomId ?? ""}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -404,14 +404,14 @@ export default async function SchedulesPage(props: {
       {/* Grille Lun–Sam */}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-sm">
+          <table aria-label="Emploi du temps" className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr>
-                <th className="w-16 border-b border-zinc-200 py-2 text-left text-xs font-medium text-zinc-500">
+                <th scope="col" className="w-16 border-b border-zinc-200 py-2 text-left text-xs font-medium text-zinc-500">
                   Heure
                 </th>
                 {DAYS.map((d) => (
-                  <th
+                  <th scope="col"
                     key={d.key}
                     className="border-b border-zinc-200 py-2 text-left text-xs font-medium text-zinc-500"
                   >
@@ -512,17 +512,17 @@ export default async function SchedulesPage(props: {
             Créneaux actifs ({managedSchedules.length})
           </div>
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-sm">
+            <table aria-label="Créneaux actifs" className="w-full text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
-                  <th className="py-2 pr-3">Jour</th>
-                  <th className="py-2 pr-3">Horaire</th>
-                  <th className="py-2 pr-3">Classe</th>
-                  <th className="py-2 pr-3">Matière</th>
-                  <th className="py-2 pr-3">Enseignant</th>
-                  <th className="py-2 pr-3">Salle</th>
-                  <th className="py-2 pr-3">Validité</th>
-                  <th className="py-2"></th>
+                  <th scope="col" className="py-2 pr-3">Jour</th>
+                  <th scope="col" className="py-2 pr-3">Horaire</th>
+                  <th scope="col" className="py-2 pr-3">Classe</th>
+                  <th scope="col" className="py-2 pr-3">Matière</th>
+                  <th scope="col" className="py-2 pr-3">Enseignant</th>
+                  <th scope="col" className="py-2 pr-3">Salle</th>
+                  <th scope="col" className="py-2 pr-3">Validité</th>
+                  <th scope="col" className="py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -535,6 +535,7 @@ export default async function SchedulesPage(props: {
                           <input type="hidden" name="id" value={s.id} />
                         </form>
                         <select
+                  aria-label="Jour de la semaine"
                           form={formId}
                           name="weekday"
                           defaultValue={s.weekday}
@@ -552,6 +553,7 @@ export default async function SchedulesPage(props: {
                           form={formId}
                           name="startTime"
                           type="time"
+                          aria-label="Heure de début"
                           defaultValue={`${String(Math.floor(s.startMin / 60)).padStart(2, "0")}:${String(s.startMin % 60).padStart(2, "0")}`}
                           className="h-9 rounded-lg border border-zinc-200 px-2 text-xs"
                         />
@@ -559,6 +561,7 @@ export default async function SchedulesPage(props: {
                           form={formId}
                           name="endTime"
                           type="time"
+                          aria-label="Heure de fin"
                           defaultValue={`${String(Math.floor(s.endMin / 60)).padStart(2, "0")}:${String(s.endMin % 60).padStart(2, "0")}`}
                           className="ml-1 h-9 rounded-lg border border-zinc-200 px-2 text-xs"
                         />
@@ -567,6 +570,7 @@ export default async function SchedulesPage(props: {
                       <td className="py-2 pr-3 text-zinc-700">{s.subject?.name ?? "—"}</td>
                       <td className="py-2 pr-3">
                         <select
+                  aria-label="Enseignant"
                           form={formId}
                           name="teacherId"
                           defaultValue={s.teacher.id}
@@ -581,6 +585,7 @@ export default async function SchedulesPage(props: {
                       </td>
                       <td className="py-2 pr-3">
                         <select
+                  aria-label="Salle"
                           form={formId}
                           name="roomId"
                           defaultValue={s.roomId ?? ""}
@@ -643,6 +648,7 @@ export default async function SchedulesPage(props: {
             <form action={createScheduleAction} className="mt-4 space-y-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <select
+                  aria-label="Année scolaire"
                   name="academicYearId"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -655,6 +661,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Classe"
                   name="classroomId"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -667,6 +674,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Enseignant"
                   name="teacherId"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -679,6 +687,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Matière"
                   name="subjectId"
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >
@@ -690,6 +699,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Salle"
                   name="roomId"
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >
@@ -701,6 +711,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Jour de la semaine"
                   name="weekday"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -711,30 +722,34 @@ export default async function SchedulesPage(props: {
                     </option>
                   ))}
                 </select>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     name="startTime"
                     type="time"
                     required
+                    aria-label="Heure de début"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                   <input
                     name="endTime"
                     type="time"
                     required
+                    aria-label="Heure de fin"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     name="validFrom"
                     type="date"
                     required
+                    aria-label="Valide à partir du"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                   <input
                     name="validUntil"
                     type="date"
+                    aria-label="Valide jusqu'au (optionnel)"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                 </div>
@@ -755,6 +770,7 @@ export default async function SchedulesPage(props: {
             <form action={createSessionAction} className="mt-4 space-y-3">
               <div className="grid gap-3 md:grid-cols-2">
                 <select
+                  aria-label="Classe"
                   name="classroomId"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -767,6 +783,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Enseignant"
                   name="teacherId"
                   required
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
@@ -779,6 +796,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Matière"
                   name="subjectId"
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >
@@ -790,6 +808,7 @@ export default async function SchedulesPage(props: {
                   ))}
                 </select>
                 <select
+                  aria-label="Salle"
                   name="roomId"
                   className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
                 >
@@ -804,19 +823,22 @@ export default async function SchedulesPage(props: {
                   name="date"
                   type="date"
                   required
+                  aria-label="Date de la séance"
                   className="h-10 rounded-xl border border-zinc-200 px-3 text-sm"
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     name="startTime"
                     type="time"
                     required
+                    aria-label="Heure de début"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                   <input
                     name="endTime"
                     type="time"
                     required
+                    aria-label="Heure de fin"
                     className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
                   />
                 </div>

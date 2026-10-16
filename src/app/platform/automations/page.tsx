@@ -50,12 +50,12 @@ export default async function AutomationsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div>
           <div className="text-sm text-zinc-500">Plateforme</div>
-          <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
             Automatisations &amp; file de jobs
-          </div>
+          </h1>
         </div>
         {canRun ? (
           <div className="flex gap-2">
@@ -188,7 +188,7 @@ export default async function AutomationsPage(props: {
           </div>
           <ul className="divide-y divide-zinc-100 text-sm">
             {jobs.map((j) => (
-              <li key={j.id} className="flex justify-between py-2">
+              <li key={j.id} className="flex flex-wrap justify-between py-2">
                 <span className="text-zinc-700">
                   {j.type}
                   {j.lastError ? (
@@ -197,7 +197,7 @@ export default async function AutomationsPage(props: {
                     </span>
                   ) : null}
                 </span>
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   {JOB_STATUS[j.status]} · {j.attempts} essai
                   {j.attempts > 1 ? "s" : ""}
                 </span>
@@ -214,9 +214,9 @@ export default async function AutomationsPage(props: {
           </div>
           <ul className="divide-y divide-zinc-100 text-sm">
             {runs.map((r) => (
-              <li key={r.id} className="flex justify-between py-2">
+              <li key={r.id} className="flex flex-wrap justify-between py-2">
                 <span className="text-zinc-700">{r.task}</span>
-                <span className="text-xs text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   {statusLabel("job", r.status)} · {r.startedAt.toLocaleString("fr-FR")}
                 </span>
               </li>

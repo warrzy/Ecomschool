@@ -66,9 +66,9 @@ export default async function FeesPage(props: {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Finances</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Tableau de bord financier
-            </div>
+            </h1>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
             <Link href="/app/fees/accounts" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
@@ -92,12 +92,14 @@ export default async function FeesPage(props: {
           </div>
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-            {ok === "charges" ? `Créances générées (${sp.count ?? 0}).` : okMessage(ok)}
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            {ok === "charges"
+              ? `Créances traitées : ${sp.count ?? 0} nouvelle(s), ${sp.existing ?? 0} déjà existante(s) — aucun doublon.`
+              : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "CLOSED_DAY" ? "Journée de caisse clôturée." : errorMessage(error)}
           </div>
         ) : null}
@@ -105,7 +107,8 @@ export default async function FeesPage(props: {
 
       <div className={card}>
         <form method="GET" className="flex flex-wrap items-end gap-3">
-          <select name="year" defaultValue={yearId ?? ""} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+          <select
+                  aria-label="Année scolaire" name="year" defaultValue={yearId ?? ""} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
@@ -115,7 +118,8 @@ export default async function FeesPage(props: {
           </button>
           {canManage && yearId ? (
             <>
-              <select form="gen-confirm" name="classroomId" defaultValue="" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
+              <select
+                  aria-label="Toutes les classes" form="gen-confirm" name="classroomId" defaultValue="" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm">
                 <option value="">Toutes les classes</option>
                 {classrooms.map((cl) => (
                   <option key={cl.id} value={cl.id}>{cl.name}</option>
@@ -180,7 +184,7 @@ export default async function FeesPage(props: {
             <div className={card}>
               <div className="mb-3 text-sm font-medium text-zinc-900">Par catégorie</div>
               <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table aria-label="Répartition par catégorie" className="w-full text-left text-sm">
                 <tbody>
                   {dash.byCategory.map((r) => (
                     <tr key={r.label} className="border-b border-zinc-100 last:border-0">
@@ -198,7 +202,7 @@ export default async function FeesPage(props: {
             <div className={card}>
               <div className="mb-3 text-sm font-medium text-zinc-900">Par mode de paiement</div>
               <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table aria-label="Répartition par mode de paiement" className="w-full text-left text-sm">
                 <tbody>
                   {dash.byMethod.map((r) => (
                     <tr key={r.method} className="border-b border-zinc-100 last:border-0">

@@ -49,7 +49,7 @@ export type CommitResult = Record<string, number> & {
 };
 
 const inputCls =
-  "w-full rounded-xl border border-zinc-200 p-3 text-sm outline-none focus:border-zinc-900";
+  "w-full rounded-xl border border-zinc-200 p-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400";
 
 export function ImportWizard<T extends WizardRow>({
   previewUrl,
@@ -191,6 +191,7 @@ export function ImportWizard<T extends WizardRow>({
         <input
           type="file"
           accept=".csv,.xlsx,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          aria-label="Fichier à importer (CSV ou Excel)"
           onChange={(e) => {
             setFile(e.target.files?.[0] ?? null);
             setPreview(null);
@@ -201,6 +202,7 @@ export function ImportWizard<T extends WizardRow>({
         <textarea
           rows={5}
           value={pasted}
+          aria-label="Contenu CSV à coller"
           onChange={(e) => {
             setPasted(e.target.value);
             setFile(null);
@@ -243,11 +245,11 @@ export function ImportWizard<T extends WizardRow>({
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table aria-label="Aperçu des données à importer" className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-200 text-xs text-zinc-500">
                   {columns.map((c) => (
-                    <th key={c} className="px-2 py-2 font-medium">
+                    <th scope="col" key={c} className="px-2 py-2 font-medium">
                       {c}
                     </th>
                   ))}
@@ -300,7 +302,7 @@ export function ImportWizard<T extends WizardRow>({
               </button>
             ) : null}
           </div>
-          <p className="mt-2 text-xs text-zinc-400">
+          <p className="mt-2 text-xs text-zinc-500">
             Aperçu valable 15 minutes. Le fichier sera re-vérifié à la
             confirmation.
           </p>

@@ -15,12 +15,12 @@ export default function BrowserFrame(props: {
     <div
       className={`overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl shadow-zinc-900/10 ${props.className ?? ""}`}
     >
-      <div className="flex items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 bg-zinc-50 px-4 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
         {props.url ? (
-          <span className="ml-3 flex-1 truncate rounded-md bg-white px-3 py-1 text-xs text-zinc-400 ring-1 ring-zinc-200">
+          <span className="ml-3 flex-1 truncate rounded-md bg-white px-3 py-1 text-xs text-zinc-500 ring-1 ring-zinc-200">
             {props.url}
           </span>
         ) : null}

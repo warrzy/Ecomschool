@@ -32,9 +32,9 @@ export default async function TeacherDashboardPage() {
   if (!teacherId) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
           Espace enseignant
-        </div>
+        </h1>
         <p className="mt-2 text-sm text-zinc-600">
           Votre compte n&#8217;est pas rattaché à une fiche enseignant dans cet
           établissement. Contactez l&#8217;administration.
@@ -172,9 +172,9 @@ export default async function TeacherDashboardPage() {
     <div className="space-y-4">
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="text-sm text-zinc-500">Espace enseignant</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           {teacher ? `${teacher.lastName} ${teacher.firstName}` : ""}
-        </div>
+        </h1>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -189,7 +189,7 @@ export default async function TeacherDashboardPage() {
               {sessionsToday.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span>
                     <span className="font-medium text-zinc-900">
@@ -197,7 +197,7 @@ export default async function TeacherDashboardPage() {
                     </span>{" "}
                     <span className="text-zinc-500">— {s.classroom.name}</span>
                   </span>
-                  <span className="flex items-center gap-2 text-xs text-zinc-600">
+                  <span className="flex flex-wrap items-center gap-2 text-xs text-zinc-600">
                     {minutesToLabel(s.startMin)}–{minutesToLabel(s.endMin)}
                     {s.room?.name ? ` · ${s.room.name}` : ""}
                     <Link
@@ -226,7 +226,7 @@ export default async function TeacherDashboardPage() {
               {sessionsWeek.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {s.subject?.name ?? "Cours"} — {s.classroom.name}
@@ -274,7 +274,7 @@ export default async function TeacherDashboardPage() {
               {upcoming.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {s.subject?.name ?? "Cours"} — {s.classroom.name}
@@ -301,7 +301,7 @@ export default async function TeacherDashboardPage() {
               {toCall.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {s.subject?.name ?? "Cours"} — {s.classroom.name}
@@ -329,7 +329,7 @@ export default async function TeacherDashboardPage() {
               {myAssessments.map((a) => (
                 <li
                   key={a.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {a.title}
@@ -361,7 +361,7 @@ export default async function TeacherDashboardPage() {
               {toWrite.map((s) => (
                 <li
                   key={s.id}
-                  className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
+                  className="flex flex-wrap items-center justify-between rounded-xl border border-zinc-100 px-3 py-2"
                 >
                   <span className="font-medium text-zinc-900">
                     {s.subject?.name ?? "Cours"} — {s.classroom.name}

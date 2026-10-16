@@ -3,7 +3,7 @@
 export default function Error({ retry }: { retry: () => void }) {
   return (
     <div className="mx-auto max-w-lg py-16 text-center">
-      <div className="text-6xl font-bold text-zinc-300">Erreur</div>
+      <div aria-hidden="true" className="text-6xl font-bold text-zinc-300">Erreur</div>
       <h1 className="mt-4 text-xl font-semibold text-zinc-900">
         Une erreur est survenue
       </h1>

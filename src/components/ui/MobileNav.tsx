@@ -117,7 +117,7 @@ export function MobileNav({
             aria-label="Navigation principale"
             className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-white p-4 shadow-xl"
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-wrap items-center justify-between">
               <div className="text-lg font-semibold tracking-tight text-zinc-900">
                 {title}
               </div>

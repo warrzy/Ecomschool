@@ -57,11 +57,11 @@ export default async function GradeEntryPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/grades" className="hover:underline">Évaluations</Link> / Saisie des notes
         </div>
-        <div className="mt-1 flex items-start justify-between gap-3">
-          <div className="text-xl font-semibold tracking-tight text-zinc-900">
+        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
             {assessment.title}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
+          </h1>
+          <div className="flex flex-wrap shrink-0 items-center gap-2">
             <a
               href={`/app/grades/export?assessment=${id}&format=xlsx`}
               className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -88,12 +88,12 @@ export default async function GradeEntryPage(props: {
           {assessment.academicPeriod ? ` · ${assessment.academicPeriod.name}` : ""}
         </div>
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "imported" ? `Import réussi (${sp.count ?? ""} lignes).` : okMessage(ok)}
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error === "OUT_OF_RANGE"
               ? "Une note est hors du barème — rien n'a été enregistré."
               : error === "LOCKED"
@@ -112,14 +112,14 @@ export default async function GradeEntryPage(props: {
         <form action={saveGradesAction}>
           <input type="hidden" name="assessmentId" value={id} />
           <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table aria-label={`Notes de l'évaluation : ${assessment.title}`} className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-                <th className="py-2 pr-3">Matricule</th>
-                <th className="py-2 pr-3">Élève</th>
-                <th className="py-2 pr-3 w-28">Note /{assessment.maxScore}</th>
-                <th className="py-2 pr-3 w-36">Statut</th>
-                <th className="py-2">Observation</th>
+                <th scope="col" className="py-2 pr-3">Matricule</th>
+                <th scope="col" className="py-2 pr-3">Élève</th>
+                <th scope="col" className="py-2 pr-3 w-28">Note /{assessment.maxScore}</th>
+                <th scope="col" className="py-2 pr-3 w-36">Statut</th>
+                <th scope="col" className="py-2">Observation</th>
               </tr>
             </thead>
             <tbody>
@@ -136,11 +136,12 @@ export default async function GradeEntryPage(props: {
                       max={assessment.maxScore}
                       defaultValue={r.value ?? ""}
                       disabled={!canEnter}
+                      aria-label={`Note de ${r.name} (sur ${assessment.maxScore})`}
                       className={inputCls}
                     />
                   </td>
                   <td className="py-1.5 pr-3">
-                    <select name={`s_${r.studentId}`} defaultValue={r.status} disabled={!canEnter} className={inputCls}>
+                    <select name={`s_${r.studentId}`} defaultValue={r.status} disabled={!canEnter} aria-label={`Statut de ${r.name}`} className={inputCls}>
                       {Object.entries(GRADE_STATUSES).map(([k, l]) => (
                         <option key={k} value={k}>{l}</option>
                       ))}
@@ -151,6 +152,7 @@ export default async function GradeEntryPage(props: {
                       name={`o_${r.studentId}`}
                       defaultValue={r.observation ?? ""}
                       disabled={!canEnter}
+                      aria-label={`Observation — ${r.name}`}
                       className={inputCls}
                     />
                   </td>

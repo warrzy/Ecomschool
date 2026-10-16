@@ -86,12 +86,12 @@ export default async function PlatformSchoolsPage(props: {
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Référentiel</div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Établissements
-            </div>
+            </h1>
           </div>
           <Link
             href="/platform/onboarding"
@@ -101,14 +101,15 @@ export default async function PlatformSchoolsPage(props: {
           </Link>
         </div>
 
-        <form className="mt-4 flex gap-2" action="/platform/schools" method="get">
+        <form className="mt-4 flex flex-wrap gap-2" action="/platform/schools" method="get">
           <input
-            name="q"
+            aria-label="Recherche" name="q"
             defaultValue={q}
-            className="h-11 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             placeholder="Rechercher (nom, code, ville)"
           />
           <select
+                  aria-label="Tous statuts"
             name="status"
             defaultValue={status ?? ""}
             className="h-11 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none"
@@ -125,17 +126,17 @@ export default async function PlatformSchoolsPage(props: {
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table aria-label="Établissements" className="w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-left text-zinc-500">
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Code</th>
-                <th className="py-2 pr-4">Type</th>
-                <th className="py-2 pr-4">Ville</th>
-                <th className="py-2 pr-4">Membres</th>
-                <th className="py-2 pr-4">Années</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4">Actions</th>
+                <th scope="col" className="py-2 pr-4">Nom</th>
+                <th scope="col" className="py-2 pr-4">Code</th>
+                <th scope="col" className="py-2 pr-4">Type</th>
+                <th scope="col" className="py-2 pr-4">Ville</th>
+                <th scope="col" className="py-2 pr-4">Membres</th>
+                <th scope="col" className="py-2 pr-4">Années</th>
+                <th scope="col" className="py-2 pr-4">Statut</th>
+                <th scope="col" className="py-2 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -153,7 +154,7 @@ export default async function PlatformSchoolsPage(props: {
                   <td className="py-2 pr-4 text-zinc-700">{s._count.academicYears}</td>
                   <td className="py-2 pr-4 text-zinc-700">{statusLabel("school", s.status)}</td>
                   <td className="py-2 pr-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/platform/schools/${s.id}`}
                         className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
@@ -179,7 +180,7 @@ export default async function PlatformSchoolsPage(props: {
               {schools.length === 0 ? (
                 <tr>
                   <td className="py-6 text-zinc-500" colSpan={8}>
-                    Aucun établissement
+                    {q ? "Aucun établissement ne correspond à la recherche." : "Aucun établissement enregistré."}
                   </td>
                 </tr>
               ) : null}
@@ -188,7 +189,7 @@ export default async function PlatformSchoolsPage(props: {
         </div>
 
         {pageCount > 1 ? (
-          <div className="mt-4 flex items-center gap-2 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
             {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
               <Link
                 key={p}

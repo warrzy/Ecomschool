@@ -49,19 +49,21 @@ export default async function AccountsPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Comptes élèves
         </div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Comptes financiers ({withCharges.length})
-        </div>
+        </h1>
       </div>
 
       <div className={card}>
         <form method="GET" className="flex flex-wrap items-end gap-3">
-          <select name="year" defaultValue={yearId ?? ""} className={input}>
+          <select
+                  aria-label="Année scolaire" name="year" defaultValue={yearId ?? ""} className={input}>
             {years.map((y) => (
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
-          <select name="classroom" defaultValue={classroomId ?? ""} className={input}>
+          <select
+                  aria-label="Toutes les classes" name="classroom" defaultValue={classroomId ?? ""} className={input}>
             <option value="">Toutes les classes</option>
             {classrooms.map((cl) => (
               <option key={cl.id} value={cl.id}>{cl.name}</option>
@@ -99,17 +101,17 @@ export default async function AccountsPage(props: {
 
       <div className={card}>
         <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
+        <table aria-label="Comptes financiers" className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-              <th className="py-2">Matricule</th>
-              <th className="py-2">Élève</th>
-              <th className="py-2">Classe</th>
-              <th className="py-2 text-right">Facturé</th>
-              <th className="py-2 text-right">Réductions</th>
-              <th className="py-2 text-right">Payé</th>
-              <th className="py-2 text-right">Solde</th>
-              <th className="py-2"></th>
+              <th scope="col" className="py-2">Matricule</th>
+              <th scope="col" className="py-2">Élève</th>
+              <th scope="col" className="py-2">Classe</th>
+              <th scope="col" className="py-2 text-right">Facturé</th>
+              <th scope="col" className="py-2 text-right">Réductions</th>
+              <th scope="col" className="py-2 text-right">Payé</th>
+              <th scope="col" className="py-2 text-right">Solde</th>
+              <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>

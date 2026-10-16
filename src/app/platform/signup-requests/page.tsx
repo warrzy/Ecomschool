@@ -60,9 +60,9 @@ export default async function SignupRequestsPage(props: {
               </Link>{" "}
               / Demandes d’inscription
             </div>
-            <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
               Demandes d’inscription ({requests.length})
-            </div>
+            </h1>
             <div className="mt-1 text-sm text-zinc-500">
               Demandes reçues depuis le site public. Approuver permet ensuite la
               création de l’établissement via l’onboarding.
@@ -91,12 +91,12 @@ export default async function SignupRequestsPage(props: {
         </div>
 
         {ok ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Demande mise à jour ({statusLabel("signupRequest", ok.toUpperCase())}).
           </div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             Échec : {errorMessage(error)}
           </div>
         ) : null}
@@ -172,10 +172,10 @@ export default async function SignupRequestsPage(props: {
                   >
                     <input type="hidden" name="id" value={r.id} />
                     <input
-                      name="note"
+                      aria-label="Note" name="note"
                       type="text"
                       placeholder="Note de revue (motif, conditions…)"
-                      className="h-9 w-64 rounded-lg border border-zinc-200 px-2 text-sm outline-none focus:border-zinc-900"
+                      className="h-9 w-64 rounded-lg border border-zinc-200 px-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
                     />
                     <div className="flex flex-wrap justify-end gap-2">
                       {r.status === "PENDING" ? (

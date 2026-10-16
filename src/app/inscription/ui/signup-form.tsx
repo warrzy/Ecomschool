@@ -10,7 +10,7 @@ export type SignupPlanOption = {
 };
 
 const input =
-  "h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-900";
+  "h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400";
 const label = "text-sm font-medium text-zinc-800";
 
 export default function SignupForm(props: {
@@ -56,7 +56,7 @@ export default function SignupForm(props: {
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+      <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-xl text-white">
           ✓
         </div>
@@ -74,6 +74,7 @@ export default function SignupForm(props: {
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
       <fieldset className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <legend className="px-1 text-sm font-semibold text-zinc-900">
           Votre établissement
@@ -81,29 +82,29 @@ export default function SignupForm(props: {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1 md:col-span-2">
             <label htmlFor="schoolName" className={label}>
-              Nom de l&apos;établissement *
+              Nom de l&apos;établissement
             </label>
-            <input id="schoolName" name="schoolName" required className={input} />
+            <input id="schoolName" autoComplete="organization" name="schoolName" required className={input} />
           </div>
           <div className="space-y-1">
             <label htmlFor="city" className={label}>Ville</label>
-            <input id="city" name="city" className={input} placeholder="Ouagadougou" />
+            <input id="city" autoComplete="address-level2" name="city" className={input} placeholder="Ouagadougou" />
           </div>
           <div className="space-y-1">
             <label htmlFor="country" className={label}>Pays</label>
-            <input id="country" name="country" className={input} defaultValue="Burkina Faso" />
+            <input id="country" autoComplete="country-name" name="country" className={input} defaultValue="Burkina Faso" />
           </div>
           <div className="space-y-1">
             <label htmlFor="phone" className={label}>Téléphone</label>
-            <input id="phone" name="phone" className={input} />
+            <input id="phone" type="tel" autoComplete="tel" name="phone" className={input} />
           </div>
           <div className="space-y-1">
             <label htmlFor="email" className={label}>Email de l&apos;établissement</label>
-            <input id="email" name="email" type="email" className={input} />
+            <input id="email" autoComplete="email" name="email" type="email" className={input} />
           </div>
           <div className="space-y-1 md:col-span-2">
             <label htmlFor="website" className={label}>Site web (optionnel)</label>
-            <input id="website" name="website" className={input} placeholder="https://ecole.bf" />
+            <input id="website" type="url" autoComplete="url" name="website" className={input} placeholder="https://ecole.bf" />
           </div>
         </div>
       </fieldset>
@@ -114,16 +115,16 @@ export default function SignupForm(props: {
         </legend>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1">
-            <label htmlFor="contactName" className={label}>Nom complet *</label>
-            <input id="contactName" name="contactName" required className={input} />
+            <label htmlFor="contactName" className={label}>Nom complet</label>
+            <input id="contactName" autoComplete="name" name="contactName" required className={input} />
           </div>
           <div className="space-y-1">
-            <label htmlFor="contactEmail" className={label}>Email *</label>
-            <input id="contactEmail" name="contactEmail" type="email" required className={input} />
+            <label htmlFor="contactEmail" className={label}>Email</label>
+            <input id="contactEmail" autoComplete="email" name="contactEmail" type="email" required className={input} />
           </div>
           <div className="space-y-1">
             <label htmlFor="contactPhone" className={label}>Téléphone</label>
-            <input id="contactPhone" name="contactPhone" className={input} />
+            <input id="contactPhone" type="tel" autoComplete="tel" name="contactPhone" className={input} />
           </div>
         </div>
       </fieldset>
@@ -154,7 +155,7 @@ export default function SignupForm(props: {
             id="note"
             name="note"
             rows={3}
-            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900"
+            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
             placeholder="Effectifs, besoins particuliers, calendrier souhaité…"
           />
         </div>
@@ -173,7 +174,7 @@ export default function SignupForm(props: {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
         </div>
       ) : null}

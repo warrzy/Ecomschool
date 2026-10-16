@@ -83,6 +83,7 @@ export default async function ParentPage(props: {
 
   return (
     <div className="space-y-4">
+      <h1 className="sr-only">Espace parent — suivi scolaire</h1>
       {/* Sélecteur d'enfant */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {children.map((c) => (
@@ -143,10 +144,10 @@ async function ParentTab({
     return (
       <Card title="Informations">
         <dl className="space-y-1 text-sm">
-          <div className="flex justify-between"><dt className="text-zinc-500">Élève</dt><dd>{o.student.lastName} {o.student.firstName}</dd></div>
-          <div className="flex justify-between"><dt className="text-zinc-500">Matricule</dt><dd>{o.student.matricule}</dd></div>
-          <div className="flex justify-between"><dt className="text-zinc-500">Classe</dt><dd>{o.enrollment?.classroom.name ?? "—"}</dd></div>
-          <div className="flex justify-between"><dt className="text-zinc-500">Année</dt><dd>{o.enrollment?.academicYear.name ?? "—"}</dd></div>
+          <div className="flex flex-wrap justify-between"><dt className="text-zinc-500">Élève</dt><dd>{o.student.lastName} {o.student.firstName}</dd></div>
+          <div className="flex flex-wrap justify-between"><dt className="text-zinc-500">Matricule</dt><dd>{o.student.matricule}</dd></div>
+          <div className="flex flex-wrap justify-between"><dt className="text-zinc-500">Classe</dt><dd>{o.enrollment?.classroom.name ?? "—"}</dd></div>
+          <div className="flex flex-wrap justify-between"><dt className="text-zinc-500">Année</dt><dd>{o.enrollment?.academicYear.name ?? "—"}</dd></div>
         </dl>
       </Card>
     );
@@ -166,7 +167,7 @@ async function ParentTab({
           <Card key={d} title={DAY[d]}>
             <ul className="space-y-1 text-sm">
               {byDay.get(d)!.map((s) => (
-                <li key={s.id} className="flex justify-between">
+                <li key={s.id} className="flex flex-wrap justify-between">
                   <span>{min2h(s.startMin)}–{min2h(s.endMin)}</span>
                   <span className="font-medium">{s.subject?.name ?? "—"}</span>
                   <span className="text-zinc-500">{s.teacher.lastName}{s.room ? ` · ${s.room.name}` : ""}</span>
@@ -184,10 +185,10 @@ async function ParentTab({
     return (
       <Card title="Notes publiées">
         {grades && grades.length > 0 ? (
-          <table className="w-full text-left text-sm">
+          <table aria-label="Notes publiées" className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 text-xs text-zinc-500">
-                <th className="py-1">Date</th><th>Matière</th><th>Évaluation</th><th className="text-right">Note</th>
+                <th scope="col" className="py-1">Date</th><th scope="col">Matière</th><th scope="col">Évaluation</th><th scope="col" className="text-right">Note</th>
               </tr>
             </thead>
             <tbody>
@@ -219,7 +220,7 @@ async function ParentTab({
       <div className="space-y-3">
         {data.results.map((r) => (
           <Card key={r.id} title={`${r.academicPeriod.academicYear.name} — ${r.academicPeriod.name}`}>
-            <div className="mb-2 flex justify-between text-sm">
+            <div className="mb-2 flex flex-wrap justify-between text-sm">
               <span className="text-zinc-500">Classe : {r.classroom.name}</span>
               <span className="font-semibold">
                 Moyenne : {r.generalAverage != null ? `${r.generalAverage.toFixed(2)}/20` : "—"}
@@ -227,7 +228,7 @@ async function ParentTab({
                 {r.mention ? ` · ${r.mention}` : ""}
               </span>
             </div>
-            <table className="w-full text-left text-sm">
+            <table aria-label="Résultats par période" className="w-full text-left text-sm">
               <tbody>
                 {data.subjects
                   .filter((s) => s.academicPeriodId === r.academicPeriodId)
@@ -255,7 +256,7 @@ async function ParentTab({
         {cards && cards.length > 0 ? (
           <ul className="space-y-2 text-sm">
             {cards.map((c) => (
-              <li key={c.id} className="flex items-center justify-between">
+              <li key={c.id} className="flex flex-wrap items-center justify-between">
                 <span>
                   {c.academicPeriod.academicYear.name} — {c.academicPeriod.name}
                   <span className="ml-2 font-mono text-xs text-zinc-500">{c.identifier}</span>
@@ -284,7 +285,7 @@ async function ParentTab({
         {records && records.length > 0 ? (
           <ul className="space-y-2 text-sm">
             {records.map((r) => (
-              <li key={r.id} className="flex items-center justify-between">
+              <li key={r.id} className="flex flex-wrap items-center justify-between">
                 <span>
                   {r.date.toLocaleDateString("fr-FR")} —{" "}
                   {r.status === "ABSENT" ? "Absence" : `Retard${r.durationMin ? ` (${r.durationMin} min)` : ""}`}
@@ -329,7 +330,7 @@ async function ParentTab({
           {f.installments.length > 0 ? (
             <ul className="space-y-2 text-sm">
               {f.installments.map((i) => (
-                <li key={i.id} className="flex items-center justify-between">
+                <li key={i.id} className="flex flex-wrap items-center justify-between">
                   <span>
                     {i.category}{i.label ? ` · ${i.label}` : ""}
                     <span className="ml-2 text-xs text-zinc-500">
@@ -353,7 +354,7 @@ async function ParentTab({
           {f.payments.length > 0 ? (
             <ul className="space-y-2 text-sm">
               {f.payments.map((p) => (
-                <li key={p.id} className="flex items-center justify-between">
+                <li key={p.id} className="flex flex-wrap items-center justify-between">
                   <span>
                     {p.paidAt.toLocaleDateString("fr-FR")} — <span className="font-medium">{fmtN(p.amount)}</span>
                     <span className="ml-2 font-mono text-xs text-zinc-500">{p.receiptNumber}</span>
@@ -385,7 +386,7 @@ async function ParentTab({
         announcements.map((a) => (
           <Card key={a.id} title={a.title}>
             <p className="whitespace-pre-line text-sm text-zinc-700">{a.body}</p>
-            <p className="mt-2 text-xs text-zinc-400">
+            <p className="mt-2 text-xs text-zinc-500">
               {a.publishedAt?.toLocaleDateString("fr-FR")}
             </p>
           </Card>
