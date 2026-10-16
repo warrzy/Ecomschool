@@ -5,7 +5,6 @@ import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listStudents } from "@/lib/services/students";
 import {
   createStudentAction,
-  importStudentsAction,
 } from "@/app/app/(tenant)/students/actions";
 
 export const instant = false;
@@ -321,33 +320,21 @@ export default async function StudentsPage(props: {
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
             <div className="text-sm font-medium text-zinc-900">
-              Importer un CSV
+              Importer des élèves
             </div>
             <p className="mt-2 text-xs text-zinc-500">
-              Colonnes : matricule;nom;prenom;sexe(M|F);dateNaissance(YYYY-MM-DD);lieuNaissance;telephone;email;adresse
+              Assistant CSV/Excel : modèle, analyse sans écriture, aperçu des
+              créations/modifications/effacements, puis confirmation explicite.
             </p>
-            <form action={importStudentsAction} className="mt-3 space-y-3">
-              <input
-                name="file"
-                type="file"
-                accept=".csv,text/csv,text/plain"
-                className="block w-full text-sm text-zinc-600"
-              />
-              <textarea
-                name="csv"
-                rows={4}
-                placeholder="Ou coller le contenu CSV ici…"
-                className="w-full rounded-xl border border-zinc-200 p-3 font-mono text-xs outline-none focus:border-zinc-900"
-              />
-              <button
-                type="submit"
-                className="h-11 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
-              >
-                Importer
-              </button>
-            </form>
+            <Link
+              href="/app/students/import"
+              className="mt-3 inline-block h-11 rounded-xl border border-zinc-300 px-4 pt-2.5 text-sm font-medium hover:bg-zinc-50"
+            >
+              Ouvrir l’assistant d’import
+            </Link>
             <p className="mt-2 text-xs text-zinc-500">
-              Un matricule existant met à jour la fiche correspondante.
+              Un matricule existant met à jour la fiche ; la colonne « classe »
+              inscrit l’élève via les règles d’inscription.
             </p>
           </div>
         </div>

@@ -6,7 +6,6 @@ import { getAssessment } from "@/lib/services/grading/assessments";
 import { getGradeGrid } from "@/lib/services/grading/grades";
 import {
   saveGradesAction,
-  importGradesCsvAction,
   setAssessmentStatusAction,
 } from "@/app/app/(tenant)/grades/actions";
 
@@ -167,22 +166,17 @@ export default async function GradeEntryPage(props: {
       <div className="grid gap-4 md:grid-cols-2">
         {canEnter ? (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <div className="mb-3 text-sm font-medium text-zinc-900">Import CSV</div>
-            <p className="mb-2 text-xs text-zinc-500">
-              Une ligne par élève : <code>matricule;note;observation</code>
+            <div className="mb-3 text-sm font-medium text-zinc-900">Import de notes</div>
+            <p className="mb-3 text-xs text-zinc-500">
+              Assistant CSV/Excel : modèle pré-rempli des élèves inscrits,
+              analyse sans écriture, aperçu puis confirmation — tout ou rien.
             </p>
-            <form action={importGradesCsvAction} className="space-y-3">
-              <input type="hidden" name="assessmentId" value={id} />
-              <textarea
-                name="csv"
-                rows={5}
-                placeholder={"MAT001;14,5;RAS\nMAT002;;absent"}
-                className={inputCls}
-              />
-              <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
-                Importer
-              </button>
-            </form>
+            <Link
+              href={`/app/grades/${id}/import`}
+              className="inline-block rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+            >
+              Ouvrir l’assistant d’import
+            </Link>
           </div>
         ) : null}
 

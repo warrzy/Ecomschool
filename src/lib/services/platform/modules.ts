@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
-import type { SubscriptionStatus } from "@prisma/client";
+import type { Prisma, SubscriptionStatus } from "@prisma/client";
 
 /**
  * Correspondance permission SCHOOL → module commercial.
@@ -216,11 +216,16 @@ export async function getLimits(schoolId: string) {
 }
 
 /** Retourne true si l'ajout d'une unité reste dans la limite. */
-export async function checkLimit(schoolId: string, kind: LimitKind) {
+export async function checkLimit(
+  schoolId: string,
+  kind: LimitKind,
+  tx?: Prisma.TransactionClient,
+) {
+  const db = tx ?? prisma;
   const { maxStudents, maxUsers } = await getLimits(schoolId);
   if (kind === "students") {
     if (maxStudents == null) return { ok: true as const };
-    const count = await prisma.enrollment.count({
+    const count = await db.enrollment.count({
       where: { schoolId, status: "ENROLLED" },
     });
     return count < maxStudents
@@ -228,7 +233,7 @@ export async function checkLimit(schoolId: string, kind: LimitKind) {
       : { ok: false as const, error: "LIMIT_STUDENTS" as const, count, max: maxStudents };
   }
   if (maxUsers == null) return { ok: true as const };
-  const count = await prisma.schoolMembership.count({
+  const count = await db.schoolMembership.count({
     where: { schoolId, status: "ACTIVE" },
   });
   return count < maxUsers

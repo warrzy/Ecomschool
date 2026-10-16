@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { checkLimit } from "@/lib/services/platform/modules";
-import type { EnrollmentStatus } from "@prisma/client";
+import type { EnrollmentStatus, Prisma } from "@prisma/client";
 
 export type EnrollmentsError =
   | "INVALID_INPUT"
@@ -20,8 +20,11 @@ export type EnrollmentsResult<T = undefined> =
 
 type SchoolCtx = { userId: string; schoolId: string };
 
-async function allowsMultipleEnrollments(schoolId: string) {
-  const school = await prisma.school.findUnique({
+async function allowsMultipleEnrollments(
+  schoolId: string,
+  tx?: Prisma.TransactionClient,
+) {
+  const school = await (tx ?? prisma).school.findUnique({
     where: { id: schoolId },
     select: { settings: true },
   });
@@ -108,10 +111,12 @@ export async function enrollStudent(
     classroomId: string;
     academicYearId?: string;
   },
+  tx?: Prisma.TransactionClient,
 ): Promise<EnrollmentsResult<{ id: string }>> {
+  const db = tx ?? prisma;
   let academicYearId = input.academicYearId;
   if (!academicYearId) {
-    const current = await prisma.academicYear.findFirst({
+    const current = await db.academicYear.findFirst({
       where: { schoolId: ctx.schoolId, isCurrent: true },
       select: { id: true },
     });
@@ -120,15 +125,15 @@ export async function enrollStudent(
   }
 
   const [student, classroom, year] = await Promise.all([
-    prisma.student.findFirst({
+    db.student.findFirst({
       where: { id: input.studentId, schoolId: ctx.schoolId },
       select: { id: true, status: true },
     }),
-    prisma.classroom.findFirst({
+    db.classroom.findFirst({
       where: { id: input.classroomId, schoolId: ctx.schoolId },
       select: { id: true, academicYearId: true, status: true },
     }),
-    prisma.academicYear.findFirst({
+    db.academicYear.findFirst({
       where: { id: academicYearId, schoolId: ctx.schoolId },
       select: { id: true, status: true },
     }),
@@ -140,9 +145,9 @@ export async function enrollStudent(
     return { ok: false, error: "CROSS_YEAR" };
   }
 
-  const allowMultiple = await allowsMultipleEnrollments(ctx.schoolId);
+  const allowMultiple = await allowsMultipleEnrollments(ctx.schoolId, tx);
   if (!allowMultiple) {
-    const existing = await prisma.enrollment.findFirst({
+    const existing = await db.enrollment.findFirst({
       where: {
         schoolId: ctx.schoolId,
         studentId: input.studentId,
@@ -155,11 +160,11 @@ export async function enrollStudent(
   }
 
   // Limite commerciale d'élèves (abonnement SaaS)
-  const limit = await checkLimit(ctx.schoolId, "students");
+  const limit = await checkLimit(ctx.schoolId, "students", tx);
   if (!limit.ok) return { ok: false, error: "LIMIT_REACHED" };
 
   try {
-    const enrollment = await prisma.enrollment.create({
+    const enrollment = await db.enrollment.create({
       data: {
         schoolId: ctx.schoolId,
         studentId: input.studentId,
@@ -181,6 +186,7 @@ export async function enrollStudent(
         classroomId: input.classroomId,
         academicYearId,
       },
+      tx,
     });
 
     return { ok: true, result: { id: enrollment.id } };

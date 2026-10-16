@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import {
   createStudent,
-  importStudentsCsv,
   updateStudent,
 } from "@/lib/services/students";
 import {
@@ -71,25 +70,3 @@ export async function updateStudentAction(formData: FormData) {
   back(res.ok ? `/${id}?ok=updated` : `/${id}?error=${res.error}`);
 }
 
-export async function importStudentsAction(formData: FormData) {
-  const tenant = await requireSchoolPermission("student.manage");
-
-  const file = formData.get("file");
-  const pasted = formData.get("csv");
-  const text =
-    file instanceof File && file.size > 0
-      ? await file.text()
-      : typeof pasted === "string"
-        ? pasted
-        : "";
-
-  if (!text.trim()) back("?error=INVALID_INPUT");
-
-  const res = await importStudentsCsv(ctx(tenant), text);
-  if (!res.ok) back(`?error=${res.error}`);
-
-  const r = res.result;
-  back(
-    `?ok=import&created=${r.created}&updated=${r.updated}&failed=${r.failed}`,
-  );
-}

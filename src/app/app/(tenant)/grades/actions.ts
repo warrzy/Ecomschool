@@ -7,8 +7,7 @@ import {
   createAssessment,
   setAssessmentStatus,
 } from "@/lib/services/grading/assessments";
-import { saveGrades, parseGradesCsv } from "@/lib/services/grading/grades";
-import { prisma } from "@/lib/db/prisma";
+import { saveGrades } from "@/lib/services/grading/grades";
 import {
   assessmentCreateSchema,
   gradeStatusSchema,
@@ -113,38 +112,3 @@ export async function saveGradesAction(formData: FormData) {
   );
 }
 
-export async function importGradesCsvAction(formData: FormData) {
-  const tenant = await requireSchoolPermission("grades.enter");
-  const assessmentId = String(formData.get("assessmentId") ?? "");
-  const csv = String(formData.get("csv") ?? "");
-  if (!assessmentId || !csv.trim()) {
-    redirect(`/app/grades/${assessmentId || ""}?error=INVALID_INPUT` as never);
-  }
-
-  const rows = parseGradesCsv(csv);
-  const students = await prisma.student.findMany({
-    where: {
-      schoolId: tenant.schoolId,
-      matricule: { in: rows.map((r) => r.matricule) },
-    },
-    select: { id: true, matricule: true },
-  });
-  const idByMat = new Map(students.map((s) => [s.matricule, s.id]));
-  const entries = rows
-    .filter((r) => idByMat.has(r.matricule))
-    .map((r) => ({
-      studentId: idByMat.get(r.matricule)!,
-      value: r.value,
-      status: (r.value == null ? "MISSING" : "ENTERED") as GradeStatus,
-      observation: r.observation,
-    }));
-
-  const res = await saveGrades(ctx(tenant), assessmentId, entries, {
-    asTeacher: await asTeacher(tenant.userId, tenant.schoolId),
-  });
-  redirect(
-    (res.ok
-      ? `/app/grades/${assessmentId}?ok=imported&count=${res.result.saved}`
-      : `/app/grades/${assessmentId}?error=${res.error}`) as never,
-  );
-}

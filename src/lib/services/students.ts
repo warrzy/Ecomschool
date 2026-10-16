@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
-import { studentRowSchema } from "@/lib/validations/students";
+import type { Prisma } from "@prisma/client";
 
 export type StudentsError =
   | "INVALID_INPUT"
@@ -147,15 +147,17 @@ function toStudentData(ctx: SchoolCtx, input: StudentInput) {
 export async function createStudent(
   ctx: SchoolCtx,
   input: StudentInput,
+  tx?: Prisma.TransactionClient,
 ): Promise<StudentsResult<{ id: string }>> {
-  const existing = await prisma.student.findFirst({
+  const db = tx ?? prisma;
+  const existing = await db.student.findFirst({
     where: { schoolId: ctx.schoolId, matricule: input.matricule.trim() },
     select: { id: true },
   });
   if (existing) return { ok: false, error: "MATRICULE_TAKEN" };
 
   try {
-    const student = await prisma.student.create({
+    const student = await db.student.create({
       data: toStudentData(ctx, input),
       select: { id: true },
     });
@@ -167,6 +169,7 @@ export async function createStudent(
       entity: "Student",
       entityId: student.id,
       metadata: { matricule: input.matricule.trim() },
+      tx,
     });
 
     return { ok: true, result: { id: student.id } };
@@ -178,16 +181,22 @@ export async function createStudent(
 export async function updateStudent(
   ctx: SchoolCtx,
   studentId: string,
-  input: Partial<StudentInput> & { status?: "ACTIVE" | "ARCHIVED" },
+  input: Omit<Partial<StudentInput>, "sex"> & {
+    status?: "ACTIVE" | "ARCHIVED";
+    /** `null` = effacement explicite du sexe (import `__EFFACER__`). */
+    sex?: "MALE" | "FEMALE" | null;
+  },
+  tx?: Prisma.TransactionClient,
 ): Promise<StudentsResult> {
-  const student = await prisma.student.findFirst({
+  const db = tx ?? prisma;
+  const student = await db.student.findFirst({
     where: { id: studentId, schoolId: ctx.schoolId },
     select: { id: true },
   });
   if (!student) return { ok: false, error: "NOT_FOUND" };
 
   if (input.matricule) {
-    const dup = await prisma.student.findFirst({
+    const dup = await db.student.findFirst({
       where: {
         schoolId: ctx.schoolId,
         matricule: input.matricule.trim(),
@@ -199,7 +208,7 @@ export async function updateStudent(
   }
 
   try {
-    await prisma.student.update({
+    await db.student.update({
       where: { id: studentId },
       data: {
         ...(input.matricule !== undefined
@@ -244,6 +253,7 @@ export async function updateStudent(
       entity: "Student",
       entityId: studentId,
       metadata: { fields: Object.keys(input) },
+      tx,
     });
 
     return { ok: true, result: undefined };
@@ -252,164 +262,3 @@ export async function updateStudent(
   }
 }
 
-// ---------- CSV ----------
-
-function parseCsvLine(line: string): string[] {
-  const out: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cur += '"';
-        i++;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === "," || ch === ";") {
-      out.push(cur);
-      cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out.map((s) => s.trim());
-}
-
-export type ImportReport = {
-  total: number;
-  created: number;
-  updated: number;
-  failed: number;
-  errors: { line: number; reason: string }[];
-};
-
-// Colonnes attendues :
-// matricule;nom;prenom;sexe(M|F);dateNaissance(YYYY-MM-DD);lieuNaissance;telephone;email;adresse
-export async function importStudentsCsv(
-  ctx: SchoolCtx,
-  csvText: string,
-): Promise<StudentsResult<ImportReport>> {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  if (lines.length === 0) return { ok: false, error: "INVALID_INPUT" };
-
-  const firstCells = parseCsvLine(lines[0]).map((c) => c.toLowerCase());
-  const hasHeader = firstCells[0]?.includes("matricule");
-  const dataLines = hasHeader ? lines.slice(1) : lines;
-
-  const report: ImportReport = {
-    total: dataLines.length,
-    created: 0,
-    updated: 0,
-    failed: 0,
-    errors: [],
-  };
-
-  for (let i = 0; i < dataLines.length; i++) {
-    const lineNo = i + (hasHeader ? 2 : 1);
-    const cells = parseCsvLine(dataLines[i]);
-
-    const parsed = studentRowSchema.safeParse({
-      matricule: cells[0],
-      lastName: cells[1],
-      firstName: cells[2],
-      sex: cells[3] || undefined,
-      birthDate: cells[4] || undefined,
-      birthPlace: cells[5] || undefined,
-      phone: cells[6] || undefined,
-      email: cells[7] || undefined,
-      address: cells[8] || undefined,
-    });
-
-    if (!parsed.success) {
-      report.failed++;
-      report.errors.push({
-        line: lineNo,
-        reason: parsed.error.issues[0]?.message ?? "INVALID_INPUT",
-      });
-      continue;
-    }
-
-    const data = toStudentData(ctx, parsed.data);
-
-    try {
-      const existing = await prisma.student.findFirst({
-        where: { schoolId: ctx.schoolId, matricule: data.matricule },
-        select: { id: true },
-      });
-      if (existing) {
-        await prisma.student.update({
-          where: { id: existing.id },
-          data: { ...data, schoolId: undefined },
-          select: { id: true },
-        });
-        report.updated++;
-      } else {
-        await prisma.student.create({ data, select: { id: true } });
-        report.created++;
-      }
-    } catch {
-      report.failed++;
-      report.errors.push({ line: lineNo, reason: "DB_ERROR" });
-    }
-  }
-
-  await logAudit({
-    actorId: ctx.userId,
-    schoolId: ctx.schoolId,
-    action: "student.import",
-    entity: "Student",
-    metadata: {
-      total: report.total,
-      created: report.created,
-      updated: report.updated,
-      failed: report.failed,
-    },
-  });
-
-  return { ok: true, result: report };
-}
-
-export async function exportStudentsCsv(ctx: SchoolCtx): Promise<string> {
-  const students = await prisma.student.findMany({
-    where: { schoolId: ctx.schoolId },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    select: studentSelect,
-  });
-
-  const esc = (v: string | null | undefined) => {
-    const s = v ?? "";
-    return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
-  const header =
-    "matricule;nom;prenom;sexe;dateNaissance;lieuNaissance;telephone;email;adresse;statut";
-  const rows = students.map((s) =>
-    [
-      s.matricule,
-      s.lastName,
-      s.firstName,
-      s.sex === "MALE" ? "M" : s.sex === "FEMALE" ? "F" : "",
-      s.birthDate ? s.birthDate.toISOString().slice(0, 10) : "",
-      s.birthPlace,
-      s.phone,
-      s.email,
-      s.address,
-      s.status,
-    ]
-      .map(esc)
-      .join(";"),
-  );
-
-  return [header, ...rows].join("\n");
-}

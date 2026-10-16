@@ -181,25 +181,3 @@ export async function saveGrades(
   return { ok: true, result: { saved } };
 }
 
-/** Import CSV : lignes "matricule;note" ou "matricule;note;observation". */
-export function parseGradesCsv(
-  csv: string,
-): { matricule: string; value: number | null; observation: string | null }[] {
-  return csv
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l && !/^matricule/i.test(l))
-    .map((l) => {
-      // Séparateur : point-virgule ou tabulation ; la virgule n'est utilisée
-      // que si la ligne n'a ni l'un ni l'autre (évite de casser "14,5").
-      const sep = l.includes(";") ? ";" : l.includes("\t") ? "\t" : ",";
-      const parts = l.split(sep).map((p) => p.trim());
-      const v = parts[1] === "" || parts[1] == null ? null : Number(parts[1].replace(",", "."));
-      return {
-        matricule: parts[0],
-        value: v != null && Number.isFinite(v) ? v : null,
-        observation: parts[2] ?? null,
-      };
-    })
-    .filter((r) => r.matricule);
-}

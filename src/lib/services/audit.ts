@@ -8,9 +8,11 @@ export async function logAudit(input: {
   entity: string;
   entityId?: string | null;
   metadata?: Prisma.InputJsonValue;
+  /** Transaction facultative : l'audit suit l'atomicité de l'opération. */
+  tx?: Prisma.TransactionClient;
 }) {
   try {
-    await prisma.auditLog.create({
+    await (input.tx ?? prisma).auditLog.create({
       data: {
         actorId: input.actorId ?? null,
         schoolId: input.schoolId ?? null,

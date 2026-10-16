@@ -21,8 +21,8 @@ import {
 import {
   getGradeGrid,
   saveGrades,
-  parseGradesCsv,
 } from "@/lib/services/grading/grades";
+import { parseCsvText } from "@/lib/import/csv";
 import {
   subjectAverage,
   generalAverage,
@@ -532,9 +532,12 @@ async function main() {
   );
   record("saisie hors périmètre refusée", !denyGrades.ok && denyGrades.error === "FORBIDDEN");
 
-  // CSV parse
-  const parsed = parseGradesCsv("matricule;note\nP5-x-0;14,5;OK\nP5-x-1;;\n");
-  record("parse CSV notes", parsed.length === 2 && parsed[0].value === 14.5 && parsed[1].value === null);
+  // CSV parse (nouveau parseur d'import)
+  const parsed = parseCsvText("matricule;note;observation\nP5-x-0;14,5;OK\nP5-x-1;;\n", 200);
+  record(
+    "parse CSV notes",
+    parsed.ok && parsed.rows.length === 3 && parsed.rows[1].cells[1] === "14,5",
+  );
 
   // ---- Rapport ----
   const failed = checks.filter((c) => !c.ok);
