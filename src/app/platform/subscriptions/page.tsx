@@ -7,6 +7,7 @@ import {
   sweepSubscriptionsAction,
 } from "@/app/platform/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { HelpLink, Notice, NoticeSection } from "@/components/ui/Notice";
 
 export const instant = false;
 
@@ -53,14 +54,39 @@ export default async function SubscriptionsPage(props: {
               Abonnements ({subs.length})
             </h1>
           </div>
-          <form action={sweepSubscriptionsAction}>
-            <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
-              Appliquer le cycle de vie (grâce/suspension/expiration)
-            </button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <HelpLink>Cycle de vie des abonnements</HelpLink>
+            <form action={sweepSubscriptionsAction}>
+              <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+                Appliquer le cycle de vie (grâce/suspension/expiration)
+              </button>
+            </form>
+          </div>
         </div>
         {error ? <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{errorMessage(error)}</div> : null}
       </div>
+
+      <Notice title="Notice — gestion des abonnements">
+        <NoticeSection title="Cycle de vie automatique">
+          Les transitions de statut (essai → actif → paiement en attente →
+          grâce → suspension → expiration) sont appliquées par la tâche
+          planifiée, avec alertes de fin d&apos;essai et rappels de factures
+          impayées. Le bouton « Appliquer le cycle de vie » déclenche le même
+          balayage à la demande.
+        </NoticeSection>
+        <NoticeSection title="Validation commerciale">
+          Les changements d&apos;offre demandés par les établissements
+          arrivent dans la file « Demandes de changement » : ils ne
+          s&apos;appliquent qu&apos;après <strong>approbation explicite</strong>{" "}
+          (boutons Approuver/Refuser) — aucune activation automatique.
+        </NoticeSection>
+        <NoticeSection title="Effets des statuts">
+          Un abonnement suspendu laisse l&apos;établissement en lecture seule
+          (données conservées). Expiré ou résilié coupe l&apos;accès.
+          Les limites de l&apos;offre (élèves, utilisateurs) et les modules
+          inclus s&apos;appliquent en continu côté établissement.
+        </NoticeSection>
+      </Notice>
 
       {requests.length > 0 ? (
         <div className={card}>

@@ -11,6 +11,7 @@ import { listPlans } from "@/lib/services/platform/plans";
 import { requestPlanChange } from "@/lib/services/platform/subscriptions";
 import { redirect } from "next/navigation";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { HelpLink, Notice, NoticeSection } from "@/components/ui/Notice";
 
 export const instant = false;
 
@@ -90,6 +91,9 @@ export default async function SubscriptionPage(props: {
         <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
           Mon abonnement
         </h1>
+        <div className="mt-3">
+          <HelpLink>Comment fonctionne l&apos;abonnement ?</HelpLink>
+        </div>
         {ok === "request" ? (
           <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             Demande envoyée — elle sera appliquée après validation par ECOM-TOUCH.
@@ -101,6 +105,44 @@ export default async function SubscriptionPage(props: {
           </div>
         ) : null}
       </div>
+
+      <Notice title="Notice — formules, cycle de vie et changement d'offre">
+        <NoticeSection title="Formules et contenu">
+          Chaque offre définit un prix mensuel et annuel, un plafond
+          d&apos;élèves et d&apos;utilisateurs (éventuellement illimité), une
+          durée d&apos;essai et la liste des modules inclus. Les modules non
+          inclus dans l&apos;offre — ni ajoutés par ECOM-TOUCH à titre
+          exceptionnel — restent inaccessibles dans l&apos;application.
+        </NoticeSection>
+        <NoticeSection title="Cycle de vie">
+          <strong>Essai gratuit</strong> jusqu&apos;à la date de fin
+          d&apos;essai, puis <strong>Actif</strong> tant que les échéances sont
+          honorées. Un paiement en retard fait passer l&apos;abonnement en{" "}
+          <strong>Paiement en attente</strong> puis en{" "}
+          <strong>période de grâce</strong> ; faute de régularisation, le compte
+          est <strong>suspendu</strong> : les données sont conservées en
+          lecture seule jusqu&apos;à réactivation ou <strong>expiration</strong>.
+          Le statut <strong>Résilié</strong> correspond à une résiliation.
+        </NoticeSection>
+        <NoticeSection title="Dates et renouvellement">
+          L&apos;échéance affichée (« prochaine échéance ») est la fin de la
+          période en cours — mensuelle ou annuelle selon le cycle choisi. La
+          reconduction et les rappels d&apos;échéance sont gérés
+          automatiquement côté plateforme.
+        </NoticeSection>
+        <NoticeSection title="Changement de formule">
+          Le bouton « Demander un changement d&apos;offre » transmet votre
+          choix à ECOM-TOUCH : <strong>aucune activation n&apos;est
+          automatique</strong> — le changement n&apos;est appliqué
+          qu&apos;après validation commerciale. Une seule demande peut être en
+          attente à la fois.
+        </NoticeSection>
+        <NoticeSection title="Factures">
+          Les factures SaaS (émissions, montants, soldes) sont listées en bas
+          de page ; elles relèvent de la facturation ECOM-TOUCH et sont
+          distinctes des finances internes de l&apos;établissement.
+        </NoticeSection>
+      </Notice>
 
       {subscription ? (
         <div className={card}>

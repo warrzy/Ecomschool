@@ -10,6 +10,7 @@ import { statusLabel } from "@/lib/ui/statusLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { roleLabel } from "@/lib/ui/roleLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { HelpLink, Notice, NoticeSection } from "@/components/ui/Notice";
 
 export const instant = false;
 
@@ -99,6 +100,7 @@ export default async function UsersPage(props: {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <HelpLink>Comprendre les rôles</HelpLink>
             <a
               href="/app/users/export?format=csv"
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
@@ -146,6 +148,39 @@ export default async function UsersPage(props: {
           />
         </form>
       </div>
+
+      <Notice title="Notice — rôles et permissions dans l'établissement">
+        <NoticeSection title="Principe">
+          Chaque utilisateur reçoit un <strong>rôle</strong> dans
+          l&apos;établissement (son « membership »). Le rôle détermine ce
+          qu&apos;il peut voir et faire : chaque page et chaque action exige une
+          permission précise. Un utilisateur ne voit jamais les données
+          d&apos;un autre établissement, et les comptes réservés à la plateforme
+          ECOM-TOUCH n&apos;apparaissent pas ici.
+        </NoticeSection>
+        <NoticeSection title="Rôles système">
+          <strong>Administrateur</strong> : toutes les permissions de
+          l&apos;établissement. <strong>Enseignant</strong> : consultation de la
+          structure scolaire, appels et saisie des notes dans son périmètre
+          d&apos;affectation. <strong>Responsable financier</strong> :
+          configuration et gestion complète des finances.
+          <strong> Caissier</strong> : encaissements et reçus uniquement.
+          <strong> Parent</strong> et <strong>Élève</strong> : accès à leur
+          portail de consultation et aux annonces qui leur sont destinées.
+        </NoticeSection>
+        <NoticeSection title="Rôles personnalisés">
+          L&apos;établissement peut créer ses propres rôles en combinant les
+          permissions disponibles. Ils n&apos;apparaissent que dans cet
+          établissement et peuvent être attribués comme les rôles système.
+        </NoticeSection>
+        <NoticeSection title="Statuts et accès">
+          Un membership <strong>inactif</strong> retire immédiatement
+          l&apos;accès à l&apos;établissement, sans supprimer le compte. La
+          suppression d&apos;un utilisateur est définitive lorsqu&apos;il
+          n&apos;appartient à aucun autre établissement — les confirmations le
+          rappellent avant validation.
+        </NoticeSection>
+      </Notice>
 
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
         <div className="overflow-x-auto">

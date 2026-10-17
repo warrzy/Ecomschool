@@ -6,6 +6,7 @@ import {
 import { updateWhatsappAction } from "./actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { HelpLink, Notice, NoticeSection } from "@/components/ui/Notice";
 
 export const instant = false;
 
@@ -28,6 +29,9 @@ export default async function PlatformProfilePage(props: {
           {profile.firstName} {profile.lastName}
         </h1>
         <p className="mt-1 text-sm text-zinc-600">{profile.email}</p>
+        <div className="mt-3">
+          <HelpLink>Notifications commerciales</HelpLink>
+        </div>
         {sp.error ? (
           <p className="mt-2 text-sm text-red-600">
             {typeof sp.error === "string" ? errorMessage(sp.error) : null}
@@ -93,6 +97,40 @@ export default async function PlatformProfilePage(props: {
           </p>
         )}
       </div>
+
+      <Notice title="Notice — notifications commerciales (demandes d'inscription)">
+        <NoticeSection title="Déclencheur">
+          Chaque fois qu&apos;un établissement soumet une demande
+          d&apos;inscription (page publique « Inscription »), une notification
+          est créée pour <strong>tous les commerciaux actifs</strong> de la
+          plateforme — il n&apos;y a pas d&apos;attribution exclusive. Le
+          message contient le nom de l&apos;établissement, sa ville/son pays et
+          l&apos;offre demandée, avec un lien vers la fiche de la demande ; les
+          coordonnées du demandeur ne sont pas transmises.
+        </NoticeSection>
+        <NoticeSection title="Deux canaux">
+          <strong>Notification interne</strong> : systématique pour chaque
+          commercial actif — visible dans les notifications de la plateforme.
+          <strong>WhatsApp</strong> : en plus, une livraison est préparée pour
+          chaque commercial ayant renseigné un numéro valide ci-dessus et
+          activé le consentement. Le consentement est révocable à tout moment.
+        </NoticeSection>
+        <NoticeSection title="Traitement asynchrone et traçabilité">
+          Les envois passent par la file de jobs (reprise automatique en cas
+          d&apos;erreur, sans doublon : une seule livraison par couple
+          demande/commercial). Chaque livraison est tracée avec son statut
+          (en file, envoyée, bloquée par opt-out, échouée) — consultable dans
+          Supervision.
+        </NoticeSection>
+        <NoticeSection title="Simulation et activation future">
+          Le canal WhatsApp fonctionne via l&apos;API officielle Meta Business
+          Platform. Tant que le mode simulation est actif, aucune requête
+          n&apos;est envoyée à Meta : les livraisons sont marquées DRYRUN.
+          L&apos;activation réelle nécessitera un numéro WhatsApp Business
+          vérifié, un template de message approuvé et la configuration des
+          identifiants techniques par l&apos;équipe plateforme.
+        </NoticeSection>
+      </Notice>
     </div>
   );
 }
