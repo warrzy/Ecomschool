@@ -2,6 +2,11 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword, passwordPolicyError } from "@/lib/auth/password";
 import { logAudit } from "@/lib/services/audit";
+import {
+  checkLimit,
+  isModuleEnabled,
+  subscriptionMatrixV2Enabled,
+} from "@/lib/services/platform/modules";
 
 export type PortalAccountsError =
   | "NOT_FOUND"
@@ -10,6 +15,8 @@ export type PortalAccountsError =
   | "EMAIL_TAKEN"
   | "ALREADY_LINKED"
   | "INVALID_TOKEN"
+  | "MODULE_DISABLED"
+  | "LIMIT_USERS"
   | "CREATE_FAILED";
 
 export type PortalAccountsResult<T = undefined> =
@@ -19,6 +26,24 @@ export type PortalAccountsResult<T = undefined> =
 type SchoolCtx = { userId: string; schoolId: string };
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours
+
+/**
+ * Garde pré-invitation (matrice V2) : le module portail cible doit être
+ * couvert par l'abonnement et le quota utilisateurs doit rester disponible.
+ * Inerte tant que SUBSCRIPTION_MATRIX_V2 n'est pas activé.
+ */
+async function checkInviteAllowed(
+  ctx: SchoolCtx,
+  portalModule: "PARENT_PORTAL" | "STUDENT_PORTAL",
+): Promise<PortalAccountsResult> {
+  if (!subscriptionMatrixV2Enabled()) return { ok: true, result: undefined };
+  if (!(await isModuleEnabled(ctx.schoolId, portalModule))) {
+    return { ok: false, error: "MODULE_DISABLED" };
+  }
+  const limit = await checkLimit(ctx.schoolId, "users");
+  if (!limit.ok) return { ok: false, error: "LIMIT_USERS" };
+  return { ok: true, result: undefined };
+}
 
 async function createInvitedUser(
   ctx: SchoolCtx,
@@ -86,6 +111,9 @@ export async function inviteStudentAccount(
   const email = (input.email ?? student.email ?? "").trim();
   if (!email) return { ok: false, error: "INVALID_INPUT" };
 
+  const gate = await checkInviteAllowed(ctx, "STUDENT_PORTAL");
+  if (!gate.ok) return gate;
+
   const res = await createInvitedUser(ctx, {
     email,
     firstName: student.firstName,
@@ -124,6 +152,9 @@ export async function inviteGuardianAccount(
 
   const email = (input.email ?? guardian.email ?? "").trim();
   if (!email) return { ok: false, error: "INVALID_INPUT" };
+
+  const gate = await checkInviteAllowed(ctx, "PARENT_PORTAL");
+  if (!gate.ok) return gate;
 
   const res = await createInvitedUser(ctx, {
     email,

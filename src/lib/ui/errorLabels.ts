@@ -55,6 +55,7 @@ const ERROR_LABELS: Record<string, string> = {
   LIMIT_STUDENTS: "Le nombre maximal d'élèves de votre abonnement est atteint.",
   LIMIT_USERS: "Le nombre maximal d'utilisateurs de votre abonnement est atteint.",
   PLAN_NOT_FOUND: "Offre introuvable.",
+  MODULE_DISABLED: "Cette fonctionnalité n'est pas incluse dans votre abonnement.",
 
   // Messagerie / notifications
   PROVIDER_NOT_CONFIGURED: "Le canal d'envoi n'est pas configuré pour cet établissement.",
