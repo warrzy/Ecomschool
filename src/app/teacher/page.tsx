@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { teacherIdForUser } from "@/lib/services/attendance";
 import { weekStart, minutesToLabel } from "@/lib/services/schedules";
 import { statusLabel } from "@/lib/ui/statusLabels";
+import { DashCard, KpiCard } from "@/components/ui/dash";
 
 export const instant = false;
 
@@ -168,20 +169,41 @@ export default async function TeacherDashboardPage() {
 
   const classes = new Map(schedules.map((s) => [s.classroom.id, s.classroom.name]));
 
+  const K = {
+    clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M12 6v6l4 2",
+    calendar: "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z",
+    grid: "M3 3h7v7H3z M14 3h7v7h-7z M14 14h7v7h-7z M3 14h7v7H3z",
+    check: "M22 11.1V12a10 10 0 1 1-5.9-9.1 M22 4 12 14l-3-3",
+    pen: "M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z",
+    book: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z",
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <div className="text-sm text-zinc-500">Espace enseignant</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+    <div className="space-y-5">
+      <div className="rounded-2xl bg-brand-950 p-6 text-white shadow-soft">
+        <div className="text-xs font-semibold uppercase tracking-widest text-brand-300">
+          Espace enseignant
+        </div>
+        <h1 className="font-display mt-1 text-2xl font-bold tracking-tight">
           {teacher ? `${teacher.lastName} ${teacher.firstName}` : ""}
         </h1>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Cours aujourd'hui" value={sessionsToday.length} icon={K.clock} tone="brand" />
+        <KpiCard label="Cours cette semaine" value={sessionsWeek.length} icon={K.calendar} tone="leaf" />
+        <KpiCard label="Classes attribuées" value={classes.size} icon={K.grid} tone="sun" />
+        <KpiCard
+          label="Appels à effectuer"
+          value={toCall.length}
+          hint={toCall.length > 0 ? "action requise" : "à jour"}
+          icon={K.check}
+          tone={toCall.length > 0 ? "coral" : "mist"}
+        />
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Cours du jour ({sessionsToday.length})
-          </div>
+        <DashCard title={`Cours du jour (${sessionsToday.length})`}>
           {sessionsToday.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Aucune séance aujourd&#8217;hui.</p>
           ) : (
@@ -211,12 +233,9 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Cours de la semaine ({sessionsWeek.length})
-          </div>
+        <DashCard title={`Cours de la semaine (${sessionsWeek.length})`}>
           {sessionsWeek.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">
               Aucune séance matérialisée cette semaine.
@@ -239,12 +258,9 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Classes attribuées ({classes.size})
-          </div>
+        <DashCard title={`Classes attribuées (${classes.size})`}>
           <div className="mt-3 flex flex-wrap gap-2">
             {[...classes.entries()].map(([cid, name]) => (
               <Link
@@ -261,12 +277,9 @@ export default async function TeacherDashboardPage() {
               </span>
             ) : null}
           </div>
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Prochaines séances
-          </div>
+        <DashCard title="Prochaines séances">
           {upcoming.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Aucune séance à venir.</p>
           ) : (
@@ -288,12 +301,9 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Appels à effectuer ({toCall.length})
-          </div>
+        <DashCard title={`Appels à effectuer (${toCall.length})`}>
           {toCall.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Aucun appel en attente.</p>
           ) : (
@@ -316,12 +326,9 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Évaluations ({myAssessments.length})
-          </div>
+        <DashCard title={`Évaluations (${myAssessments.length})`}>
           {myAssessments.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Aucune évaluation en cours.</p>
           ) : (
@@ -348,12 +355,9 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-medium text-zinc-900">
-            Cahier de textes à compléter ({toWrite.length})
-          </div>
+        <DashCard title={`Cahier de textes à compléter (${toWrite.length})`}>
           {toWrite.length === 0 ? (
             <p className="mt-2 text-sm text-zinc-600">Tout est renseigné.</p>
           ) : (
@@ -376,7 +380,7 @@ export default async function TeacherDashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </DashCard>
       </div>
     </div>
   );

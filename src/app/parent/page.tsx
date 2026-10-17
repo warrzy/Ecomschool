@@ -51,8 +51,8 @@ function min2h(min: number) {
 
 function Card({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      {title ? <div className="mb-2 text-sm font-semibold text-zinc-900">{title}</div> : null}
+    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-soft">
+      {title ? <div className="mb-2 font-display text-sm font-bold text-ink">{title}</div> : null}
       {children}
     </div>
   );
@@ -92,7 +92,7 @@ export default async function ParentPage(props: {
             href={`/parent?child=${c.student.id}&tab=${tab}`}
             className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
               c.student.id === childId
-                ? "border-zinc-900 bg-zinc-900 text-white"
+                ? "border-brand-600 bg-brand-600 text-white"
                 : "border-zinc-300 bg-white text-zinc-700"
             }`}
           >
@@ -113,7 +113,7 @@ export default async function ParentPage(props: {
                 key={key}
                 href={`/parent?child=${childId}&tab=${key}`}
                 className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
-                  tab === key ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
+                  tab === key ? "bg-brand-600 text-white" : "text-zinc-600 hover:bg-mist"
                 }`}
               >
                 {label}

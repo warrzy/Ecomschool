@@ -1,10 +1,62 @@
 import { prisma } from "@/lib/db/prisma";
 
+const MONTHS_FR = [
+  "janv.", "févr.", "mars", "avr.", "mai", "juin",
+  "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+];
+
+/**
+ * Série mensuelle sur les N derniers mois (labels FR courts).
+ * `rows` : { date, value? } — value = 1 par défaut (comptage) ou montant.
+ */
+export function monthlySeries(
+  rows: { date: Date; value?: number }[],
+  months = 6,
+  range?: { from: Date; to: Date },
+): { label: string; value: number }[] {
+  const now = new Date();
+  const buckets: { key: string; label: string; value: number }[] = [];
+  if (range) {
+    const d = new Date(
+      Date.UTC(range.from.getUTCFullYear(), range.from.getUTCMonth(), 1),
+    );
+    const end = new Date(
+      Date.UTC(range.to.getUTCFullYear(), range.to.getUTCMonth(), 1),
+    );
+    while (d <= end && buckets.length < 14) {
+      buckets.push({
+        key: `${d.getUTCFullYear()}-${d.getUTCMonth()}`,
+        label: MONTHS_FR[d.getUTCMonth()],
+        value: 0,
+      });
+      d.setUTCMonth(d.getUTCMonth() + 1);
+    }
+  } else {
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+      buckets.push({
+        key: `${d.getUTCFullYear()}-${d.getUTCMonth()}`,
+        label: MONTHS_FR[d.getUTCMonth()],
+        value: 0,
+      });
+    }
+  }
+  const index = new Map(buckets.map((b, i) => [b.key, i]));
+  for (const row of rows) {
+    const i = index.get(`${row.date.getUTCFullYear()}-${row.date.getUTCMonth()}`);
+    if (i !== undefined) buckets[i].value += row.value ?? 1;
+  }
+  return buckets.map(({ label, value }) => ({ label, value }));
+}
+
 /** Indicateurs commerciaux réels de la plateforme. */
 export async function platformDashboard() {
   const now = new Date();
   const in30d = new Date(now.getTime() + 30 * 86400000);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const sixMonthsAgo = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1),
+  );
 
   const [
     totalSchools,
@@ -17,6 +69,10 @@ export async function platformDashboard() {
     activeSubs,
     renewals,
     pendingRequests,
+    pendingSignupRequests,
+    schoolsDates,
+    paymentsDates,
+    requestsDates,
   ] = await Promise.all([
     prisma.school.count(),
     prisma.school.count({ where: { status: "ACTIVE" } }),
@@ -58,6 +114,21 @@ export async function platformDashboard() {
       take: 20,
     }),
     prisma.subscriptionChangeRequest.count({ where: { status: "PENDING" } }),
+    prisma.schoolSignupRequest.count({
+      where: { status: { in: ["PENDING", "CONTACTED"] } },
+    }),
+    prisma.school.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    }),
+    prisma.platformPayment.findMany({
+      where: { status: "VALIDATED", paidAt: { gte: sixMonthsAgo } },
+      select: { paidAt: true, amount: true },
+    }),
+    prisma.schoolSignupRequest.findMany({
+      where: { createdAt: { gte: sixMonthsAgo } },
+      select: { createdAt: true },
+    }),
   ]);
 
   const unpaid = unpaidInvoices.reduce((s, i) => {
@@ -107,5 +178,16 @@ export async function platformDashboard() {
     mrr,
     renewals,
     pendingRequests,
+    pendingSignupRequests,
+    // Séries mensuelles (6 derniers mois) — données réelles.
+    schoolsByMonth: monthlySeries(
+      schoolsDates.map((s) => ({ date: s.createdAt })),
+    ),
+    collectedByMonth: monthlySeries(
+      paymentsDates.map((p) => ({ date: p.paidAt, value: p.amount })),
+    ),
+    requestsByMonth: monthlySeries(
+      requestsDates.map((r) => ({ date: r.createdAt })),
+    ),
   };
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { monthlySeries } from "@/lib/services/platform/dashboard";
 
 type SchoolCtx = { schoolId: string };
 
@@ -93,6 +94,24 @@ export async function getSchoolDashboard(ctx: SchoolCtx) {
     }),
   ]);
 
+  // Série mensuelle des inscriptions de l'année courante (données réelles).
+  const enrollmentDates = currentYear
+    ? await prisma.enrollment.findMany({
+        where: {
+          schoolId: ctx.schoolId,
+          academicYearId: currentYear.id,
+        },
+        select: { enrolledAt: true },
+      })
+    : [];
+  const enrollmentsByMonth = currentYear
+    ? monthlySeries(
+        enrollmentDates.map((e) => ({ date: e.enrolledAt })),
+        8,
+        { from: currentYear.startDate, to: currentYear.endDate },
+      )
+    : [];
+
   let byLevel: { level: string; count: number }[] = [];
   if (byLevelRaw.length > 0) {
     const classrooms = await prisma.classroom.findMany({
@@ -127,6 +146,7 @@ export async function getSchoolDashboard(ctx: SchoolCtx) {
     bySex: { male: bySexMale, female: bySexFemale },
     byLevel,
     latestEnrollments,
+    enrollmentsByMonth,
   };
 }
 

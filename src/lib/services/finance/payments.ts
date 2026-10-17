@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { monthlySeries } from "@/lib/services/platform/dashboard";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
@@ -666,7 +667,10 @@ export async function financeDashboard(
   const today = new Date();
   const { start: dayStart, end: dayEnd } = dayBounds(today);
   const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-  const [todaySum, monthSum, lateInstallments] = await Promise.all([
+  const sixMonthsAgo = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 5, 1),
+  );
+  const [todaySum, monthSum, lateInstallments, paidDates] = await Promise.all([
     prisma.payment.aggregate({
       where: {
         schoolId: ctx.schoolId,
@@ -700,6 +704,15 @@ export async function financeDashboard(
         },
       },
     }),
+    prisma.payment.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: year.id,
+        status: "VALIDATED",
+        paidAt: { gte: sixMonthsAgo },
+      },
+      select: { paidAt: true, amount: true },
+    }),
   ]);
   const lateAmount = lateInstallments.reduce(
     (s, i) => s + Math.max(0, i.amount - i.allocations.reduce((x, a) => x + a.amount, 0)),
@@ -732,5 +745,8 @@ export async function financeDashboard(
       method: p.method,
       amount: p._sum.amount ?? 0,
     })),
+    paidByMonth: monthlySeries(
+      paidDates.map((p) => ({ date: p.paidAt, value: p.amount })),
+    ),
   };
 }
