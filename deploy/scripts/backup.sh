@@ -16,6 +16,12 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# Configuration depuis shared/.env (RESTIC_*, BACKUP_REMOTE, RETENTION_DAYS,
+# BACKUP_LOCAL_ONLY…) — la crontab ne source pas l'environnement applicatif.
+set -a
+[ -f "$APP_SHARED/.env" ] && . "$APP_SHARED/.env" || true
+set +a
+
 RETENTION_DAYS=${RETENTION_DAYS:-14}
 # Rétention distante restic (générations conservées).
 RESTIC_KEEP_DAILY=${RESTIC_KEEP_DAILY:-14}
@@ -111,7 +117,11 @@ elif [ "$REMOTE_MODE" = rsync ]; then
     log_line "backup FAIL-REMOTE: rsync a échoué (voir backup.log)"
   fi
 else
-  log_line "backup WARN: aucune destination distante configurée (copie locale seule)"
+  if [ "${BACKUP_LOCAL_ONLY:-0}" = 1 ]; then
+    log_line "backup info: copie locale seule (choix volontaire BACKUP_LOCAL_ONLY=1)"
+  else
+    log_line "backup WARN: aucune destination distante configurée (copie locale seule)"
+  fi
 fi
 
 write_status

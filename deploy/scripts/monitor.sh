@@ -19,6 +19,12 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# Configuration depuis shared/.env (ALERT_*, BACKUP_LOCAL_ONLY, providers…)
+# — la crontab ne source pas l'environnement applicatif.
+set -a
+[ -f "$APP_SHARED/.env" ] && . "$APP_SHARED/.env" || true
+set +a
+
 DRY_RUN=0
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=1
 
@@ -98,8 +104,14 @@ else
 fi
 
 # ---- 2) Copie distante ----
+# BACKUP_LOCAL_ONLY=1 : choix délibéré de sauvegardes locales uniquement —
+# l'absence de distant n'est alors pas une anomalie.
 if [ "${LAST_BACKUP_REMOTE_MODE:-none}" = none ]; then
-  alert backup_no_remote "Aucune copie distante" "Sauvegarde locale seule — configurer RESTIC_* ou BACKUP_REMOTE."
+  if [ "${BACKUP_LOCAL_ONLY:-0}" = 1 ]; then
+    resolved backup_no_remote "Aucune copie distante"
+  else
+    alert backup_no_remote "Aucune copie distante" "Sauvegarde locale seule — configurer RESTIC_* ou BACKUP_REMOTE."
+  fi
 elif [ "${LAST_BACKUP_REMOTE_OK:-0}" != 1 ]; then
   alert backup_remote "Copie distante en échec" "Mode ${LAST_BACKUP_REMOTE_MODE} KO sur le dernier dump."
 else

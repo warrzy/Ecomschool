@@ -259,6 +259,26 @@ bash $S/monitor.sh --dry-run >"$ROOT/mon4.log" 2>&1 || true
 ok "dry-run répète l'alerte (pas de stamp)" \
   "$(grep -c 'ALERTE\[dry-run\] backup_stale' "$ROOT/mon4.log")" "1"
 
+echo "=== monitor : mode local volontaire (pas d'alerte remote) ==="
+rm -f "$ROOT/log/alerts/"*.stamp
+cat > "$ROOT/log/backup-status.env" <<EOF
+LAST_BACKUP_TS="x"
+LAST_BACKUP_FILE="x.dump"
+LAST_BACKUP_OK=1
+LAST_BACKUP_REMOTE_OK=0
+LAST_BACKUP_REMOTE_MODE="none"
+LAST_BACKUP_BYTES=1
+LAST_BACKUP_AT="$(date -Is)"
+EOF
+BACKUP_LOCAL_ONLY=1 bash $S/monitor.sh --dry-run >"$ROOT/mon.log" 2>&1 || true
+grep -q "backup_no_remote" "$ROOT/mon.log" && G=0 || G=1
+ok "backup_no_remote neutralisée en local-only" "$G" "1"
+# Sans le drapeau, la même condition alerte toujours.
+rm -f "$ROOT/log/alerts/"*.stamp
+bash $S/monitor.sh --dry-run >"$ROOT/mon.log" 2>&1 || true
+grep -q "backup_no_remote" "$ROOT/mon.log" && G=1 || G=0
+ok "backup_no_remote active sans le drapeau" "$G" "1"
+
 echo "=== healthcheck : sain ==="
 bash $S/healthcheck.sh >"$ROOT/hc.log" 2>&1
 ok "healthcheck rc" "$?" "0"
