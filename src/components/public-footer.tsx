@@ -1,25 +1,21 @@
 import Link from "next/link";
+import { Logo } from "@/components/ui/brand";
 
-/** Pied de page des pages publiques. */
+/** Pied de page des pages publiques — bandeau bleu nuit de la signature. */
 export default function PublicFooter() {
   const col = "space-y-2";
-  const link = "block text-sm text-zinc-500 hover:text-zinc-900";
-  const head = "text-xs font-semibold uppercase tracking-wide text-zinc-500";
+  const link = "block text-sm text-white/60 transition hover:text-white";
+  const head =
+    "text-xs font-semibold uppercase tracking-widest text-sun-400/90";
 
   return (
-    <footer className="border-t border-zinc-200 bg-white">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
+    <footer className="bg-brand-950 text-white">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white">
-              E
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-zinc-900">
-              ECOM-SCHOOL
-            </span>
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-500">
-            La plateforme de gestion scolaire développée par ECOM-TOUCH.
+          <Logo variant="dark" />
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-white/60">
+            La plateforme de gestion scolaire développée par ECOM-TOUCH, pensée
+            pour les établissements d&apos;Afrique de l&apos;Ouest.
           </p>
         </div>
         <div className={col}>
@@ -38,12 +34,12 @@ export default function PublicFooter() {
           <a href="mailto:contact@ecomschool.fr" className={link}>
             contact@ecomschool.fr
           </a>
-          <span className="block text-sm text-zinc-500">
+          <span className="block text-sm text-white/60">
             Accompagnement et activation de votre établissement.
           </span>
         </div>
       </div>
-      <div className="border-t border-zinc-100 py-4 text-center text-xs text-zinc-500">
+      <div className="border-t border-white/10 py-5 text-center text-xs text-white/50">
         © {new Date().getFullYear()} ECOM-TOUCH — ECOM-SCHOOL. Tous droits réservés.
       </div>
     </footer>

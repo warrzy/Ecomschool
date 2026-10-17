@@ -56,3 +56,4 @@ dist/
 
 # Dumps PostgreSQL locaux (données sensibles)
 backups/
+scripts/d2/shots/

@@ -5,6 +5,8 @@ import {
   getActiveSchoolId,
   userHasPlatformRole,
 } from "@/lib/permissions/rbac";
+import { Logo } from "@/components/ui/brand";
+import { MobileNav } from "@/components/ui/MobileNav";
 
 /** Portail par rôle école ; les autres rôles (admin, finance, caisse) → /app. */
 const ROLE_PORTAL: Record<string, string> = {
@@ -12,6 +14,14 @@ const ROLE_PORTAL: Record<string, string> = {
   PARENT: "/parent",
   STUDENT: "/student",
 };
+
+const NAV_LINKS = [
+  { label: "Accueil", href: "/" },
+  { label: "Fonctionnalités", href: "/#fonctionnalites" },
+  { label: "Tarifs", href: "/tarifs" },
+  { label: "Ressources", href: "/#faq" },
+  { label: "À propos", href: "/#a-propos" },
+];
 
 /**
  * En-tête des pages publiques (/, /tarifs, /inscription).
@@ -37,46 +47,66 @@ export default async function PublicHeader() {
     }
   }
 
+  const mobileSections = [
+    {
+      items: [
+        ...NAV_LINKS,
+        homeHref
+          ? { label: "Mon espace", href: homeHref }
+          : { label: "Se connecter", href: "/login" },
+        { label: "Inscrire mon établissement", href: "/inscription" },
+      ],
+    },
+  ];
+
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex flex-wrap h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex flex-wrap items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white">
-            E
-          </span>
-          <span className="text-sm font-semibold tracking-tight text-zinc-900">
-            ECOM-SCHOOL
-          </span>
-        </Link>
-        <nav className="flex flex-wrap items-center gap-1 sm:gap-2">
-          <Link
-            href="/tarifs"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-          >
-            Tarifs
+    <header className="sticky top-0 z-40 px-3 pt-3 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 rounded-2xl border border-zinc-200/70 bg-white/85 px-4 shadow-soft backdrop-blur-md sm:px-5">
+        <div className="flex items-center gap-2">
+          <MobileNav sections={mobileSections} title="ECOM-SCHOOL" />
+          <Link href="/" aria-label="ECOM-SCHOOL — accueil">
+            <Logo />
           </Link>
-          <Link
-            href="/inscription"
-            className="hidden rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:inline-block"
-          >
-            Inscrire mon établissement
-          </Link>
+        </div>
+
+        <nav
+          className="hidden items-center gap-1 lg:flex"
+          aria-label="Navigation principale"
+        >
+          {NAV_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="link-underline rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:text-ink"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2">
           {homeHref ? (
             <Link
               href={homeHref}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:inline-block"
             >
               Mon espace
             </Link>
           ) : (
             <Link
               href="/login"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 sm:inline-block"
             >
               Se connecter
             </Link>
           )}
-        </nav>
+          <Link
+            href="/inscription"
+            className="btn-shine inline-flex items-center whitespace-nowrap rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-brand-600"
+          >
+            Inscrire mon établissement
+          </Link>
+        </div>
       </div>
     </header>
   );

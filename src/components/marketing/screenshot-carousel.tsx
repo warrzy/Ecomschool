@@ -59,7 +59,7 @@ export default function ScreenshotCarousel({ slides }: { slides: Slide[] }) {
               onClick={() => go(i)}
               aria-label={`Capture ${i + 1}`}
               className={`h-2 rounded-full transition-all duration-300 ${
-                i === index ? "w-6 bg-zinc-900" : "w-2 bg-zinc-300 hover:bg-zinc-400"
+                i === index ? "w-6 bg-brand-500" : "w-2 bg-zinc-300 hover:bg-brand-300"
               }`}
             />
           ))}

@@ -10,7 +10,7 @@ export type SignupPlanOption = {
 };
 
 const input =
-  "h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400";
+  "h-11 w-full rounded-xl border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200";
 const label = "text-sm font-medium text-zinc-800";
 
 export default function SignupForm(props: {
@@ -56,14 +56,14 @@ export default function SignupForm(props: {
 
   if (done) {
     return (
-      <div role="status" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-xl text-white">
+      <div role="status" className="rounded-3xl border border-leaf-200 bg-mint p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-leaf-500 text-xl text-white">
           ✓
         </div>
-        <h2 className="mt-4 text-lg font-semibold text-emerald-900">
+        <h2 className="mt-4 font-display text-lg font-semibold text-leaf-600">
           Demande envoyée
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-emerald-800">
+        <p className="mx-auto mt-2 max-w-md text-sm text-zinc-700">
           Votre demande d&apos;inscription a bien été enregistrée. L&apos;équipe
           ECOM-TOUCH vous contactera pour confirmer les conditions commerciales
           et activer votre établissement.
@@ -155,7 +155,7 @@ export default function SignupForm(props: {
             id="note"
             name="note"
             rows={3}
-            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             placeholder="Effectifs, besoins particuliers, calendrier souhaité…"
           />
         </div>
@@ -182,7 +182,7 @@ export default function SignupForm(props: {
       <button
         type="submit"
         disabled={loading}
-        className="h-12 w-full rounded-xl bg-zinc-900 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+        className="btn-shine h-12 w-full rounded-xl bg-brand-500 text-sm font-semibold text-white shadow-lift transition hover:bg-brand-600 disabled:opacity-60"
       >
         {loading ? "Envoi en cours…" : "Envoyer ma demande"}
       </button>

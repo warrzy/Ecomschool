@@ -29,11 +29,11 @@ export default async function InscriptionPage(props: {
     : undefined;
 
   return (
-    <div className="min-h-full bg-zinc-50">
+    <div className="min-h-full bg-mist/40">
       <PublicHeader />
       <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-900">
+          <h1 className="font-display text-3xl font-bold tracking-tight text-ink">
             Inscrire mon établissement
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-zinc-600">

@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  */
 export default function Reveal(props: {
   children: ReactNode;
-  from?: "left" | "right" | "up";
+  from?: "left" | "right" | "up" | "scale";
   delay?: number;
   className?: string;
 }) {
