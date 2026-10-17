@@ -12,5 +12,9 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 */10 * * * * deploy flock -n /tmp/ecomschool-cron.lock curl -fsS -o /dev/null -m 300 -H "Authorization: Bearer __CRON_SECRET__" http://127.0.0.1:3001/api/cron || echo "$(date -Is) ecomschool cron failed" >> /var/log/ecomschool/cron-errors.log
 
-# Sauvegarde quotidienne à 02:30 (rotation 14 jours).
+# Sauvegarde quotidienne à 02:30 (rotation 14 jours + copie distante si configurée).
 30 2 * * * deploy bash /var/www/ecomschool-preprod/current/deploy/scripts/backup.sh >> /var/log/ecomschool/backup.log 2>&1
+
+# Supervision toutes les 15 min : sauvegardes, cron, jobs DEAD, dispo, disque.
+# Alertes dédupliquées vers ALERT_WEBHOOK_URL (ou e-mail provider).
+*/15 * * * * deploy bash /var/www/ecomschool-preprod/current/deploy/scripts/monitor.sh >> /var/log/ecomschool/monitor.log 2>&1

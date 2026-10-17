@@ -27,16 +27,34 @@ code=$(curl -sk -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/auth/cs
   || { echo "FAIL /api/auth/csrf → $code"; fail=1; }
 
 echo "== Nginx =="
-nginx -t >/dev/null 2>&1 && echo "OK   nginx -t" \
-  || { echo "FAIL nginx -t"; fail=1; }
+# nginx -t exige des droits de lecture des vhosts/logs — inaccessibles à
+# deploy. On vérifie le service (systemctl, sans sudo) puis la syntaxe si
+# un sudo non-interactif est disponible.
+if systemctl is-active --quiet nginx 2>/dev/null; then
+  echo "OK   nginx actif (systemctl)"
+  if sudo -n nginx -t >/dev/null 2>&1; then
+    echo "OK   nginx -t"
+  else
+    echo "WARN nginx -t non vérifiable sans sudo (service actif néanmoins)"
+  fi
+elif pgrep -x nginx >/dev/null 2>&1; then
+  echo "OK   processus nginx présent"
+else
+  echo "FAIL nginx inactif"; fail=1
+fi
 # Après Certbot : HTTPS attendu. HTTP → 301 accepté (redirection vers HTTPS).
 code=$(curl -sk -L -o /dev/null -w '%{http_code}' \
   https://preprod.ecomschool.fr/api/auth/csrf)
 echo "HTTPS preprod.ecomschool.fr → $code (200 attendu)"
 
 echo "== Cron =="
-grep -rqs 'ecomschool\|api/cron' /etc/cron.d/ /var/spool/cron/crontabs/ 2>/dev/null \
-  && echo "OK   entrée cron trouvée" \
-  || echo "WARN aucune entrée cron /api/cron trouvée"
+# La tâche est dans la crontab de l'utilisateur deploy (pas /etc/cron.d).
+if crontab -l 2>/dev/null | grep -q 'api/cron'; then
+  echo "OK   entrée cron /api/cron dans la crontab de $(id -un)"
+elif grep -rqs 'api/cron' /etc/cron.d/ 2>/dev/null; then
+  echo "OK   entrée cron /api/cron dans /etc/cron.d"
+else
+  echo "WARN aucune entrée cron /api/cron trouvée"
+fi
 
 [ "$fail" -eq 0 ] && echo -e "\nSanté OK" || { echo -e "\nÉchecs détectés"; exit 1; }

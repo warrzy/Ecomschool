@@ -128,9 +128,9 @@ async function main() {
       check("gen1 existing=0", g1.result.existing === 0, `got ${g1.result.existing}`);
       check("gen1 skipped=0", g1.result.skipped === 0);
     }
-    let charges = await countCharges();
+    const charges = await countCharges();
     check("2 créances en base", charges.length === 2, `${charges.length}`);
-    let inst = await countInstallments();
+    const inst = await countInstallments();
     check(
       "échéances créées (3 + 1)",
       inst.length === 2 && inst.reduce((a, b) => a + b._count, 0) === 4,

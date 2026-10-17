@@ -149,7 +149,10 @@ bash /var/www/ecomschool-preprod/current/deploy/scripts/healthcheck.sh
 | Santé | `bash current/deploy/scripts/healthcheck.sh` |
 | Rollback applicatif | `bash current/deploy/scripts/rollback.sh [release]` |
 | Restauration base | `bash current/deploy/scripts/restore.sh <dump>` |
+| Exercice de restauration | `bash current/deploy/scripts/restore-verify.sh <dump>` (base témoin, sans risque) |
 | Sauvegarde manuelle | `bash current/deploy/scripts/backup.sh` |
+| Supervision | `bash current/deploy/scripts/monitor.sh [--dry-run]` |
+| Tests scripts | `bash deploy/tests/run.sh` (stubs, sans VPS ni base) |
 | Logs | `pm2 logs ecomschool-preprod`, `/var/log/ecomschool/` |
 
 ## Retour arrière — règles
