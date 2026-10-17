@@ -112,6 +112,11 @@ export const whatsappProvider: ChannelProvider = {
     const token = process.env.WHATSAPP_TOKEN;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     if (!token || !phoneId) return { ok: false, error: "PROVIDER_NOT_CONFIGURED" };
+    // Mode test explicitement contrôlé : aucune requête sortante vers Meta,
+    // la livraison est tracée avec providerRef "DRYRUN".
+    if (process.env.WHATSAPP_DRY_RUN === "1") {
+      return { ok: true, providerRef: "DRYRUN" };
+    }
     if (!input.templateName) {
       return { ok: false, error: "TEMPLATE_REQUIRED" };
     }

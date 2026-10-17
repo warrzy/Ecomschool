@@ -21,4 +21,5 @@ export const platformNav: NavItem[] = [
   { label: "Automatisations", href: "/platform/automations", permission: "platform.monitoring.read" },
   { label: "Audit", href: "/platform/audit", permission: "platform.audit.read" },
   { label: "Assistance", href: "/platform/support", permission: "platform.support.access" },
+  { label: "Profil", href: "/platform/profile" },
 ];

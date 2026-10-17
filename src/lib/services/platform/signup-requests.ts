@@ -97,6 +97,18 @@ export async function createSignupRequest(input: {
       },
       select: { id: true },
     });
+    // Alerte commerciaux en file de jobs — dédupliquée par demande et jamais
+    // bloquante : la demande reste enregistrée même si l'enqueue échoue.
+    try {
+      const { enqueueJob } = await import("@/lib/services/comm/queue");
+      await enqueueJob({
+        type: "sales.signup_notify",
+        payload: { requestId: created.id },
+        dedupKey: `signup-notify:${created.id}`,
+      });
+    } catch {
+      // Notification différée : un échec ici ne compromet pas la demande.
+    }
     return { ok: true, result: created };
   } catch {
     return { ok: false, error: "CREATE_FAILED" };

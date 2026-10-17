@@ -60,9 +60,13 @@ async function resolveAddress(d: {
   if (d.userId) {
     const u = await prisma.user.findUnique({
       where: { id: d.userId },
-      select: { email: true },
+      select: { email: true, whatsappNumber: true },
     });
-    return d.channel === "EMAIL" ? u?.email ?? null : null;
+    if (d.channel === "EMAIL") return u?.email ?? null;
+    if (d.channel === "SMS" || d.channel === "WHATSAPP") {
+      return u?.whatsappNumber ?? null;
+    }
+    return null;
   }
   if (d.guardianId) {
     const g = await prisma.guardian.findUnique({
@@ -116,6 +120,18 @@ export async function processDelivery(deliveryId: string, content: {
   if (d.userId && !(await canContactUser(d.userId, d.channel, topic))) {
     await updateDelivery(d.id, { status: "BLOCKED", lastError: "OPT_OUT" });
     return;
+  }
+  // WhatsApp vers un utilisateur : consentement explicite revérifié à
+  // l'envoi — un opt-out entre la mise en file et l'envoi bloque la livraison.
+  if (d.userId && d.channel === "WHATSAPP") {
+    const u = await prisma.user.findUnique({
+      where: { id: d.userId },
+      select: { whatsappOptIn: true },
+    });
+    if (!u?.whatsappOptIn) {
+      await updateDelivery(d.id, { status: "BLOCKED", lastError: "OPT_OUT" });
+      return;
+    }
   }
   if (d.guardianId && !d.userId) {
     const ok = await canContactGuardian(d.guardianId, d.channel, topic);

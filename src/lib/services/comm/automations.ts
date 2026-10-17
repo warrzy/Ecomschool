@@ -359,6 +359,77 @@ export function registerCommHandlers() {
     });
     if (deliveryId) await processDelivery(deliveryId, { subject: tpl?.subject, body });
   });
+  // Alerte commerciaux : nouvelle demande d'inscription. Tous les
+  // PLATFORM_SALES actifs sont notifiés en interne ; la livraison WhatsApp
+  // n'est préparée que pour ceux qui ont déclaré un numéro valide et donné
+  // leur consentement. Le contenu évite les coordonnées du demandeur.
+  registerJobHandler("sales.signup_notify", async (payload) => {
+    const requestId = String(payload.requestId ?? "");
+    if (!requestId) return;
+    const req = await prisma.schoolSignupRequest.findUnique({
+      where: { id: requestId },
+      select: {
+        schoolName: true,
+        city: true,
+        country: true,
+        requestedPlan: { select: { name: true } },
+      },
+    });
+    if (!req) return;
+    const sales = await prisma.userRole.findMany({
+      where: {
+        role: { name: "PLATFORM_SALES", scope: "PLATFORM" },
+        user: { status: "ACTIVE" },
+      },
+      select: {
+        user: {
+          select: { id: true, whatsappNumber: true, whatsappOptIn: true },
+        },
+      },
+    });
+    const users = [...new Map(sales.map((s) => [s.user.id, s.user])).values()];
+    if (users.length === 0) return;
+
+    const link = `/platform/signup-requests?demande=${requestId}`;
+    const location = [req.city, req.country].filter(Boolean).join(", ");
+    const title = "Nouvelle demande d'inscription";
+    const body = `${req.schoolName}${location ? ` — ${location}` : ""}${
+      req.requestedPlan ? ` · offre ${req.requestedPlan.name}` : ""
+    }`;
+
+    // Notification interne : dédupliquée par demande (lien unique par requête).
+    const already = await prisma.notification.findMany({
+      where: { userId: { in: users.map((u) => u.id) }, link },
+      select: { userId: true },
+    });
+    const alreadySet = new Set(already.map((n) => n.userId));
+    await notifyUsers({
+      schoolId: null,
+      userIds: users.map((u) => u.id).filter((id) => !alreadySet.has(id)),
+      type: "ADMIN_MESSAGE",
+      title,
+      body,
+      link,
+    });
+
+    // Livraisons WhatsApp : une par commercial éligible, dédupliquée par
+    // couple demande/commercial (dedupKey → aucun doublon au rejeu du job).
+    const { createDelivery } = await import("@/lib/services/comm/deliver");
+    const { e164Schema } = await import("@/lib/validations/profile");
+    for (const u of users) {
+      if (!u.whatsappOptIn || !u.whatsappNumber) continue;
+      if (!e164Schema.safeParse(u.whatsappNumber).success) continue;
+      await createDelivery({
+        channel: "WHATSAPP",
+        userId: u.id,
+        topic: "TRANSACTIONAL",
+        dedupKey: `signup-wa:${requestId}:${u.id}`,
+        subject: title,
+        body: `${title}\n${body}\nConsultez la fiche : ${link}`,
+        templateName: process.env.WHATSAPP_TEMPLATE_SIGNUP ?? undefined,
+      });
+    }
+  });
 }
 
 export async function listTaskRuns(take = 30) {

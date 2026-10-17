@@ -249,6 +249,11 @@ model User {
   failedLoginCount Int       @default(0)
   lockedUntil      DateTime?
 
+  // Alertes commerciales WhatsApp (utilisateurs plateforme uniquement) :
+  // numéro E.164 auto-déclaré + consentement explicite, désactivé par défaut.
+  whatsappNumber String?
+  whatsappOptIn  Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

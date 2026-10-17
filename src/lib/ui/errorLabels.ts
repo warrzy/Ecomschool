@@ -58,6 +58,8 @@ const ERROR_LABELS: Record<string, string> = {
 
   // Messagerie / notifications
   PROVIDER_NOT_CONFIGURED: "Le canal d'envoi n'est pas configuré pour cet établissement.",
+  INVALID_PHONE: "Numéro WhatsApp invalide — format international attendu (ex. +226XXXXXXXX).",
+  PHONE_REQUIRED: "Renseignez votre numéro WhatsApp pour activer les alertes.",
   TRANSACTIONAL_REQUIRED: "Le canal transactionnel doit être activé pour cet envoi.",
   ENQUEUE_FAILED: "L'envoi n'a pas pu être planifié. Réessayez.",
 
