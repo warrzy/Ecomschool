@@ -10,6 +10,59 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bricolage);
+
+  /* ---------- Identité ECOM-SCHOOL (lot D1) ---------- */
+
+  /* Bleu profond — couleur dominante (hero, CTA, bandeaux). */
+  --color-brand-50: #eef3ff;
+  --color-brand-100: #dce7ff;
+  --color-brand-200: #b9cdfc;
+  --color-brand-300: #87a9f7;
+  --color-brand-400: #4f7ef0;
+  --color-brand-500: #2f5fe6;
+  --color-brand-600: #2347c8;
+  --color-brand-700: #1d39a6;
+  --color-brand-800: #1b3184;
+  --color-brand-900: #182966;
+  --color-brand-950: #0e1838;
+
+  /* Jaune doré — réussite, énergie, accents. */
+  --color-sun-100: #fdf1d0;
+  --color-sun-200: #fbe2a0;
+  --color-sun-300: #f8cd60;
+  --color-sun-400: #f5b92e;
+  --color-sun-500: #eba214;
+  --color-sun-600: #cf8310;
+
+  /* Vert — progression, validation, chaleur. */
+  --color-leaf-100: #e0f5e9;
+  --color-leaf-200: #bfe9d0;
+  --color-leaf-300: #8ed6ad;
+  --color-leaf-400: #51bb82;
+  --color-leaf-500: #2da265;
+  --color-leaf-600: #1e8350;
+
+  /* Orange — accents chaleureux, points de focalisation. */
+  --color-coral-100: #ffe9da;
+  --color-coral-200: #ffd0b0;
+  --color-coral-300: #ffab75;
+  --color-coral-400: #f5833d;
+  --color-coral-500: #e5681f;
+  --color-coral-600: #c45214;
+
+  /* Surfaces pastel — cartes modules, encarts. */
+  --color-mist: #eef3ff;
+  --color-mint: #e6f6ec;
+  --color-butter: #fdf4da;
+  --color-peach: #fff0e3;
+
+  /* Encre — titres sur fond clair (dérivé du bleu nuit). */
+  --color-ink: #141d3f;
+
+  /* Ombres de la signature. */
+  --shadow-soft: 0 1px 2px rgb(20 29 63 / 0.06), 0 10px 30px -12px rgb(20 29 63 / 0.18);
+  --shadow-lift: 0 14px 44px -14px rgb(35 71 200 / 0.35);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -102,15 +155,133 @@ body {
   display: none;
 }
 
+/* ---------- Signature motion D1 — variantes réutilisables ---------- */
+
+/* Reveal : variante « échelle » pour les éléments qui émergent (cartes, photos). */
+.reveal--scale {
+  transform: scale(0.94) translateY(14px);
+}
+
+/* Trait de progression : tracé SVG qui se dessine quand un parent Reveal
+   apparaît (.is-visible) ou via .is-drawn posée directement. */
+.trail-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.is-visible .trail-path,
+.trail-path.is-drawn {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 1.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dérive lente des éléments décoratifs (étoiles, feuillage, avion). */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(6px, -8px) rotate(4deg);
+  }
+}
+.float-drift {
+  animation: drift 7s ease-in-out infinite;
+}
+.float-slow {
+  animation: float-soft 9s ease-in-out infinite;
+}
+
+/* Scintillement des « étincelles » pédagogiques. */
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+.twinkle {
+  animation: twinkle 3.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Soulignement animé des liens de navigation. */
+.link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 2px;
+  transition: background-size 0.3s ease;
+  padding-bottom: 2px;
+}
+.link-underline:hover,
+.link-underline:focus-visible,
+.link-underline.is-active {
+  background-size: 100% 2px;
+}
+
+/* Balayage lumineux au survol des CTA principaux. */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.35) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.btn-shine:hover::after,
+.btn-shine:focus-visible::after {
+  transform: translateX(120%);
+}
+
+/* Entrée cascade du hero : masque vertical ligne par ligne. */
+.line-mask {
+  display: block;
+  overflow: hidden;
+}
+.line-mask > span {
+  display: block;
+  transform: translateY(110%);
+  animation: hero-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .hero-in,
   .persona-panel,
-  .float-soft {
+  .float-soft,
+  .float-drift,
+  .float-slow,
+  .twinkle {
     animation: none;
     transition: none;
     opacity: 1;
     transform: none;
+  }
+  .trail-path {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+  .line-mask > span {
+    transform: none;
+    animation: none;
+  }
+  .link-underline,
+  .btn-shine::after {
+    transition: none;
   }
   .carousel-track {
     scroll-behavior: auto;
