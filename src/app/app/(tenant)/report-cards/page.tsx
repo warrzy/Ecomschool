@@ -83,7 +83,7 @@ export default async function ReportCardsPage(props: {
   });
 
   const inputCls =
-    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
 
   const selClassroom = classrooms.find((cl) => cl.id === classroomId);
   const selPeriod = periods.find((p) => p.id === periodId);
@@ -135,9 +135,9 @@ export default async function ReportCardsPage(props: {
           sont pas régénérés ; les versions antérieures sont conservées.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Bulletins</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Bulletins scolaires ({cards.length})
         </h1>
         {ok ? (
@@ -152,7 +152,7 @@ export default async function ReportCardsPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <select
                   aria-label="Toutes les classes" name="classroom" defaultValue={classroomId ?? ""} className={inputCls}>
@@ -175,25 +175,25 @@ export default async function ReportCardsPage(props: {
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
           <a
             href={`/app/report-cards/export?format=csv${classroomId ? `&classroom=${classroomId}` : ""}${periodId ? `&period=${periodId}` : ""}${status ? `&status=${status}` : ""}`}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
           >
             Registre CSV
           </a>
           <a
             href={`/app/report-cards/export?format=xlsx${classroomId ? `&classroom=${classroomId}` : ""}${periodId ? `&period=${periodId}` : ""}${status ? `&status=${status}` : ""}`}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
           >
             Registre Excel
           </a>
           {canGenerate && classroomId && periodId ? (
             <a
               href={`/app/report-cards?classroom=${classroomId}&period=${periodId}&confirm=generate`}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Générer tous les bulletins de la classe
             </a>
@@ -202,7 +202,7 @@ export default async function ReportCardsPage(props: {
             <a
               href={`/app/report-cards/pdf?classroom=${classroomId}&period=${periodId}${status ? `&status=${status}` : ""}`}
               target="_blank"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
             >
               PDF collectif
             </a>
@@ -210,7 +210,7 @@ export default async function ReportCardsPage(props: {
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
         <table aria-label="Bulletins scolaires" className="w-full text-left text-sm">
           <thead>
@@ -245,7 +245,7 @@ export default async function ReportCardsPage(props: {
                       <a
                         href={`/app/report-cards/pdf?id=${card.id}`}
                         target="_blank"
-                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist"
                       >
                         Aperçu / PDF
                       </a>
@@ -260,7 +260,7 @@ export default async function ReportCardsPage(props: {
                     ) : null}
                     <Link
                       href={`/app/students/${card.student.id}`}
-                      className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                      className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist"
                     >
                       Fiche élève
                     </Link>

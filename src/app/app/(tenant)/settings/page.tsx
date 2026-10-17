@@ -24,7 +24,7 @@ function Field({ label, name, value, type = "text" }: {
         type={name === "phone" ? "tel" : type}
         autoComplete={name === "phone" ? "tel" : undefined}
         defaultValue={value ?? ""}
-        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
       />
     </div>
   );
@@ -50,9 +50,9 @@ export default async function SettingsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Administration</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Paramètres de l&apos;établissement
         </h1>
         <div className="mt-1 text-sm text-zinc-600">
@@ -73,7 +73,7 @@ export default async function SettingsPage(props: {
       {canManage ? (
         <form
           action={updateSchoolSettingsAction}
-          className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+          className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft"
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Nom" name="name" value={school.name} />
@@ -128,19 +128,19 @@ export default async function SettingsPage(props: {
                 school.settings ? JSON.stringify(school.settings, null, 2) : ""
               }
               placeholder='{"periodesParDefaut":"TRIMESTER"}'
-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 font-mono text-xs outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="w-full rounded-xl border border-zinc-200 px-3 py-2 font-mono text-xs outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
 
           <button
             type="submit"
-            className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
           >
             Enregistrer
           </button>
         </form>
       ) : (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm text-zinc-600">
             Consultation seule — la permission <code>school.manage</code> est
             requise pour modifier ces paramètres.

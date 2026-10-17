@@ -264,7 +264,7 @@ async function ParentTab({
                 <a
                   href={`/parent/report-cards/${c.id}/pdf`}
                   target="_blank"
-                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-50"
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
                 >
                   PDF
                 </a>
@@ -363,7 +363,7 @@ async function ParentTab({
                     <a
                       href={`/parent/receipts/${p.id}/pdf`}
                       target="_blank"
-                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-50"
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
                     >
                       Reçu PDF
                     </a>

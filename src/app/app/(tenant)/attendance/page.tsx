@@ -94,9 +94,9 @@ export default async function AttendancePage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Pédagogie</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Présences, absences et retards
         </h1>
         {ok ? (
@@ -112,7 +112,7 @@ export default async function AttendancePage(props: {
       </div>
 
       {/* Appel journalier */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">Appel journalier</div>
         <form method="GET" className="mt-3 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
@@ -141,7 +141,7 @@ export default async function AttendancePage(props: {
           </div>
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
           >
             Charger
           </button>
@@ -237,7 +237,7 @@ export default async function AttendancePage(props: {
             </div>
             {daily.students.length > 0 ? (
               <SubmitButton
-                className="mt-4 h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="mt-4 h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Enregistrer l&#8217;appel
               </SubmitButton>
@@ -248,7 +248,7 @@ export default async function AttendancePage(props: {
 
       {/* Saisie manuelle absence/retard */}
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Enregistrer une absence / un retard
           </div>
@@ -304,7 +304,7 @@ export default async function AttendancePage(props: {
               />
             </div>
             <SubmitButton
-              className="mt-3 h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="mt-3 h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Enregistrer
             </SubmitButton>
@@ -313,7 +313,7 @@ export default async function AttendancePage(props: {
       ) : null}
 
       {/* Listes absences / retards */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-medium text-zinc-900">
             {statusFilter === "LATE" ? "Retards" : "Absences"} ({list.total})
@@ -350,7 +350,7 @@ export default async function AttendancePage(props: {
             </select>
             <button
               type="submit"
-              className="h-9 rounded-lg border border-zinc-200 px-3 text-xs hover:bg-zinc-50"
+              className="h-9 rounded-lg border border-zinc-200 px-3 text-xs hover:bg-mist"
             >
               Filtrer
             </button>
@@ -412,7 +412,7 @@ export default async function AttendancePage(props: {
                             className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"
                           />
                           <SubmitButton
-                            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50"
+                            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs hover:bg-mist"
                           >
                             Justifier
                           </SubmitButton>

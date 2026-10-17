@@ -65,7 +65,7 @@ export default async function PaymentsJournalPage(props: {
     .filter((p) => p.status === "VALIDATED" && dstr(p.paidAt) === dstr(new Date()))
     .reduce((s, p) => s + p.amount, 0);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   const exportParams = `year=${yearId ?? ""}&from=${from ?? ""}&to=${to ?? ""}&method=${method ?? ""}${includeCancelled ? "" : "&status=VALIDATED"}`;
@@ -129,20 +129,20 @@ export default async function PaymentsJournalPage(props: {
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Journal des paiements
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-display font-bold tracking-tight text-ink">
             Encaissements ({payments.length}) — aujourd&apos;hui : {fmt(totalDay)}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
-            <a href={csvHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+            <a href={csvHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
               Export CSV
             </a>
-            <a href={xlsxHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+            <a href={xlsxHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
               Export Excel
             </a>
             {canClose ? (
               <Link
                 href={`/app/fees/payments?confirm=close-cash${yearId ? `&year=${yearId}` : ""}`}
-                className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white"
+                className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white"
               >
                 Clôturer la caisse
               </Link>
@@ -176,7 +176,7 @@ export default async function PaymentsJournalPage(props: {
           <label className="flex items-center gap-1 text-sm">
             <input type="checkbox" name="cancelled" value="1" defaultChecked={includeCancelled} /> Inclure annulés
           </label>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
         </form>

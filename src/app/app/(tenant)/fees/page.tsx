@@ -52,11 +52,11 @@ export default async function FeesPage(props: {
     select: { id: true, name: true },
   });
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft";
   const kpi = (label: string, value: string) => (
     <div className={card}>
       <div className="text-xs uppercase text-zinc-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold tracking-tight text-zinc-900">{value}</div>
+      <div className="mt-1 text-lg font-display font-bold tracking-tight text-ink">{value}</div>
     </div>
   );
 
@@ -66,26 +66,26 @@ export default async function FeesPage(props: {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Finances</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Tableau de bord financier
             </h1>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
-            <Link href="/app/fees/accounts" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+            <Link href="/app/fees/accounts" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-mist">
               Comptes élèves
             </Link>
             {canReadReports ? (
               <>
-                <Link href={`/app/fees/payments?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+                <Link href={`/app/fees/payments?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-mist">
                   Journal des paiements
                 </Link>
-                <Link href={`/app/fees/unpaid?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+                <Link href={`/app/fees/unpaid?year=${yearId ?? ""}`} className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-mist">
                   Impayés
                 </Link>
               </>
             ) : null}
             {canConfigure ? (
-              <Link href="/app/fees/settings" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-zinc-50">
+              <Link href="/app/fees/settings" className="rounded-lg border border-zinc-300 px-3 py-2 hover:bg-mist">
                 Configuration
               </Link>
             ) : null}
@@ -113,7 +113,7 @@ export default async function FeesPage(props: {
               <option key={y.id} value={y.id}>{y.name}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
           {canManage && yearId ? (
@@ -128,7 +128,7 @@ export default async function FeesPage(props: {
               <button
                 type="submit"
                 form="gen-confirm"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Générer les créances
               </button>

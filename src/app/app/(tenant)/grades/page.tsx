@@ -109,7 +109,7 @@ export default async function GradesPage(props: {
   });
 
   const inputCls =
-    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
 
   const confirmAssessment = items.find((a) => a.id === confirmId);
   const CONFIRM_TEXT: Partial<Record<AssessmentStatus, { title: string; body: string }>> = {
@@ -142,9 +142,9 @@ export default async function GradesPage(props: {
           {CONFIRM_TEXT[confirmTo]!.body}
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Évaluations</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Notes et évaluations ({total})
         </h1>
         {ok ? (
@@ -166,7 +166,7 @@ export default async function GradesPage(props: {
       </div>
 
       {canCreate ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">Nouvelle évaluation</div>
           <form action={createAssessmentAction} className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <select
@@ -219,14 +219,14 @@ export default async function GradesPage(props: {
             <input aria-label="Note maximale" name="maxScore" type="number" step="0.5" min="1" defaultValue="20" placeholder="Barème" className={inputCls} />
             <input aria-label="Coefficient" name="coefficient" type="number" step="0.5" min="0.5" defaultValue="1" placeholder="Coefficient" className={inputCls} />
             <input aria-label="Description" name="description" placeholder="Description" className={inputCls} />
-            <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+            <SubmitButton className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
               Créer
             </SubmitButton>
           </form>
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="mb-4 flex flex-wrap items-end gap-3">
           <select
                   aria-label="Toutes les années" name="year" defaultValue={filters.academicYearId ?? ""} className={inputCls}>
@@ -249,7 +249,7 @@ export default async function GradesPage(props: {
               <option key={k} value={k}>{l}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
         </form>
@@ -351,14 +351,14 @@ export default async function GradesPage(props: {
                     {canEnter && ["OPEN", "SUBMITTED", "DRAFT"].includes(a.status) ? (
                       <Link
                         href={`/app/grades/${a.id}`}
-                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist"
                       >
                         Saisir les notes
                       </Link>
                     ) : (
                       <Link
                         href={`/app/grades/${a.id}`}
-                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist"
                       >
                         Voir
                       </Link>
@@ -372,7 +372,7 @@ export default async function GradesPage(props: {
                             className={`rounded-lg border px-2 py-1 text-xs ${
                               t.to === "CANCELLED"
                                 ? "border-red-200 text-red-700 hover:bg-red-50"
-                                : "border-zinc-300 hover:bg-zinc-50"
+                                : "border-zinc-300 hover:bg-mist"
                             }`}
                           >
                             {t.label}
@@ -381,7 +381,7 @@ export default async function GradesPage(props: {
                           <form key={t.to} action={setAssessmentStatusAction}>
                             <input type="hidden" name="id" value={a.id} />
                             <input type="hidden" name="status" value={t.to} />
-                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist">
                               {t.label}
                             </SubmitButton>
                           </form>

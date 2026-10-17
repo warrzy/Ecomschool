@@ -38,9 +38,9 @@ export default async function PreferencesPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Préférences de communication</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Canaux facultatifs
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
@@ -53,7 +53,7 @@ export default async function PreferencesPage(props: {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 flex gap-4 text-xs text-zinc-500">
           {status.map((s) => (
             <span key={s.channel}>
@@ -113,7 +113,7 @@ export default async function PreferencesPage(props: {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Historique des consentements
         </div>

@@ -23,9 +23,9 @@ export default async function PlatformProfilePage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Profil</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           {profile.firstName} {profile.lastName}
         </h1>
         <p className="mt-1 text-sm text-zinc-600">{profile.email}</p>
@@ -42,7 +42,7 @@ export default async function PlatformProfilePage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <h2 className="text-sm font-medium text-zinc-900">
           Alertes WhatsApp commerciales
         </h2>

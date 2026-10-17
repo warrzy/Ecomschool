@@ -16,11 +16,11 @@ export default async function ModulesPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Modules
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Catalogue des modules ({modules.length})
         </h1>
         <p className="mt-2 text-xs text-zinc-500">
@@ -29,7 +29,7 @@ export default async function ModulesPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
         <table aria-label="Catalogue des modules" className="w-full text-left text-sm">
           <thead>

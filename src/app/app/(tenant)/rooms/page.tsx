@@ -40,9 +40,9 @@ export default async function RoomsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Salles
         </h1>
         {ok ? (
@@ -57,7 +57,7 @@ export default async function RoomsPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-rooms-page-tsx-1">
@@ -67,7 +67,7 @@ export default async function RoomsPage(props: {
               name="q"
               defaultValue={q ?? ""}
               placeholder="Code, nom, bâtiment…"
-              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
           <div className="space-y-1">
@@ -83,7 +83,7 @@ export default async function RoomsPage(props: {
           </div>
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
           >
             Filtrer
           </button>
@@ -91,7 +91,7 @@ export default async function RoomsPage(props: {
       </div>
 
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Nouvelle salle
           </div>
@@ -104,7 +104,7 @@ export default async function RoomsPage(props: {
                   name="code"
                   placeholder="S01"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1 md:col-span-2">
@@ -113,7 +113,7 @@ export default async function RoomsPage(props: {
                   name="name"
                   placeholder="Salle informatique"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -124,7 +124,7 @@ export default async function RoomsPage(props: {
                   name="capacity"
                   type="number"
                   min={0}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -133,7 +133,7 @@ export default async function RoomsPage(props: {
                 </label>
                 <input id="fld-src-app-app-tenant-rooms-page-tsx-6"
                   name="building"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -142,7 +142,7 @@ export default async function RoomsPage(props: {
                 </label>
                 <input id="fld-src-app-app-tenant-rooms-page-tsx-7"
                   name="floor"
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -162,7 +162,7 @@ export default async function RoomsPage(props: {
             </div>
             <button
               type="submit"
-              className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Créer
             </button>
@@ -170,7 +170,7 @@ export default async function RoomsPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm text-zinc-600">{total} salle(s)</div>
         <div className="overflow-x-auto">
           <table aria-label="Salles" className="w-full text-sm">
@@ -215,7 +215,7 @@ export default async function RoomsPage(props: {
                         />
                         <button
                           type="submit"
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                         >
                           {r.status === "ACTIVE" ? "Désactiver" : "Réactiver"}
                         </button>

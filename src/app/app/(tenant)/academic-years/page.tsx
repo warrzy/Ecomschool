@@ -69,9 +69,9 @@ export default async function AcademicYearsPage(props: {
           n&apos;est possible depuis l&apos;interface.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Années scolaires
         </h1>
         {ok ? (
@@ -87,7 +87,7 @@ export default async function AcademicYearsPage(props: {
       </div>
 
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Nouvelle année scolaire
           </div>
@@ -100,7 +100,7 @@ export default async function AcademicYearsPage(props: {
                   name="name"
                   placeholder="2026-2027"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -109,7 +109,7 @@ export default async function AcademicYearsPage(props: {
                   name="startDate"
                   type="date"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -118,7 +118,7 @@ export default async function AcademicYearsPage(props: {
                   name="endDate"
                   type="date"
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -141,7 +141,7 @@ export default async function AcademicYearsPage(props: {
             </div>
             <button
               type="submit"
-              className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Créer
             </button>
@@ -149,7 +149,7 @@ export default async function AcademicYearsPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Années scolaires" className="w-full text-sm">
             <thead>
@@ -182,14 +182,14 @@ export default async function AcademicYearsPage(props: {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/app/academic-years/${y.id}/periods`}
-                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                       >
                         Périodes
                       </Link>
                       {canManage && !y.isCurrent && y.status !== "CLOSED" ? (
                         <Link
                           href={`/app/academic-years?confirm=current&id=${y.id}`}
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                         >
                           Définir courante
                         </Link>

@@ -24,7 +24,7 @@ export default async function PlatformLayout({
     <div className="min-h-screen bg-zinc-50">
       <a
         href="#contenu"
-        className="sr-only z-50 rounded-lg bg-zinc-900 px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:left-2 focus:top-2"
+        className="sr-only z-50 rounded-lg bg-brand-600 px-4 py-2 text-sm text-white focus:not-sr-only focus:fixed focus:left-2 focus:top-2"
       >
         Aller au contenu principal
       </a>
@@ -49,7 +49,7 @@ export default async function PlatformLayout({
             <div className="flex shrink-0 items-center gap-3">
               <form action="/api/auth/signout" method="post">
                 <input type="hidden" name="callbackUrl" value="/login" />
-                <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50">
+                <button className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist">
                   Déconnexion
                 </button>
               </form>

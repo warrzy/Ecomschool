@@ -24,7 +24,7 @@ export default async function MonitoringPage() {
     select: { createdAt: true, action: true, entity: true, schoolId: true },
   });
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
 
   return (
     <div className="space-y-4">
@@ -32,7 +32,7 @@ export default async function MonitoringPage() {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Supervision
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Supervision technique — mesures réelles
         </h1>
       </div>

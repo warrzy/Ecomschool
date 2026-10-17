@@ -84,7 +84,7 @@ export function MobileNav({
         aria-expanded={open}
         aria-controls="mobile-nav-panel"
         aria-label={open ? "Fermer le menu" : "Ouvrir le menu"}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:bg-zinc-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-300 text-zinc-700 hover:bg-mist focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
       >
         <svg
           aria-hidden="true"
@@ -118,14 +118,14 @@ export function MobileNav({
             className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-white p-4 shadow-xl"
           >
             <div className="mb-4 flex flex-wrap items-center justify-between">
-              <div className="text-lg font-semibold tracking-tight text-zinc-900">
+              <div className="text-lg font-display font-bold tracking-tight text-ink">
                 {title}
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Fermer le menu"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
               >
                 <svg
                   aria-hidden="true"
@@ -152,7 +152,7 @@ export function MobileNav({
                       <a
                         key={item.href}
                         href={item.href}
-                        className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-900"
+                        className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
                       >
                         {item.label}
                       </a>

@@ -85,17 +85,17 @@ export default async function PlatformSchoolsPage(props: {
           )}
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Référentiel</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Établissements
             </h1>
           </div>
           <Link
             href="/platform/onboarding"
-            className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
           >
             Créer un établissement
           </Link>
@@ -105,7 +105,7 @@ export default async function PlatformSchoolsPage(props: {
           <input
             aria-label="Recherche" name="q"
             defaultValue={q}
-            className="h-11 min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 min-w-0 flex-1 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             placeholder="Rechercher (nom, code, ville)"
           />
           <select
@@ -118,13 +118,13 @@ export default async function PlatformSchoolsPage(props: {
             <option value="ACTIVE">ACTIF</option>
             <option value="INACTIVE">SUSPENDU</option>
           </select>
-          <button className="h-11 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50">
+          <button className="h-11 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist">
             Filtrer
           </button>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Établissements" className="w-full text-sm">
             <thead>
@@ -157,7 +157,7 @@ export default async function PlatformSchoolsPage(props: {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/platform/schools/${s.id}`}
-                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                       >
                         Fiche
                       </Link>
@@ -196,8 +196,8 @@ export default async function PlatformSchoolsPage(props: {
                 href={pageLink(p)}
                 className={
                   p === page
-                    ? "rounded-lg bg-zinc-900 px-3 py-1 text-white"
-                    : "rounded-lg border border-zinc-200 px-3 py-1 hover:bg-zinc-50"
+                    ? "rounded-lg bg-brand-600 px-3 py-1 text-white"
+                    : "rounded-lg border border-zinc-200 px-3 py-1 hover:bg-mist"
                 }
               >
                 {p}

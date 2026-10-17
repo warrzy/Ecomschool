@@ -73,9 +73,9 @@ export default async function MessagesPage(props: {
           rappelés.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Communication</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Messagerie de l&apos;établissement
         </h1>
         <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-500">
@@ -104,7 +104,7 @@ export default async function MessagesPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Nouveau message
         </div>
@@ -184,14 +184,14 @@ export default async function MessagesPage(props: {
             <SubmitButton
               name="mode"
               value="draft"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
             >
               Enregistrer (brouillon/programmé)
             </SubmitButton>
             <SubmitButton
               name="mode"
               value="send"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Envoyer
             </SubmitButton>
@@ -199,7 +199,7 @@ export default async function MessagesPage(props: {
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 flex flex-wrap items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">Historique</div>
           <div className="flex flex-wrap gap-2 text-xs">
@@ -207,7 +207,7 @@ export default async function MessagesPage(props: {
               <a
                 key={s}
                 href={`/app/messages${s ? `?status=${s}` : ""}` as never}
-                className="rounded-full border border-zinc-300 px-2 py-1 hover:bg-zinc-50"
+                className="rounded-full border border-zinc-300 px-2 py-1 hover:bg-mist"
               >
                 {s ? STATUS_LABELS[s] : "Tous"}
               </a>
@@ -237,7 +237,7 @@ export default async function MessagesPage(props: {
                   {m.status === "DRAFT" ? (
                     <a
                       href={`/app/messages?confirm=send&id=${m.id}`}
-                      className="rounded-lg bg-zinc-900 px-2 py-1 text-xs text-white"
+                      className="rounded-lg bg-brand-600 px-2 py-1 text-xs text-white"
                     >
                       Envoyer
                     </a>
@@ -251,7 +251,7 @@ export default async function MessagesPage(props: {
         )}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Statistiques par canal
         </div>

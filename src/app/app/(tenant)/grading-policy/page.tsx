@@ -146,7 +146,7 @@ export default async function GradingPolicyPage(props: {
     .join(" · ");
 
   const inputCls =
-    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
   const described = (name: string) => ({ "aria-describedby": `${name}-hint` });
   const policyLabel = (v: string) => (v === "ZERO" ? "Zéro" : "Exclue");
   const defaultMentions = DEFAULT_RULES.mentions
@@ -199,11 +199,11 @@ export default async function GradingPolicyPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Configuration</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Règles de notation
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-zinc-500">
@@ -215,7 +215,7 @@ export default async function GradingPolicyPage(props: {
           </div>
           <a
             href="#notice"
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
           >
             Comment fonctionnent les règles de notation ?
           </a>
@@ -256,7 +256,7 @@ export default async function GradingPolicyPage(props: {
 
       <details
         id="notice"
-        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft"
       >
         <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
           Notice — comment fonctionnent les règles de notation
@@ -415,14 +415,14 @@ export default async function GradingPolicyPage(props: {
               <input type="hidden" name="confirmed" value="1" />
               <button
                 type="submit"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Confirmer l&apos;activation
               </button>
             </form>
             <a
               href="/app/grading-policy"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
             >
               Annuler
             </a>
@@ -461,14 +461,14 @@ export default async function GradingPolicyPage(props: {
               <input type="hidden" name="policyId" value={confirmId} />
               <button
                 type="submit"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Confirmer l&apos;archivage
               </button>
             </form>
             <a
               href="/app/grading-policy"
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
             >
               Annuler
             </a>
@@ -476,7 +476,7 @@ export default async function GradingPolicyPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <div className="text-sm font-medium text-zinc-900">
             {editing
@@ -799,7 +799,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="draft"
-                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
                 >
                   Enregistrer le brouillon
                 </button>
@@ -807,7 +807,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="activate"
-                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Activer la politique
                 </button>
@@ -818,7 +818,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="activate"
-                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   {editing.status === "ARCHIVED"
                     ? "Réactiver la politique"
@@ -828,7 +828,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="draft"
-                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
                 >
                   Copier comme brouillon
                 </button>
@@ -839,7 +839,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="activate"
-                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Enregistrer et activer
                 </button>
@@ -847,7 +847,7 @@ export default async function GradingPolicyPage(props: {
                   type="submit"
                   name="intent"
                   value="draft"
-                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                  className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
                 >
                   Enregistrer comme brouillon
                 </button>
@@ -857,7 +857,7 @@ export default async function GradingPolicyPage(props: {
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Politiques configurées
         </div>

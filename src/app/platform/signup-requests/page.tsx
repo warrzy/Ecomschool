@@ -47,7 +47,7 @@ export default async function SignupRequestsPage(props: {
 
   const requests = await listSignupRequests(filter || undefined);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
 
   return (
     <div className="space-y-4">
@@ -60,7 +60,7 @@ export default async function SignupRequestsPage(props: {
               </Link>{" "}
               / Demandes d’inscription
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Demandes d’inscription ({requests.length})
             </h1>
             <div className="mt-1 text-sm text-zinc-500">
@@ -81,8 +81,8 @@ export default async function SignupRequestsPage(props: {
               }
               className={`rounded-lg border px-3 py-1.5 text-sm ${
                 filter === f.value
-                  ? "border-zinc-900 bg-zinc-900 text-white"
-                  : "border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                  ? "border-zinc-900 bg-brand-600 text-white"
+                  : "border-zinc-200 text-zinc-700 hover:bg-mist"
               }`}
             >
               {f.label}
@@ -175,7 +175,7 @@ export default async function SignupRequestsPage(props: {
                       aria-label="Note" name="note"
                       type="text"
                       placeholder="Note de revue (motif, conditions…)"
-                      className="h-9 w-64 rounded-lg border border-zinc-200 px-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                      className="h-9 w-64 rounded-lg border border-zinc-200 px-2 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                     />
                     <div className="flex flex-wrap justify-end gap-2">
                       {r.status === "PENDING" ? (
@@ -206,7 +206,7 @@ export default async function SignupRequestsPage(props: {
                   {r.status === "APPROVED" ? (
                     <Link
                       href={`/platform/onboarding?from=${r.id}`}
-                      className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800"
+                      className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
                       Créer l’établissement →
                     </Link>

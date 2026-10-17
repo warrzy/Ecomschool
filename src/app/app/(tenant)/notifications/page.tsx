@@ -59,30 +59,30 @@ export default async function NotificationsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div>
           <div className="text-sm text-zinc-500">Centre de notifications</div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
             {unread} non lue{unread > 1 ? "s" : ""}
           </h1>
         </div>
         <div className="flex gap-2">
           <a
             href={"/app/preferences" as never}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Préférences
           </a>
           <a
             href={q({ all: "read" }) as never}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Tout marquer comme lu
           </a>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-soft">
         {TYPE_FILTERS.map((f) => (
           <a
             key={f.value}
@@ -94,8 +94,8 @@ export default async function NotificationsPage(props: {
             }
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               (typeFilter ?? "") === f.value
-                ? "bg-zinc-900 text-white"
-                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                ? "bg-brand-600 text-white"
+                : "border border-zinc-300 text-zinc-700 hover:bg-mist"
             }`}
           >
             {f.label}
@@ -111,14 +111,14 @@ export default async function NotificationsPage(props: {
           className={`ml-auto rounded-full px-3 py-1 text-xs font-medium ${
             sp.unread === "1"
               ? "bg-amber-600 text-white"
-              : "border border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+              : "border border-zinc-300 text-zinc-700 hover:bg-mist"
           }`}
         >
           Non lues
         </a>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         {items.length > 0 ? (
           <ul className="divide-y divide-zinc-100">
             {items.map((n) => (

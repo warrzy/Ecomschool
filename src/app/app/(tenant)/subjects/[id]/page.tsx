@@ -67,11 +67,11 @@ export default async function SubjectDetailPage({
           moyennes pour ce niveau. Réversible en redéfinissant le coefficient.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Matière</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {subject.name}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -81,7 +81,7 @@ export default async function SubjectDetailPage({
           </div>
           <Link
             href="/app/subjects"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -99,7 +99,7 @@ export default async function SubjectDetailPage({
       </div>
 
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">Informations</div>
           <form action={updateSubjectAction} className="mt-4">
             <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
@@ -111,7 +111,7 @@ export default async function SubjectDetailPage({
                   name="name"
                   defaultValue={subject.name}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -121,7 +121,7 @@ export default async function SubjectDetailPage({
                 <input id="fld-src-app-app-tenant-subjects-id-page-tsx-2"
                   name="code"
                   defaultValue={subject.code ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -139,7 +139,7 @@ export default async function SubjectDetailPage({
               </div>
               <button
                 type="submit"
-                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Enregistrer
               </button>
@@ -149,7 +149,7 @@ export default async function SubjectDetailPage({
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Coefficients par niveau
           </div>
@@ -222,12 +222,12 @@ export default async function SubjectDetailPage({
                     step="0.5"
                     min="0.5"
                     required
-                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Définir
                 </button>
@@ -236,7 +236,7 @@ export default async function SubjectDetailPage({
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Affectations par classe
           </div>

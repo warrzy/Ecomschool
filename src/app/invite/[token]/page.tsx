@@ -18,7 +18,7 @@ export default async function InvitePage(props: {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-xs font-semibold tracking-wide text-zinc-500">ECOM-SCHOOL</div>
         <h1 className="mt-1 text-lg font-semibold text-zinc-900">Activation de votre compte</h1>
         {invite ? (
@@ -60,7 +60,7 @@ export default async function InvitePage(props: {
               ) : null}
               <button
                 type="submit"
-                className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                className="w-full rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Activer mon compte
               </button>

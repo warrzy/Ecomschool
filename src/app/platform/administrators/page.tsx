@@ -13,9 +13,9 @@ export default async function PlatformAdministratorsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Plateforme</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Administrateurs ECOM-TOUCH
         </h1>
         <p className="mt-1 text-sm text-zinc-600">
@@ -54,7 +54,7 @@ export default async function PlatformAdministratorsPage() {
         </NoticeSection>
       </Notice>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Administrateurs ECOM-TOUCH" className="w-full text-sm">
             <thead>

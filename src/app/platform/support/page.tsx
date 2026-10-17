@@ -29,7 +29,7 @@ export default async function SupportPage(props: {
     }),
   ]);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   return (
@@ -38,7 +38,7 @@ export default async function SupportPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Assistance
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Assistance contrôlée ({sessions.filter((s) => s.status === "ACTIVE").length} active(s))
         </h1>
         <p className="mt-2 text-xs text-zinc-500">
@@ -67,7 +67,7 @@ export default async function SupportPage(props: {
             className={input}
           />
           <input name="hours" type="number" min="1" max="72" defaultValue="2" title="Durée (h)" className={input} />
-          <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
+          <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white">
             Démarrer
           </button>
         </form>

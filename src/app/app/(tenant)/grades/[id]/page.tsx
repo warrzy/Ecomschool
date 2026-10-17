@@ -49,34 +49,34 @@ export default async function GradeEntryPage(props: {
 
   const unmarked = grid.result.rows.filter((r) => r.status === "MISSING").length;
   const inputCls =
-    "w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "w-full rounded-lg border border-zinc-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">
           <Link href="/app/grades" className="hover:underline">Évaluations</Link> / Saisie des notes
         </div>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-display font-bold tracking-tight text-ink">
             {assessment.title}
           </h1>
           <div className="flex flex-wrap shrink-0 items-center gap-2">
             <a
               href={`/app/grades/export?assessment=${id}&format=xlsx`}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Exporter XLSX
             </a>
             <a
               href={`/app/grades/export?assessment=${id}&format=csv`}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Exporter CSV
             </a>
             <Link
               href="/app/grades"
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Retour
             </Link>
@@ -108,7 +108,7 @@ export default async function GradeEntryPage(props: {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form action={saveGradesAction}>
           <input type="hidden" name="assessmentId" value={id} />
           <div className="overflow-x-auto">
@@ -163,7 +163,7 @@ export default async function GradeEntryPage(props: {
           </div>
           {canEnter ? (
             <div className="mt-4 flex gap-3">
-              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+              <SubmitButton className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
                 Enregistrer (brouillon)
               </SubmitButton>
             </div>
@@ -173,7 +173,7 @@ export default async function GradeEntryPage(props: {
 
       <div className="grid gap-4 md:grid-cols-2">
         {canEnter ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="mb-3 text-sm font-medium text-zinc-900">Import de notes</div>
             <p className="mb-3 text-xs text-zinc-500">
               Assistant CSV/Excel : modèle pré-rempli des élèves inscrits,
@@ -181,14 +181,14 @@ export default async function GradeEntryPage(props: {
             </p>
             <Link
               href={`/app/grades/${id}/import`}
-              className="inline-block rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-50"
+              className="inline-block rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-mist"
             >
               Ouvrir l’assistant d’import
             </Link>
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">Soumission</div>
           <p className="mb-3 text-xs text-zinc-500">
             Une fois les notes saisies, soumettez l&apos;évaluation à la validation de la direction.
@@ -197,7 +197,7 @@ export default async function GradeEntryPage(props: {
             <form action={setAssessmentStatusAction}>
               <input type="hidden" name="id" value={id} />
               <input type="hidden" name="status" value="SUBMITTED" />
-              <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+              <SubmitButton className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
                 Soumettre à validation
               </SubmitButton>
             </form>

@@ -75,7 +75,7 @@ function Field({ label, name, value, type = "text", required = false }: {
         type={type}
         defaultValue={value ?? ""}
         required={required}
-        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+        className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
       />
     </div>
   );
@@ -226,11 +226,11 @@ export default async function PlatformSchoolDetailPage(props: {
           souscription serait nécessaire.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Établissement</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {school.name}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -252,7 +252,7 @@ export default async function PlatformSchoolDetailPage(props: {
             ) : null}
             <Link
               href="/platform/schools"
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Retour
             </Link>
@@ -272,19 +272,19 @@ export default async function PlatformSchoolDetailPage(props: {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm text-zinc-500">Membres</div>
           <div className="mt-2 text-2xl font-semibold text-zinc-900">
             {school._count.memberships}
           </div>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm text-zinc-500">Comptes rattachés</div>
           <div className="mt-2 text-2xl font-semibold text-zinc-900">
             {school._count.users}
           </div>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm text-zinc-500">Années scolaires</div>
           <div className="mt-2 text-2xl font-semibold text-zinc-900">
             {school._count.academicYears}
@@ -292,7 +292,7 @@ export default async function PlatformSchoolDetailPage(props: {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">Informations</div>
         <form action={updateSchoolAction} className="mt-4">
           <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
@@ -341,14 +341,14 @@ export default async function PlatformSchoolDetailPage(props: {
             </div>
           </div>
           <SubmitButton
-            className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
           >
             Enregistrer
           </SubmitButton>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">
           Membres ({school.memberships.length})
         </div>
@@ -389,7 +389,7 @@ export default async function PlatformSchoolDetailPage(props: {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">
           Créer un administrateur
         </div>
@@ -403,14 +403,14 @@ export default async function PlatformSchoolDetailPage(props: {
             <Field label="Nom" name="lastName" required />
           </div>
           <SubmitButton
-            className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+            className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
           >
             Créer l&apos;administrateur
           </SubmitButton>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">
           Années scolaires ({school.academicYears.length})
         </div>
@@ -428,7 +428,7 @@ export default async function PlatformSchoolDetailPage(props: {
       </div>
 
       {/* Abonnement SaaS */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="text-sm font-medium text-zinc-900">Abonnement ECOM-TOUCH</div>
@@ -462,7 +462,7 @@ export default async function PlatformSchoolDetailPage(props: {
                   <input type="hidden" name="subscriptionId" value={subscription.id} />
                   <input type="hidden" name="schoolId" value={school.id} />
                   <input aria-label="Nombre de jours" name="days" type="number" min="1" max="365" defaultValue="7" className={`${input} w-16`} />
-                  <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">+ jours essai</SubmitButton>
+                  <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">+ jours essai</SubmitButton>
                 </form>
               ) : null}
               {["TRIALING", "ACTIVE", "PAST_DUE", "GRACE"].includes(subscription.status) ? (
@@ -470,7 +470,7 @@ export default async function PlatformSchoolDetailPage(props: {
                   <form action={renewSubscriptionAction}>
                     <input type="hidden" name="subscriptionId" value={subscription.id} />
                     <input type="hidden" name="schoolId" value={school.id} />
-                    <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Renouveler</SubmitButton>
+                    <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">Renouveler</SubmitButton>
                   </form>
                   <Link
                     href={`${selfHref}?confirm=sub-suspend`}
@@ -511,7 +511,7 @@ export default async function PlatformSchoolDetailPage(props: {
                     <option key={p.id} value={p.id}>{p.name} — {fmt(p.monthlyPrice)}/m</option>
                   ))}
                 </select>
-                <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">Changer d&apos;offre</SubmitButton>
+                <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">Changer d&apos;offre</SubmitButton>
               </form>
             ) : (
               <form action={assignSubscriptionAction} className="flex flex-wrap items-end gap-2">
@@ -539,7 +539,7 @@ export default async function PlatformSchoolDetailPage(props: {
                 <label className="flex items-center gap-1 text-sm">
                   <input type="checkbox" name="startTrial" defaultChecked /> Essai
                 </label>
-                <SubmitButton className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Attribuer</SubmitButton>
+                <SubmitButton className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white">Attribuer</SubmitButton>
               </form>
             )}
           </div>
@@ -547,7 +547,7 @@ export default async function PlatformSchoolDetailPage(props: {
       </div>
 
       {/* Modules effectifs */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">Modules ({catalog.length})</div>
         <table aria-label="Modules effectifs" className="mt-3 w-full text-left text-sm">
           <thead>
@@ -600,7 +600,7 @@ export default async function PlatformSchoolDetailPage(props: {
       </div>
 
       {/* Facturation SaaS */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm font-medium text-zinc-900">Facturation SaaS ({invoices.length})</div>
           {canInvoices ? (
@@ -612,7 +612,7 @@ export default async function PlatformSchoolDetailPage(props: {
                 <option value="MONTHLY">Mensuelle</option>
                 <option value="YEARLY">Annuelle</option>
               </select>
-              <button className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">Générer une facture</button>
+              <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white">Générer une facture</button>
             </form>
           ) : null}
         </div>
@@ -641,7 +641,7 @@ export default async function PlatformSchoolDetailPage(props: {
 
       {/* Historique abonnement */}
       {subEvents.length > 0 ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">Historique d&apos;abonnement</div>
           <ul className="mt-3 space-y-1 text-sm text-zinc-700">
             {subEvents.map((e) => (
@@ -654,7 +654,7 @@ export default async function PlatformSchoolDetailPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">
           Audit récent ({audit.length})
         </div>

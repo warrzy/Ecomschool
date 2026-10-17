@@ -23,7 +23,7 @@ export default async function PlansPage(props: {
   });
 
   const [plans, modules] = await Promise.all([listPlans(true), listModules()]);
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   return (
@@ -32,7 +32,7 @@ export default async function PlansPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Offres
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Offres commerciales ({plans.length})
         </h1>
         {ok ? <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Offre enregistrée.</div> : null}
@@ -58,7 +58,7 @@ export default async function PlansPage(props: {
                 <option key={m.code} value={m.code}>{m.name}</option>
               ))}
             </select>
-            <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+            <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
               Créer
             </button>
           </form>
@@ -116,7 +116,7 @@ export default async function PlansPage(props: {
                     <option key={m.code} value={m.code}>{m.name}</option>
                   ))}
                 </select>
-                <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+                <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
                   Enregistrer
                 </button>
               </form>

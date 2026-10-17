@@ -96,7 +96,7 @@ export default function UserForm(props: {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
           required
         />
       </div>
@@ -109,7 +109,7 @@ export default function UserForm(props: {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+          className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
           required={props.mode === "create"}
           minLength={8}
         />
@@ -121,7 +121,7 @@ export default function UserForm(props: {
           <input id="fld-src-app-app-tenant-users-ui-user-form-ts-3"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
           />
         </div>
 
@@ -130,7 +130,7 @@ export default function UserForm(props: {
           <input id="fld-src-app-app-tenant-users-ui-user-form-ts-4"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
           />
         </div>
       </div>
@@ -141,7 +141,7 @@ export default function UserForm(props: {
           <select id="fld-src-app-app-tenant-users-ui-user-form-ts-5"
             value={status}
             onChange={(e) => setStatus(e.target.value as "ACTIVE" | "DISABLED")}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
           >
             <option value="ACTIVE">ACTIF</option>
             <option value="DISABLED">DÉSACTIVÉ</option>
@@ -153,7 +153,7 @@ export default function UserForm(props: {
           <select id="fld-src-app-app-tenant-users-ui-user-form-ts-6"
             value={roleId}
             onChange={(e) => setRoleId(e.target.value)}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             required={props.mode === "create"}
           >
             <option value="" disabled>
@@ -177,7 +177,7 @@ export default function UserForm(props: {
       <button
         type="submit"
         disabled={loading}
-        className="h-11 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+        className="h-11 w-full rounded-xl bg-brand-600 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
       >
         {loading
           ? "Enregistrement..."

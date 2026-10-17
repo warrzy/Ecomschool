@@ -78,7 +78,7 @@ export default async function SubscriptionPage(props: {
       }),
     ]);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
   const planModules = subscription
     ? subscription.plan.modules.map((m) => m.module)
@@ -88,7 +88,7 @@ export default async function SubscriptionPage(props: {
     <div className="space-y-4">
       <div className={card}>
         <div className="text-sm text-zinc-500">ECOM-SCHOOL</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Mon abonnement
         </h1>
         <div className="mt-3">
@@ -237,7 +237,7 @@ export default async function SubscriptionPage(props: {
                 ))}
             </select>
             <input aria-label="Note" name="note" placeholder="Motif (optionnel)" className={`${input} min-w-0 flex-1`} />
-            <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white">
+            <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white">
               Envoyer la demande
             </button>
           </form>

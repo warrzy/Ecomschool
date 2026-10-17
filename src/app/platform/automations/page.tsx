@@ -50,10 +50,10 @@ export default async function AutomationsPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div>
           <div className="text-sm text-zinc-500">Plateforme</div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
             Automatisations &amp; file de jobs
           </h1>
         </div>
@@ -61,13 +61,13 @@ export default async function AutomationsPage(props: {
           <div className="flex gap-2">
             <a
               href="/platform/automations?confirm=jobs"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Exécuter les jobs dus
             </a>
             <a
               href="/platform/automations?confirm=sweep"
-              className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white"
+              className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white"
             >
               Planifier le sweep SaaS
             </a>
@@ -136,7 +136,7 @@ export default async function AutomationsPage(props: {
         ].map(([label, v]) => (
           <div
             key={label}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-soft"
           >
             <div className="text-xs text-zinc-500">{label}</div>
             <div className="mt-1 text-2xl font-semibold">{v}</div>
@@ -148,7 +148,7 @@ export default async function AutomationsPage(props: {
         {channels.map((c) => (
           <div
             key={c.channel}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-soft"
           >
             <div className="text-xs text-zinc-500">Canal {c.channel}</div>
             <div
@@ -160,7 +160,7 @@ export default async function AutomationsPage(props: {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Livraisons par canal (coût SMS cumulé :{" "}
           {smsCost._sum.costUnits ?? 0} unités)
@@ -182,7 +182,7 @@ export default async function AutomationsPage(props: {
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Jobs récents
           </div>
@@ -208,7 +208,7 @@ export default async function AutomationsPage(props: {
             ) : null}
           </ul>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Exécutions planifiées
           </div>

@@ -143,7 +143,7 @@ export function ConfirmPanel({
               required={f.required}
               defaultValue={f.defaultValue}
               placeholder={f.placeholder}
-              className="ml-2 h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="ml-2 h-9 rounded-lg border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </label>
         ))}
@@ -157,7 +157,7 @@ export function ConfirmPanel({
               data-confirm-text
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
-              className="ml-2 h-9 w-44 rounded-lg border border-zinc-300 bg-white px-2 font-mono text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="ml-2 h-9 w-44 rounded-lg border border-zinc-300 bg-white px-2 font-mono text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               autoComplete="off"
             />
           </label>
@@ -171,7 +171,7 @@ export function ConfirmPanel({
           <Link
             data-cancel
             href={cancelHref}
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
           >
             Annuler
           </Link>
@@ -194,7 +194,7 @@ function ConfirmSubmit({
   const cls =
     tone === "danger"
       ? "rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800"
-      : "rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800";
+      : "rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700";
   return (
     <button
       type="submit"

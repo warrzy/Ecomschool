@@ -102,7 +102,7 @@ export default async function SessionDetailPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">
           <Link href="/app/schedules" className="hover:underline">
             Emplois du temps
@@ -110,12 +110,12 @@ export default async function SessionDetailPage(props: {
           / Séance
         </div>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-display font-bold tracking-tight text-ink">
             {session.subject?.name ?? "Cours"} — {session.classroom.name}
           </h1>
           <Link
             href="/app/schedules"
-            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -146,7 +146,7 @@ export default async function SessionDetailPage(props: {
 
       {canManage ? (
         <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Déplacer la séance
             </div>
@@ -176,14 +176,14 @@ export default async function SessionDetailPage(props: {
                 />
               </div>
               <SubmitButton
-                className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-10 w-full rounded-xl bg-brand-600 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Déplacer
               </SubmitButton>
             </form>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Remplacer l&#8217;enseignant
             </div>
@@ -203,14 +203,14 @@ export default async function SessionDetailPage(props: {
                 ))}
               </select>
               <SubmitButton
-                className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-10 w-full rounded-xl bg-brand-600 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Remplacer
               </SubmitButton>
             </form>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">Statut</div>
             <form action={setSessionStatusAction} className="mt-3 space-y-2">
               <input type="hidden" name="id" value={id} />
@@ -232,7 +232,7 @@ export default async function SessionDetailPage(props: {
                 className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm"
               />
               <SubmitButton
-                className="h-10 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-10 w-full rounded-xl bg-brand-600 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Appliquer
               </SubmitButton>
@@ -243,7 +243,7 @@ export default async function SessionDetailPage(props: {
 
       {/* Appel */}
       {canMark && session.status !== "CANCELLED" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Appel — {students.length} élève(s)
           </div>
@@ -287,7 +287,7 @@ export default async function SessionDetailPage(props: {
               </table>
             </div>
             <SubmitButton
-              className="mt-4 h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="mt-4 h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Enregistrer l&#8217;appel
             </SubmitButton>
@@ -297,7 +297,7 @@ export default async function SessionDetailPage(props: {
 
       {/* Cahier de textes */}
       {canEditContent ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Cahier de textes
           </div>
@@ -346,14 +346,14 @@ export default async function SessionDetailPage(props: {
               className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
             />
             <SubmitButton
-              className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Enregistrer le cahier
             </SubmitButton>
           </form>
         </div>
       ) : content ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Cahier de textes
           </div>

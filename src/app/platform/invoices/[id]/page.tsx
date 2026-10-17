@@ -55,7 +55,7 @@ export default async function InvoiceDetailPage(props: {
   const paid = invoice.payments.filter((p) => p.status === "VALIDATED").reduce((s, p) => s + p.amount, 0);
   const credited = invoice.creditNotes.reduce((s, c) => s + c.amount, 0);
   const balance = Math.max(0, invoice.total - paid - credited);
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
   const selfHref = `/platform/invoices/${invoice.id}`;
   const confirmPayment = invoice.payments.find((p) => p.id === confirmId);
@@ -91,7 +91,7 @@ export default async function InvoiceDetailPage(props: {
             <div className="text-sm text-zinc-500">
               <Link href="/platform/invoices" className="hover:underline">Factures</Link> / {invoice.invoiceNumber}
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {fmt(invoice.total)} — {STATUS[invoice.status] ?? invoice.status}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -104,7 +104,7 @@ export default async function InvoiceDetailPage(props: {
           </div>
           <a
             href={`/platform/invoices/${invoice.id}/pdf`}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist"
           >
             PDF
           </a>
@@ -141,7 +141,7 @@ export default async function InvoiceDetailPage(props: {
             <input aria-label="Référence" name="reference" placeholder="Référence" className={input} />
             <SubmitButton
               pendingLabel="Encaissement…"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
             >
               Encaisser
             </SubmitButton>
@@ -204,7 +204,7 @@ export default async function InvoiceDetailPage(props: {
               <input type="hidden" name="schoolId" value={invoice.schoolId} />
               <input aria-label="Montant" name="amount" type="number" min="1" max={balance} placeholder="Montant" required className={input} />
               <input aria-label="Motif" name="reason" placeholder="Motif" required className={input} />
-              <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+              <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
                 Émettre un avoir
               </SubmitButton>
             </form>

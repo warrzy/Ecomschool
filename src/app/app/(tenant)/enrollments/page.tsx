@@ -143,9 +143,9 @@ export default async function EnrollmentsPage(props: {
           inscription serait nécessaire pour le réinscrire.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Scolarité</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Inscriptions
         </h1>
         {ok ? (
@@ -160,7 +160,7 @@ export default async function EnrollmentsPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-enrollments-page-tsx-1">Année</label>
@@ -214,12 +214,12 @@ export default async function EnrollmentsPage(props: {
               name="q"
               defaultValue={q ?? ""}
               placeholder="Élève, matricule…"
-              className="h-10 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-10 w-48 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
           >
             Filtrer
           </button>
@@ -227,7 +227,7 @@ export default async function EnrollmentsPage(props: {
       </div>
 
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Nouvelle inscription
           </div>
@@ -287,7 +287,7 @@ export default async function EnrollmentsPage(props: {
                 </select>
               </div>
               <SubmitButton
-                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Inscrire
               </SubmitButton>
@@ -300,7 +300,7 @@ export default async function EnrollmentsPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm text-zinc-600">
           {total} inscription{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
@@ -379,7 +379,7 @@ export default async function EnrollmentsPage(props: {
                           <button
                             type="submit"
                             form={`tr-${e.id}`}
-                            className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                            className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-mist"
                           >
                             Transférer
                           </button>
@@ -410,7 +410,7 @@ export default async function EnrollmentsPage(props: {
             {page > 1 ? (
               <Link
                 href={pageHref(page - 1)}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
               >
                 ← Précédent
               </Link>
@@ -418,7 +418,7 @@ export default async function EnrollmentsPage(props: {
             {page < totalPages ? (
               <Link
                 href={pageHref(page + 1)}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
               >
                 Suivant →
               </Link>

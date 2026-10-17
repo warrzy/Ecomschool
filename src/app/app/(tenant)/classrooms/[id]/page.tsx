@@ -278,11 +278,11 @@ export default async function ClassroomDetailPage({
           matière.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Classe</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {classroom.name}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -294,7 +294,7 @@ export default async function ClassroomDetailPage({
           </div>
           <Link
             href="/app/classrooms"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -311,14 +311,14 @@ export default async function ClassroomDetailPage({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap gap-1 rounded-2xl border border-zinc-200 bg-white p-2 shadow-sm">
+      <div className="flex flex-wrap gap-1 rounded-2xl border border-zinc-200 bg-white p-2 shadow-soft">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={`/app/classrooms/${id}?tab=${t.key}`}
             className={`rounded-xl px-3 py-1.5 text-sm ${
               activeTab === t.key
-                ? "bg-zinc-900 font-medium text-white"
+                ? "bg-brand-600 font-medium text-white"
                 : "text-zinc-700 hover:bg-zinc-100"
             }`}
           >
@@ -328,7 +328,7 @@ export default async function ClassroomDetailPage({
       </div>
 
       {activeTab === "students" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             {enrollments.length} élève{enrollments.length > 1 ? "s" : ""}{" "}
             inscrit{enrollments.length > 1 ? "s" : ""}
@@ -373,7 +373,7 @@ export default async function ClassroomDetailPage({
                     <td className="py-2 pr-4">
                       <Link
                         href={`/app/students/${e.student.id}`}
-                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                       >
                         Fiche
                       </Link>
@@ -392,7 +392,7 @@ export default async function ClassroomDetailPage({
           </div>
         </div>
       ) : activeTab === "subjects" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Matières de la classe ({classSubjects.length})
           </div>
@@ -485,7 +485,7 @@ export default async function ClassroomDetailPage({
                     step="0.5"
                     min="0.5"
                     required
-                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -506,7 +506,7 @@ export default async function ClassroomDetailPage({
                 </div>
                 <button
                   type="submit"
-                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Affecter
                 </button>
@@ -519,7 +519,7 @@ export default async function ClassroomDetailPage({
           ) : null}
         </div>
       ) : activeTab === "teachers" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Enseignants affectés ({classTeachers.length})
           </div>
@@ -560,7 +560,7 @@ export default async function ClassroomDetailPage({
           </div>
         </div>
       ) : activeTab === "general" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           {canManage ? (
             <form action={updateClassroomAction}>
               <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
@@ -574,7 +574,7 @@ export default async function ClassroomDetailPage({
                     name="name"
                     defaultValue={classroom.name}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -600,7 +600,7 @@ export default async function ClassroomDetailPage({
                   <input id="fld-src-app-app-tenant-classrooms-id-page-ts-6"
                     name="section"
                     defaultValue={classroom.section ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -612,7 +612,7 @@ export default async function ClassroomDetailPage({
                     type="number"
                     min={0}
                     defaultValue={classroom.capacity ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -622,7 +622,7 @@ export default async function ClassroomDetailPage({
                   <input id="fld-src-app-app-tenant-classrooms-id-page-ts-8"
                     name="room"
                     defaultValue={classroom.room ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -658,7 +658,7 @@ export default async function ClassroomDetailPage({
               </div>
               <button
                 type="submit"
-                className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Enregistrer
               </button>
@@ -707,7 +707,7 @@ export default async function ClassroomDetailPage({
           )}
         </div>
       ) : activeTab === "timetable" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-zinc-900">
               Emploi du temps — semaine en cours
@@ -715,14 +715,14 @@ export default async function ClassroomDetailPage({
             <div className="flex gap-2 text-sm">
               <Link
                 href={`/app/schedules?view=classroom&id=${id}`}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
               >
                 Vue complète
               </Link>
               {canPrint ? (
                 <a
                   href={`/app/schedules/pdf?view=classroom&id=${id}`}
-                  className="rounded-lg bg-zinc-900 px-3 py-1.5 font-medium text-white hover:bg-zinc-800"
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
                 >
                   Exporter PDF
                 </a>
@@ -765,7 +765,7 @@ export default async function ClassroomDetailPage({
           )}
         </div>
       ) : activeTab === "sessions" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Séances ({classSessions.length})
           </div>
@@ -822,7 +822,7 @@ export default async function ClassroomDetailPage({
                     <td className="py-2 pr-4">
                       <Link
                         href={`/app/sessions/${s.id}`}
-                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                       >
                         Ouvrir
                       </Link>
@@ -843,7 +843,7 @@ export default async function ClassroomDetailPage({
           </div>
         </div>
       ) : activeTab === "absences" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-medium text-zinc-900">
             Absences et retards des élèves ({classAbsences?.total ?? 0})
           </div>
@@ -900,7 +900,7 @@ export default async function ClassroomDetailPage({
           )}
         </div>
       ) : activeTab === "stats" ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">Statistiques</div>
           {stats ? (
             <div className="mt-4 grid gap-4 md:grid-cols-5">
@@ -931,7 +931,7 @@ export default async function ClassroomDetailPage({
           ) : null}
         </div>
       ) : activeTab === "grades" && canViewGrades ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Évaluations de la classe
           </div>
@@ -971,14 +971,14 @@ export default async function ClassroomDetailPage({
           )}
         </div>
       ) : activeTab === "results" && canViewResults ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-zinc-900">
               Résultats et classements
             </div>
             <Link
               href={`/app/averages?classroom=${id}`}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Calculer les moyennes
             </Link>
@@ -1022,12 +1022,12 @@ export default async function ClassroomDetailPage({
           )}
         </div>
       ) : activeTab === "report-cards" && canViewCards ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-zinc-900">Bulletins de la classe</div>
             <Link
               href={`/app/report-cards?classroom=${id}`}
-              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
             >
               Gérer les bulletins
             </Link>
@@ -1064,7 +1064,7 @@ export default async function ClassroomDetailPage({
                       <a
                         href={`/app/report-cards/pdf?id=${card.id}`}
                         target="_blank"
-                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist"
                       >
                         Ouvrir
                       </a>

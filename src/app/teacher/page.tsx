@@ -32,8 +32,8 @@ export default async function TeacherDashboardPage() {
 
   if (!teacherId) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
+        <h1 className="text-xl font-display font-bold tracking-tight text-ink">
           Espace enseignant
         </h1>
         <p className="mt-2 text-sm text-zinc-600">
@@ -224,7 +224,7 @@ export default async function TeacherDashboardPage() {
                     {s.room?.name ? ` · ${s.room.name}` : ""}
                     <Link
                       href={`/app/sessions/${s.id}`}
-                      className="rounded-lg border border-zinc-200 px-2 py-1 hover:bg-zinc-50"
+                      className="rounded-lg border border-zinc-200 px-2 py-1 hover:bg-mist"
                     >
                       Ouvrir
                     </Link>
@@ -266,7 +266,7 @@ export default async function TeacherDashboardPage() {
               <Link
                 key={cid}
                 href={`/app/classrooms/${cid}`}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
               >
                 {name}
               </Link>
@@ -318,7 +318,7 @@ export default async function TeacherDashboardPage() {
                   </span>
                   <Link
                     href={`/app/sessions/${s.id}`}
-                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-mist"
                   >
                     Faire l&#8217;appel
                   </Link>
@@ -347,7 +347,7 @@ export default async function TeacherDashboardPage() {
                   </span>
                   <Link
                     href={`/app/grades/${a.id}`}
-                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-mist"
                   >
                     Saisir les notes
                   </Link>
@@ -372,7 +372,7 @@ export default async function TeacherDashboardPage() {
                   </span>
                   <Link
                     href={`/app/sessions/${s.id}`}
-                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-zinc-50"
+                    className="rounded-lg border border-zinc-200 px-2 py-1 text-xs hover:bg-mist"
                   >
                     Compléter
                   </Link>

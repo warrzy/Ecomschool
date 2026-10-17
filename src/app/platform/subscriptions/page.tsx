@@ -40,7 +40,7 @@ export default async function SubscriptionsPage(props: {
     listChangeRequests("PENDING"),
   ]);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
 
   return (
     <div className="space-y-4">
@@ -50,14 +50,14 @@ export default async function SubscriptionsPage(props: {
             <div className="text-sm text-zinc-500">
               <Link href="/platform" className="hover:underline">Plateforme</Link> / Abonnements
             </div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Abonnements ({subs.length})
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <HelpLink>Cycle de vie des abonnements</HelpLink>
             <form action={sweepSubscriptionsAction}>
-              <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-zinc-50">
+              <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
                 Appliquer le cycle de vie (grâce/suspension/expiration)
               </button>
             </form>
@@ -108,7 +108,7 @@ export default async function SubscriptionsPage(props: {
                   <td className="py-2 text-right">
                     <form action={reviewChangeRequestAction} className="inline-flex gap-2">
                       <input type="hidden" name="requestId" value={r.id} />
-                      <button name="approve" value="1" className="rounded-lg bg-zinc-900 px-3 py-1 text-xs text-white">Approuver</button>
+                      <button name="approve" value="1" className="rounded-lg bg-brand-600 px-3 py-1 text-xs text-white">Approuver</button>
                       <button name="approve" value="0" className="rounded-lg border border-zinc-300 px-3 py-1 text-xs">Refuser</button>
                     </form>
                   </td>

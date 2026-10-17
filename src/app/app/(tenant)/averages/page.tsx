@@ -88,7 +88,7 @@ export default async function AveragesPage(props: {
     : [];
 
   const inputCls =
-    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
 
   const selClassroom = classrooms.find((cl) => cl.id === classroomId);
   const selPeriod = periods.find((p) => p.id === periodId);
@@ -133,9 +133,9 @@ export default async function AveragesPage(props: {
           correction ultérieure passe par une rectification tracée.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Résultats</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Moyennes, classements et résultats annuels
         </h1>
         {ok ? (
@@ -150,7 +150,7 @@ export default async function AveragesPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <select
                   aria-label="Année scolaire" name="year" defaultValue={selYear ?? ""} className={inputCls}>
@@ -172,20 +172,20 @@ export default async function AveragesPage(props: {
               <option key={p.id} value={p.id}>{p.name}{p.isLocked ? " (verrouillée)" : ""}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Afficher
           </button>
           {classroomId && periodId ? (
             <>
               <a
                 href={`/app/results/export?period=${periodId}&classroom=${classroomId}&format=xlsx`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
               >
                 Exporter XLSX
               </a>
               <a
                 href={`/app/results/export?period=${periodId}&classroom=${classroomId}&format=csv`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
               >
                 Exporter CSV
               </a>
@@ -194,7 +194,7 @@ export default async function AveragesPage(props: {
           {canCalculate && classroomId && periodId ? (
             <SubmitButton
               form="compute-form"
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Calculer les moyennes
             </SubmitButton>
@@ -209,7 +209,7 @@ export default async function AveragesPage(props: {
       </div>
 
       {preview && stored ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-medium text-zinc-900">
               Statut : {STATUS_LABELS[stored.validation?.status ?? "DRAFT"]}
@@ -231,7 +231,7 @@ export default async function AveragesPage(props: {
               {canPublish && stored.validation?.status === "VALIDATED" ? (
                 <a
                   href={`${resultsHref}&confirm=published`}
-                  className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Publier
                 </a>
@@ -288,7 +288,7 @@ export default async function AveragesPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 flex flex-wrap items-center justify-between">
           <div className="text-sm font-medium text-zinc-900">Résultats annuels</div>
           <div className="flex flex-wrap items-center gap-2">
@@ -296,13 +296,13 @@ export default async function AveragesPage(props: {
             <>
               <a
                 href={`/app/results/export?year=${yearId}&format=xlsx`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
               >
                 Exporter XLSX
               </a>
               <a
                 href={`/app/results/export?year=${yearId}&format=csv`}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
               >
                 Exporter CSV
               </a>
@@ -311,7 +311,7 @@ export default async function AveragesPage(props: {
           {canCalculate && yearId ? (
             <form action={computeAnnualAction}>
               <input type="hidden" name="academicYearId" value={yearId} />
-              <SubmitButton className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+              <SubmitButton className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
                 Calculer les résultats annuels
               </SubmitButton>
             </form>

@@ -40,7 +40,7 @@ export default async function AccountsPage(props: {
     : [];
   const withCharges = accounts.filter((a) => a.charges > 0 || a.paid > 0);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   return (
@@ -49,7 +49,7 @@ export default async function AccountsPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Comptes élèves
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Comptes financiers ({withCharges.length})
         </h1>
       </div>
@@ -69,7 +69,7 @@ export default async function AccountsPage(props: {
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
         </form>

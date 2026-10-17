@@ -42,12 +42,12 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
+      <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-8 shadow-soft">
         <div className="mb-8">
           <div className="text-xs font-semibold tracking-wide text-zinc-500">
             ECOM-TOUCH
           </div>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="mt-2 text-2xl font-display font-bold tracking-tight text-ink">
             ECOM-SCHOOL
           </h1>
           <p className="mt-2 text-sm text-zinc-600">
@@ -67,7 +67,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               placeholder="vous@ecole.bf"
               required
             />
@@ -86,7 +86,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -100,7 +100,7 @@ export default function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           <button
             type="submit"
             disabled={loading}
-            className="h-11 w-full rounded-xl bg-zinc-900 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+            className="h-11 w-full rounded-xl bg-brand-600 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {loading ? "Connexion..." : "Se connecter"}
           </button>

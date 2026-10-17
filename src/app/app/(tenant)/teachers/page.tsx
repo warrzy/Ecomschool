@@ -59,9 +59,9 @@ export default async function TeachersPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Référentiel</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Enseignants
         </h1>
         {ok ? (
@@ -76,7 +76,7 @@ export default async function TeachersPage(props: {
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-teachers-page-tsx-1">
@@ -86,7 +86,7 @@ export default async function TeachersPage(props: {
               name="q"
               defaultValue={q ?? ""}
               placeholder="Nom, prénom, email…"
-              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-10 w-56 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
           <div className="space-y-1">
@@ -102,14 +102,14 @@ export default async function TeachersPage(props: {
           </div>
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
           >
             Filtrer
           </button>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-medium text-zinc-900">
           Exporter les enseignants et affectations
         </div>
@@ -153,7 +153,7 @@ export default async function TeachersPage(props: {
           ) : null}
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-mist"
           >
             Exporter
           </button>
@@ -161,13 +161,13 @@ export default async function TeachersPage(props: {
             <>
               <a
                 href="/app/users/export?format=csv"
-                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
               >
                 Personnel CSV
               </a>
               <a
                 href="/app/users/export?format=xlsx"
-                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+                className="flex h-10 items-center rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
               >
                 Personnel Excel
               </a>
@@ -181,7 +181,7 @@ export default async function TeachersPage(props: {
       </div>
 
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Nouvel enseignant
           </div>
@@ -195,7 +195,7 @@ export default async function TeachersPage(props: {
               <input id="fld-src-app-app-tenant-teachers-page-tsx-3"
                 name="lastName"
                 required
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               />
             </div>
             <div className="space-y-1">
@@ -205,7 +205,7 @@ export default async function TeachersPage(props: {
               <input id="fld-src-app-app-tenant-teachers-page-tsx-4"
                 name="firstName"
                 required
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               />
             </div>
             <div className="space-y-1">
@@ -213,7 +213,7 @@ export default async function TeachersPage(props: {
               <input id="fld-src-app-app-tenant-teachers-page-tsx-5"
                 name="email"
                 type="email"
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               />
             </div>
             <div className="space-y-1">
@@ -222,12 +222,12 @@ export default async function TeachersPage(props: {
               </label>
               <input type="tel" id="fld-src-app-app-tenant-teachers-page-tsx-6"
                 name="phone"
-                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               />
             </div>
             <button
               type="submit"
-              className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Créer
             </button>
@@ -235,7 +235,7 @@ export default async function TeachersPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm text-zinc-600">
           {total} enseignant{total > 1 ? "s" : ""} — page {page}/{totalPages}
         </div>
@@ -274,7 +274,7 @@ export default async function TeachersPage(props: {
                   <td className="py-2 pr-4">
                     <Link
                       href={`/app/teachers/${t.id}`}
-                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                      className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                     >
                       Fiche
                     </Link>
@@ -296,7 +296,7 @@ export default async function TeachersPage(props: {
             {page > 1 ? (
               <a
                 href={pageHref(page - 1)}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
               >
                 ← Précédent
               </a>
@@ -304,7 +304,7 @@ export default async function TeachersPage(props: {
             {page < totalPages ? (
               <a
                 href={pageHref(page + 1)}
-                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
               >
                 Suivant →
               </a>

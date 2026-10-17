@@ -47,7 +47,7 @@ export default async function UnpaidPage(props: {
     byLevel.set(u.levelName ?? "—", (byLevel.get(u.levelName ?? "—") ?? 0) + u.remaining);
   }
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
   return (
@@ -57,12 +57,12 @@ export default async function UnpaidPage(props: {
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Impayés
         </div>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-display font-bold tracking-tight text-ink">
             Soldes restants & échéances dépassées ({unpaid.length})
           </h1>
           <Link
             href="/app/fees"
-            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="shrink-0 rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -92,7 +92,7 @@ export default async function UnpaidPage(props: {
               <option key={cl.id} value={cl.id}>{cl.name}</option>
             ))}
           </select>
-          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50">
+          <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
         </form>

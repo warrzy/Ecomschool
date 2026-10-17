@@ -100,11 +100,11 @@ export default async function TeacherDetailPage({
           réaffectant ci-dessous.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Enseignant</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {teacher.lastName} {teacher.firstName}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -116,7 +116,7 @@ export default async function TeacherDetailPage({
           </div>
           <Link
             href="/app/teachers"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -134,7 +134,7 @@ export default async function TeacherDetailPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Identité &amp; coordonnées
           </div>
@@ -151,7 +151,7 @@ export default async function TeacherDetailPage({
                     name="lastName"
                     defaultValue={teacher.lastName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -162,7 +162,7 @@ export default async function TeacherDetailPage({
                     name="firstName"
                     defaultValue={teacher.firstName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -173,7 +173,7 @@ export default async function TeacherDetailPage({
                     name="email"
                     type="email"
                     defaultValue={teacher.email ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -183,7 +183,7 @@ export default async function TeacherDetailPage({
                   <input type="tel" id="fld-src-app-app-tenant-teachers-id-page-tsx-4"
                     name="phone"
                     defaultValue={teacher.phone ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -202,7 +202,7 @@ export default async function TeacherDetailPage({
               </div>
               <button
                 type="submit"
-                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Enregistrer
               </button>
@@ -238,7 +238,7 @@ export default async function TeacherDetailPage({
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Compte utilisateur
             </div>
@@ -265,12 +265,12 @@ export default async function TeacherDetailPage({
                   minLength={8}
                   required
                   disabled={!teacher.email}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 disabled:bg-zinc-50"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 disabled:bg-zinc-50"
                 />
                 <button
                   type="submit"
                   disabled={!teacher.email}
-                  className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-300"
+                  className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 disabled:bg-zinc-300"
                 >
                   Activer le compte
                 </button>
@@ -287,7 +287,7 @@ export default async function TeacherDetailPage({
             )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Professeur principal de
             </div>
@@ -316,7 +316,7 @@ export default async function TeacherDetailPage({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">Affectations</div>
         <div className="mt-3 overflow-x-auto">
           <table aria-label="Affectations de l&apos;enseignant" className="w-full text-sm">
@@ -429,7 +429,7 @@ export default async function TeacherDetailPage({
               </div>
               <button
                 type="submit"
-                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Affecter
               </button>

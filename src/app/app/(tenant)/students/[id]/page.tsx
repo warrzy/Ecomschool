@@ -261,11 +261,11 @@ export default async function StudentDetailPage({
           Réversible en rattachant à nouveau ci-dessous.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Élève</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {student.lastName} {student.firstName}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -277,7 +277,7 @@ export default async function StudentDetailPage({
           </div>
           <Link
             href="/app/students"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -294,7 +294,7 @@ export default async function StudentDetailPage({
         ) : null}
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">Identité</div>
         {canManage ? (
           <form action={updateStudentAction} className="mt-4">
@@ -309,7 +309,7 @@ export default async function StudentDetailPage({
                   name="matricule"
                   defaultValue={student.matricule}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -318,7 +318,7 @@ export default async function StudentDetailPage({
                   name="lastName"
                   defaultValue={student.lastName}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -329,7 +329,7 @@ export default async function StudentDetailPage({
                   name="firstName"
                   defaultValue={student.firstName}
                   required
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -352,7 +352,7 @@ export default async function StudentDetailPage({
                   name="birthDate"
                   type="date"
                   defaultValue={d(student.birthDate)}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -362,7 +362,7 @@ export default async function StudentDetailPage({
                 <input id="fld-src-app-app-tenant-students-id-page-tsx-6"
                   name="birthPlace"
                   defaultValue={student.birthPlace ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -372,7 +372,7 @@ export default async function StudentDetailPage({
                 <input type="tel" id="fld-src-app-app-tenant-students-id-page-tsx-7"
                   name="phone"
                   defaultValue={student.phone ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -383,7 +383,7 @@ export default async function StudentDetailPage({
                   name="email"
                   type="email"
                   defaultValue={student.email ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -393,7 +393,7 @@ export default async function StudentDetailPage({
                 <input id="fld-src-app-app-tenant-students-id-page-tsx-9"
                   name="address"
                   defaultValue={student.address ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -404,7 +404,7 @@ export default async function StudentDetailPage({
                   name="photoUrl"
                   type="url"
                   defaultValue={student.photoUrl ?? ""}
-                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                  className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                 />
               </div>
               <div className="space-y-1">
@@ -422,7 +422,7 @@ export default async function StudentDetailPage({
               </div>
             </div>
             <SubmitButton
-              className="mt-4 h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="mt-4 h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Enregistrer
             </SubmitButton>
@@ -456,7 +456,7 @@ export default async function StudentDetailPage({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Parcours scolaire
           </div>
@@ -497,7 +497,7 @@ export default async function StudentDetailPage({
           )}
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Parents et tuteurs
           </div>
@@ -571,7 +571,7 @@ export default async function StudentDetailPage({
                     ))}
                   </select>
                   <SubmitButton
-                    className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                    className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
                   >
                     Lier
                   </SubmitButton>
@@ -595,29 +595,29 @@ export default async function StudentDetailPage({
                     aria-label="Nom" name="lastName"
                     placeholder="Nom"
                     required
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                   <input
                     aria-label="Prénom" name="firstName"
                     placeholder="Prénom"
                     required
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                   <input
                     aria-label="Téléphone" type="tel" name="phone"
                     placeholder="Téléphone"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                   <input
                     aria-label="Adresse e-mail" name="email"
                     type="email"
                     placeholder="Email"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                   <input
                     aria-label="Adresse" name="address"
                     placeholder="Adresse"
-                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-10 rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                   <select
                   aria-label="Lien de parenté"
@@ -633,7 +633,7 @@ export default async function StudentDetailPage({
                   </select>
                 </div>
                 <SubmitButton
-                  className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                  className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Créer et lier
                 </SubmitButton>
@@ -643,7 +643,7 @@ export default async function StudentDetailPage({
         </div>
 
         {canManagePortal && access ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Accès aux portails
             </div>
@@ -676,7 +676,7 @@ export default async function StudentDetailPage({
                         <form action={resendInviteAction}>
                           <input type="hidden" name="studentId" value={student.id} />
                           <input type="hidden" name="userId" value={access.student.user.id} />
-                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist">
                             Renvoyer l&apos;invitation
                           </SubmitButton>
                         </form>
@@ -689,7 +689,7 @@ export default async function StudentDetailPage({
                           name="status"
                           value={access.student.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
                         />
-                        <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                        <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist">
                           {access.student.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
                         </SubmitButton>
                       </form>
@@ -704,7 +704,7 @@ export default async function StudentDetailPage({
                         placeholder="Email du compte"
                         className="h-8 w-44 rounded-lg border border-zinc-200 px-2 text-xs"
                       />
-                      <SubmitButton className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                      <SubmitButton className="rounded-lg bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700">
                         Activer le compte
                       </SubmitButton>
                     </form>
@@ -740,7 +740,7 @@ export default async function StudentDetailPage({
                           <form action={resendInviteAction}>
                             <input type="hidden" name="studentId" value={student.id} />
                             <input type="hidden" name="userId" value={g.guardian.user.id} />
-                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                            <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist">
                               Renvoyer
                             </SubmitButton>
                           </form>
@@ -753,7 +753,7 @@ export default async function StudentDetailPage({
                             name="status"
                             value={g.guardian.user.status === "ACTIVE" ? "DISABLED" : "ACTIVE"}
                           />
-                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-zinc-50">
+                          <SubmitButton className="rounded-lg border border-zinc-300 px-2 py-1 text-xs hover:bg-mist">
                             {g.guardian.user.status === "ACTIVE" ? "Désactiver" : "Activer"}
                           </SubmitButton>
                         </form>
@@ -770,7 +770,7 @@ export default async function StudentDetailPage({
                           defaultValue={g.guardian.email ?? ""}
                           className="h-8 w-40 rounded-lg border border-zinc-200 px-2 text-xs"
                         />
-                        <SubmitButton className="rounded-lg bg-zinc-900 px-2 py-1 text-xs font-medium text-white hover:bg-zinc-800">
+                        <SubmitButton className="rounded-lg bg-brand-600 px-2 py-1 text-xs font-medium text-white hover:bg-brand-700">
                           Inviter
                         </SubmitButton>
                       </form>
@@ -787,7 +787,7 @@ export default async function StudentDetailPage({
         ) : null}
 
         {canViewGrades ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">Notes</div>
             {gradeRows.length === 0 ? (
               <p className="mt-2 text-sm text-zinc-600">Aucune note saisie.</p>
@@ -851,7 +851,7 @@ export default async function StudentDetailPage({
           <PendingSection title="Notes" module="Notes" />
         )}
         {canViewCards ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">Bulletins</div>
             {reportCards.length === 0 ? (
               <p className="mt-2 text-sm text-zinc-600">Aucun bulletin généré.</p>
@@ -871,7 +871,7 @@ export default async function StudentDetailPage({
                         <a
                           href={`/app/report-cards/pdf?id=${card.id}`}
                           target="_blank"
-                          className="rounded-lg border border-zinc-300 px-2 py-1 hover:bg-zinc-50"
+                          className="rounded-lg border border-zinc-300 px-2 py-1 hover:bg-mist"
                         >
                           PDF
                         </a>
@@ -890,7 +890,7 @@ export default async function StudentDetailPage({
       </div>
 
       {canViewTimetable ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Emploi du temps — classe actuelle
             {currentEnrollment ? ` (${currentEnrollment.classroom.name})` : ""}
@@ -928,7 +928,7 @@ export default async function StudentDetailPage({
 
       {canViewAttendance ? (
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">Absences</div>
             {attSummary ? (
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-700">
@@ -972,7 +972,7 @@ export default async function StudentDetailPage({
             )}
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">Retards</div>
             {attSummary ? (
               <div className="mt-2 flex flex-wrap gap-4 text-sm text-zinc-700">

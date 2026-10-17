@@ -82,9 +82,9 @@ export default function OnboardingSchoolForm(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Onboarding</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Créer un établissement
         </h1>
       </div>
@@ -116,7 +116,7 @@ export default function OnboardingSchoolForm(props: {
 
       <form
         onSubmit={onSubmit}
-        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+        className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft"
       >
         <p className="w-full text-xs text-zinc-500">Les champs marqués d’un astérisque (*) sont obligatoires.</p>
         <div className="grid gap-4 md:grid-cols-2">
@@ -126,7 +126,7 @@ export default function OnboardingSchoolForm(props: {
               id="school-name"
               name="name"
               defaultValue={props.defaults?.name ?? ""}
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -135,7 +135,7 @@ export default function OnboardingSchoolForm(props: {
             <input
               id="school-code"
               name="code"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm uppercase outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm uppercase outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               placeholder="WEND-PANGA"
               required
             />
@@ -145,7 +145,7 @@ export default function OnboardingSchoolForm(props: {
             <input
               id="school-slug"
               name="slug"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               placeholder="wend-panga"
               required
             />
@@ -156,7 +156,7 @@ export default function OnboardingSchoolForm(props: {
               id="school-city"
               name="city"
               defaultValue={props.defaults?.city ?? ""}
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               placeholder="Ouagadougou"
             />
           </div>
@@ -167,7 +167,7 @@ export default function OnboardingSchoolForm(props: {
               id="school-phone"
               type="tel" name="phone"
               defaultValue={props.defaults?.phone ?? ""}
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
           <div className="space-y-1">
@@ -177,7 +177,7 @@ export default function OnboardingSchoolForm(props: {
               name="email"
               defaultValue={props.defaults?.email ?? ""}
               type="email"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             />
           </div>
 
@@ -187,7 +187,7 @@ export default function OnboardingSchoolForm(props: {
               id="academic-year"
               name="academicYearName"
               defaultValue="2026-2027"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -197,7 +197,7 @@ export default function OnboardingSchoolForm(props: {
               id="period-type"
               name="periodType"
               defaultValue="TRIMESTER"
-              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             >
               <option value="TRIMESTER">Trimestres</option>
               <option value="SEMESTER">Semestres</option>
@@ -210,7 +210,7 @@ export default function OnboardingSchoolForm(props: {
               id="start-date"
               name="startDate"
               type="date"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -220,7 +220,7 @@ export default function OnboardingSchoolForm(props: {
               id="end-date"
               name="endDate"
               type="date"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -233,7 +233,7 @@ export default function OnboardingSchoolForm(props: {
               id="admin-email"
               name="adminEmail"
               type="email"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -245,7 +245,7 @@ export default function OnboardingSchoolForm(props: {
               id="admin-password"
               name="adminPassword"
               type="password"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -254,7 +254,7 @@ export default function OnboardingSchoolForm(props: {
             <input
               id="admin-first-name"
               name="adminFirstName"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -263,7 +263,7 @@ export default function OnboardingSchoolForm(props: {
             <input
               id="admin-last-name"
               name="adminLastName"
-              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+              className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
               required
             />
           </div>
@@ -300,7 +300,7 @@ export default function OnboardingSchoolForm(props: {
           <button
             type="submit"
             disabled={loading}
-            className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-60"
+            className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
           >
             {loading ? "Création..." : "Créer"}
           </button>

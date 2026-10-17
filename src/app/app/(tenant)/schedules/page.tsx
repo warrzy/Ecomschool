@@ -218,18 +218,18 @@ export default async function SchedulesPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm text-zinc-500">Pédagogie</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Emplois du temps
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <a
               href={baseQuery({ week: fmtDate(prevWeek) })}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
             >
               ← Sem. précédente
             </a>
@@ -238,26 +238,26 @@ export default async function SchedulesPage(props: {
             </span>
             <a
               href={baseQuery({ week: fmtDate(nextWeek) })}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
             >
               Sem. suivante →
             </a>
             <a
               href={`/app/schedules/export?format=csv&${baseQuery({ week: fmtDate(ws) }).slice(1)}`}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
             >
               CSV
             </a>
             <a
               href={`/app/schedules/export?format=xlsx&${baseQuery({ week: fmtDate(ws) }).slice(1)}`}
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 hover:bg-mist"
             >
               Excel
             </a>
             {canPrint ? (
               <a
                 href={`/app/schedules/pdf${baseQuery({ week: fmtDate(ws) })}`}
-                className="rounded-lg bg-zinc-900 px-3 py-1.5 font-medium text-white hover:bg-zinc-800"
+                className="rounded-lg bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
               >
                 Exporter PDF
               </a>
@@ -277,7 +277,7 @@ export default async function SchedulesPage(props: {
       </div>
 
       {/* Filtres */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="week" value={fmtDate(ws)} />
           <div className="space-y-1">
@@ -394,7 +394,7 @@ export default async function SchedulesPage(props: {
           </div>
           <button
             type="submit"
-            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-zinc-50"
+            className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
           >
             Appliquer
           </button>
@@ -402,7 +402,7 @@ export default async function SchedulesPage(props: {
       </div>
 
       {/* Grille Lun–Sam */}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Emploi du temps" className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
@@ -507,7 +507,7 @@ export default async function SchedulesPage(props: {
 
       {/* Gestion des créneaux actifs */}
       {canManage ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Créneaux actifs ({managedSchedules.length})
           </div>
@@ -607,7 +607,7 @@ export default async function SchedulesPage(props: {
                         <button
                           form={formId}
                           type="submit"
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs hover:bg-zinc-50"
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs hover:bg-mist"
                         >
                           Enregistrer
                         </button>
@@ -641,7 +641,7 @@ export default async function SchedulesPage(props: {
       {/* Création de créneau + séance ponctuelle */}
       {canManage ? (
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Nouveau créneau récurrent
             </div>
@@ -756,14 +756,14 @@ export default async function SchedulesPage(props: {
               </div>
               <button
                 type="submit"
-                className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Créer le créneau
               </button>
             </form>
           </div>
 
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
             <div className="text-sm font-medium text-zinc-900">
               Séance ponctuelle
             </div>
@@ -845,7 +845,7 @@ export default async function SchedulesPage(props: {
               </div>
               <button
                 type="submit"
-                className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Créer la séance
               </button>

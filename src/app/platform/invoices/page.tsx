@@ -33,7 +33,7 @@ export default async function InvoicesPage(props: {
   const unpaidTotal = unpaid.reduce((s, i) => s + i.balance, 0);
   const confirmInvoice = invoices.find((i) => i.id === confirmId);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
 
   return (
     <div className="space-y-4">
@@ -41,7 +41,7 @@ export default async function InvoicesPage(props: {
         <div className="text-sm text-zinc-500">
           <Link href="/platform" className="hover:underline">Plateforme</Link> / Factures SaaS
         </div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Facturation ECOM-TOUCH ({invoices.length})
         </h1>
         <p className="mt-2 text-xs text-zinc-500">

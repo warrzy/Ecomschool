@@ -91,11 +91,11 @@ export default async function UsersPage(props: {
           <strong>définitivement supprimé — action irréversible</strong>.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Administration</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               Utilisateurs
             </h1>
           </div>
@@ -103,19 +103,19 @@ export default async function UsersPage(props: {
             <HelpLink>Comprendre les rôles</HelpLink>
             <a
               href="/app/users/export?format=csv"
-              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-mist"
             >
               Exporter CSV
             </a>
             <a
               href="/app/users/export?format=xlsx"
-              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-mist"
             >
               Exporter Excel
             </a>
             <Link
               href="/app/users/new"
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+              className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
             >
               Nouvel utilisateur
             </Link>
@@ -143,7 +143,7 @@ export default async function UsersPage(props: {
           <input
             aria-label="Recherche" name="q"
             defaultValue={q}
-            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             placeholder="Rechercher (email, prénom, nom)"
           />
         </form>
@@ -182,7 +182,7 @@ export default async function UsersPage(props: {
         </NoticeSection>
       </Notice>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Utilisateurs" className="w-full text-sm">
             <thead>
@@ -228,14 +228,14 @@ export default async function UsersPage(props: {
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
                         href={`/app/users/${m.user.id}/edit`}
-                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                        className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                       >
                         Modifier
                       </Link>
                       {m.user.id === tenant.userId ? null : (
                         <Link
                           href={`/app/users?confirm=reset&id=${m.user.id}`}
-                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+                          className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
                         >
                           Réinit. MDP
                         </Link>

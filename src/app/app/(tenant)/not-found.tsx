@@ -10,7 +10,7 @@ export default function NotFound() {
       </p>
       <a
         href="/app"
-        className="mt-6 inline-block rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
+        className="mt-6 inline-block rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
       >
         Retour au tableau de bord
       </a>

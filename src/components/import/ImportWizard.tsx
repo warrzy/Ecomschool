@@ -49,7 +49,7 @@ export type CommitResult = Record<string, number> & {
 };
 
 const inputCls =
-  "w-full rounded-xl border border-zinc-200 p-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400";
+  "w-full rounded-xl border border-zinc-200 p-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200";
 
 export function ImportWizard<T extends WizardRow>({
   previewUrl,
@@ -152,20 +152,20 @@ export function ImportWizard<T extends WizardRow>({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-1 text-sm font-medium text-zinc-900">{title}</div>
         <p className="mb-4 text-xs text-zinc-500">{hint}</p>
 
         <div className="mb-4 flex flex-wrap gap-2 text-sm">
           <a
             href={`${templateUrl}?format=csv`}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-mist"
           >
             Modèle CSV
           </a>
           <a
             href={`${templateUrl}?format=xlsx`}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-mist"
           >
             Modèle Excel
           </a>
@@ -216,7 +216,7 @@ export function ImportWizard<T extends WizardRow>({
           type="button"
           disabled={busy || (!file && !pasted.trim()) || (!!extraField && !extra)}
           onClick={analyze}
-          className="mt-3 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+          className="mt-3 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {busy ? "Analyse…" : "Analyser le fichier"}
         </button>
@@ -228,7 +228,7 @@ export function ImportWizard<T extends WizardRow>({
       </div>
 
       {preview ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 flex flex-wrap gap-2">
             {summaryLabels.map(({ key, label }) => (
               <span
@@ -281,7 +281,7 @@ export function ImportWizard<T extends WizardRow>({
                 (blockingErrors && hasErrors)
               }
               onClick={confirm}
-              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               {busy
                 ? "Importation…"
@@ -296,7 +296,7 @@ export function ImportWizard<T extends WizardRow>({
               <button
                 type="button"
                 onClick={() => downloadErrors(allIssues)}
-                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50"
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist"
               >
                 Rapport d’erreurs (CSV)
               </button>

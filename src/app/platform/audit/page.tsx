@@ -18,22 +18,22 @@ export default async function PlatformAuditPage(props: {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Plateforme</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           Journal d&apos;audit
         </h1>
         <form className="mt-4" action="/platform/audit" method="get">
           <input
             aria-label="Entité" name="entity"
             defaultValue={entity ?? ""}
-            className="h-11 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+            className="h-11 w-72 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
             placeholder="Filtrer par entité (User, School...)"
           />
         </form>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="overflow-x-auto">
           <table aria-label="Journal d&apos;audit" className="w-full text-sm">
             <thead>
@@ -85,8 +85,8 @@ export default async function PlatformAuditPage(props: {
                 href={`/platform/audit?entity=${entity ?? ""}&page=${p}`}
                 className={
                   p === page
-                    ? "rounded-lg bg-zinc-900 px-3 py-1 text-white"
-                    : "rounded-lg border border-zinc-200 px-3 py-1 hover:bg-zinc-50"
+                    ? "rounded-lg bg-brand-600 px-3 py-1 text-white"
+                    : "rounded-lg border border-zinc-200 px-3 py-1 hover:bg-mist"
                 }
               >
                 {p}

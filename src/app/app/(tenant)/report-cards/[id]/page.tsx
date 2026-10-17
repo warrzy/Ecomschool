@@ -70,13 +70,13 @@ export default async function ReportCardDetailPage(props: {
   );
 
   const inputCls =
-    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400";
+    "w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-200";
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">Bulletin {card.identifier}</div>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           {card.student.lastName} {card.student.firstName} — {card.classroom.name} ·{" "}
           {card.academicPeriod.name}
         </h1>
@@ -88,7 +88,7 @@ export default async function ReportCardDetailPage(props: {
             <a
               href={`/app/report-cards/pdf?id=${card.id}`}
               target="_blank"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
             >
               Aperçu / PDF
             </a>
@@ -110,7 +110,7 @@ export default async function ReportCardDetailPage(props: {
       </div>
 
       {result ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-semibold text-zinc-900">
             Appréciations et décisions (modèle : {templateKey})
           </div>
@@ -144,7 +144,7 @@ export default async function ReportCardDetailPage(props: {
                       ? ` (signé le ${new Date(result.directionSignedAt).toLocaleDateString("fr-FR")})`
                       : ""}
                   </label>
-                  <button type="submit" className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">
+                  <button type="submit" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
                     Enregistrer
                   </button>
                 </>
@@ -159,7 +159,7 @@ export default async function ReportCardDetailPage(props: {
       ) : null}
 
       {subjects.length > 0 ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="mb-3 text-sm font-semibold text-zinc-900">Appréciations par matière</div>
           <div className="space-y-3">
             {subjects.map((s) => (
@@ -176,7 +176,7 @@ export default async function ReportCardDetailPage(props: {
                   className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-1.5 text-sm"
                 />
                 {canValidate ? (
-                  <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-zinc-50">
+                  <button type="submit" className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist">
                     Enregistrer
                   </button>
                 ) : null}
@@ -186,7 +186,7 @@ export default async function ReportCardDetailPage(props: {
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="mb-3 text-sm font-semibold text-zinc-900">Historique des versions</div>
         <div className="overflow-x-auto">
         <table aria-label="Notes du bulletin" className="w-full text-left text-sm">

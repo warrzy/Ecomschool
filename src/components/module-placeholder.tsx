@@ -7,9 +7,9 @@ export default function ModulePlaceholder({
 }) {
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm text-zinc-500">{section}</div>
-        <div className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+        <div className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
           {title}
         </div>
       </div>

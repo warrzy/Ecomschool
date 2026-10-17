@@ -14,7 +14,7 @@ export function HelpLink({
   return (
     <a
       href={href}
-      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-mist"
     >
       {children}
     </a>
@@ -32,7 +32,7 @@ export function Notice({
   return (
     <details
       id="notice"
-      className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+      className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft"
     >
       <summary className="cursor-pointer text-sm font-semibold text-zinc-900">
         {title}

@@ -74,11 +74,11 @@ export default async function GuardianDetailPage({
           depuis la fiche élève.
         </ConfirmPanel>
       ) : null}
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-zinc-500">Parent / tuteur</div>
-            <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-900">
+            <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
               {guardian.lastName} {guardian.firstName}
             </h1>
             <div className="mt-1 text-sm text-zinc-600">
@@ -87,7 +87,7 @@ export default async function GuardianDetailPage({
           </div>
           <Link
             href="/app/guardians"
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
           >
             Retour
           </Link>
@@ -105,7 +105,7 @@ export default async function GuardianDetailPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">Coordonnées</div>
           {canManage ? (
             <form action={updateGuardianAction} className="mt-4 space-y-4">
@@ -120,7 +120,7 @@ export default async function GuardianDetailPage({
                     name="lastName"
                     defaultValue={guardian.lastName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -131,7 +131,7 @@ export default async function GuardianDetailPage({
                     name="firstName"
                     defaultValue={guardian.firstName}
                     required
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -141,7 +141,7 @@ export default async function GuardianDetailPage({
                   <input type="tel" id="fld-src-app-app-tenant-guardians-id-page-tsx-3"
                     name="phone"
                     defaultValue={guardian.phone ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -152,7 +152,7 @@ export default async function GuardianDetailPage({
                     name="email"
                     type="email"
                     defaultValue={guardian.email ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1 md:col-span-2">
@@ -162,7 +162,7 @@ export default async function GuardianDetailPage({
                   <input id="fld-src-app-app-tenant-guardians-id-page-tsx-5"
                     name="address"
                     defaultValue={guardian.address ?? ""}
-                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-zinc-900 focus-visible:ring-2 focus-visible:ring-zinc-400"
+                    className="h-11 w-full rounded-xl border border-zinc-200 px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
                   />
                 </div>
                 <div className="space-y-1">
@@ -181,7 +181,7 @@ export default async function GuardianDetailPage({
               </div>
               <button
                 type="submit"
-                className="h-11 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+                className="h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Enregistrer
               </button>
@@ -212,7 +212,7 @@ export default async function GuardianDetailPage({
           )}
         </div>
 
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
           <div className="text-sm font-medium text-zinc-900">
             Enfants rattachés
           </div>
@@ -254,7 +254,7 @@ export default async function GuardianDetailPage({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
         <div className="text-sm font-medium text-zinc-900">
           Consentement SMS / WhatsApp
         </div>
@@ -294,7 +294,7 @@ export default async function GuardianDetailPage({
             </label>
             <button
               type="submit"
-              className="h-10 rounded-xl bg-zinc-900 px-4 text-sm font-medium text-white hover:bg-zinc-800"
+              className="h-10 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
             >
               Enregistrer le consentement
             </button>

@@ -83,7 +83,7 @@ export default async function StudentAccountPage(props: {
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.receipts.print" }),
   ]);
 
-  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm";
+  const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
   const selfHref = `/app/fees/accounts/${id}?year=${yearId}`;
   const confirmDiscount = account.discounts.find((d) => d.id === confirmId);
@@ -113,7 +113,7 @@ export default async function StudentAccountPage(props: {
           <Link href="/app/fees/accounts" className="hover:underline">Comptes élèves</Link> / Dossier
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-900">
+          <h1 className="text-xl font-display font-bold tracking-tight text-ink">
             {account.student.firstName} {account.student.lastName}
             <span className="ml-2 font-mono text-sm font-normal text-zinc-500">{account.student.matricule}</span>
           </h1>
@@ -131,7 +131,7 @@ export default async function StudentAccountPage(props: {
             </form>
             <Link
               href="/app/fees/accounts"
-              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm hover:bg-mist"
             >
               Retour
             </Link>
@@ -266,7 +266,7 @@ export default async function StudentAccountPage(props: {
               </select>
               <input aria-label="Valeur" name="value" type="number" min="0" placeholder="Montant ou %" required className={input} />
               <input aria-label="Motif" name="reason" placeholder="Motif" required className={input} />
-              <button type="submit" className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-medium text-white">
+              <button type="submit" className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white">
                 Ajouter
               </button>
             </form>
@@ -293,7 +293,7 @@ export default async function StudentAccountPage(props: {
               <input aria-label="Observation" name="observation" placeholder="Observation" className={input} />
               <SubmitButton
                 pendingLabel="Encaissement…"
-                className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white"
               >
                 Encaisser
               </SubmitButton>
