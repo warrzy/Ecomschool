@@ -245,12 +245,19 @@ rm -f "$ROOT/log/alerts/"*.stamp
 echo "=== monitor : backup stale + déduplication ==="
 . "$ROOT/log/backup-status.env"
 sed -i 's/^LAST_BACKUP_AT=.*/LAST_BACKUP_AT="2000-01-01T00:00:00"/' "$ROOT/log/backup-status.env"
-bash $S/monitor.sh --dry-run >"$ROOT/mon1.log" 2>&1 || true
-bash $S/monitor.sh --dry-run >"$ROOT/mon2.log" 2>&1 || true
-N1=$(grep -c 'ALERTE\[dry-run\] backup_stale' "$ROOT/mon1.log")
-N2=$(grep -c 'ALERTE\[dry-run\] backup_stale' "$ROOT/mon2.log")
+# La déduplication s'écrit hors dry-run (aucun canal configuré → log seul).
+bash $S/monitor.sh >"$ROOT/mon1.log" 2>&1 || true
+bash $S/monitor.sh >"$ROOT/mon2.log" 2>&1 || true
+N1=$(grep -c 'ALERTE backup_stale' "$ROOT/mon1.log")
+N2=$(grep -c 'ALERTE backup_stale' "$ROOT/mon2.log")
 ok "alerte backup_stale émise" "$N1" "1"
 ok "dédupliquée au 2e run" "$N2" "0"
+# dry-run ne doit pas consommer la déduplication
+rm -f "$ROOT/log/alerts/"*.stamp
+bash $S/monitor.sh --dry-run >"$ROOT/mon3.log" 2>&1 || true
+bash $S/monitor.sh --dry-run >"$ROOT/mon4.log" 2>&1 || true
+ok "dry-run répète l'alerte (pas de stamp)" \
+  "$(grep -c 'ALERTE\[dry-run\] backup_stale' "$ROOT/mon4.log")" "1"
 
 echo "=== healthcheck : sain ==="
 bash $S/healthcheck.sh >"$ROOT/hc.log" 2>&1

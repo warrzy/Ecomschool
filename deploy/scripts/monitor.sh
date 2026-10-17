@@ -38,8 +38,10 @@ alert() {
   if [ $((now - last)) -lt $((ALERT_DEDUP_HOURS * 3600)) ]; then
     return 0  # déjà signalée récemment
   fi
-  echo "$now" > "$stamp"
   ISSUES=$((ISSUES + 1))
+  # En dry-run on ne consomme pas la déduplication : un test ne doit pas
+  # masquer une alerte réelle pendant ALERT_DEDUP_HOURS.
+  [ "$DRY_RUN" = 0 ] && echo "$now" > "$stamp"
   local payload
   payload=$(printf '{"key":"%s","title":"%s","body":"%s","host":"%s","at":"%s"}' \
     "$key" "$title" "$body" "$(hostname 2>/dev/null || echo '?')" "$(ts)")
