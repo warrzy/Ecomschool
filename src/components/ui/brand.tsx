@@ -54,7 +54,7 @@ export function Logo(props: {
     <span className={`inline-flex items-center gap-2.5 ${props.className ?? ""}`}>
       <LogoMark className={props.markClassName ?? "h-8 w-8"} />
       <span
-        className={`whitespace-nowrap text-base font-bold tracking-tight ${
+        className={`brand-wordmark whitespace-nowrap text-base font-bold tracking-tight ${
           dark ? "text-white" : "text-ink"
         }`}
         style={{ fontFamily: "var(--font-bricolage), var(--font-geist-sans), sans-serif" }}

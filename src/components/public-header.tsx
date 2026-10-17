@@ -65,7 +65,7 @@ export default async function PublicHeader() {
         <div className="flex items-center gap-2">
           <MobileNav sections={mobileSections} title="ECOM-SCHOOL" />
           <Link href="/" aria-label="ECOM-SCHOOL — accueil">
-            <Logo />
+            <Logo className="[&_.brand-wordmark]:max-[420px]:hidden" />
           </Link>
         </div>
 
@@ -102,7 +102,7 @@ export default async function PublicHeader() {
           )}
           <Link
             href="/inscription"
-            className="btn-shine inline-flex items-center whitespace-nowrap rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-brand-600"
+            className="btn-shine inline-flex items-center whitespace-nowrap rounded-xl bg-brand-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lift transition hover:-translate-y-0.5 hover:bg-brand-600 sm:px-4 sm:py-2 sm:text-sm"
           >
             Inscrire mon établissement
           </Link>
