@@ -3,6 +3,7 @@ import { requirePlatformContext } from "@/lib/tenant/context";
 import { getPlatformPermissionKeys } from "@/lib/permissions/rbac";
 import { platformNav } from "@/app/platform/ui/nav";
 import { MobileNav } from "@/components/ui/MobileNav";
+import { Sidebar } from "@/components/ui/Sidebar";
 
 export const instant = false;
 
@@ -28,28 +29,12 @@ export default async function PlatformLayout({
         Aller au contenu principal
       </a>
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white p-4 md:flex">
-          <div className="mb-6">
-            <div className="text-xs font-semibold tracking-wide text-zinc-500">
-              ECOM-TOUCH
-            </div>
-            <div className="text-lg font-semibold tracking-tight text-zinc-900">
-              ECOM-SCHOOL
-            </div>
-          </div>
-
-          <nav className="space-y-1 text-sm">
-            {navItems.map((item) => (
-              <a
-                key={item.href}
-                className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
-                href={item.href}
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </aside>
+        <Sidebar
+          sections={[{ items: navItems }]}
+          brandTitle="ECOM-SCHOOL"
+          brandSubtitle="Espace plateforme"
+          storageKey="ecomschool.nav.platform"
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">

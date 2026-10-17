@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireSchoolContext } from "@/lib/tenant/context";
 import { MobileNav } from "@/components/ui/MobileNav";
+import { Sidebar } from "@/components/ui/Sidebar";
 
 export const instant = false;
 
 const teacherNav = [
-  { label: "Tableau de bord", href: "/teacher" },
-  { label: "Mon emploi du temps", href: "/app/schedules?view=teacher" },
-  { label: "Retour à l'école", href: "/app" },
+  { label: "Tableau de bord", href: "/teacher", icon: "M3 3h7v9H3z M14 3h7v5h-7z M14 12h7v9h-7z M3 16h7v5H3z" },
+  { label: "Mon emploi du temps", href: "/app/schedules?view=teacher", icon: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M12 6v6l4 2" },
+  { label: "Retour à l'école", href: "/app", icon: "M19 12H5 M12 19l-7-7 7-7" },
 ];
 
 export default async function TeacherLayout({
@@ -35,27 +36,12 @@ export default async function TeacherLayout({
         Aller au contenu principal
       </a>
       <div className="flex min-h-screen">
-        <aside className="hidden w-56 flex-col border-r border-zinc-200 bg-white p-4 md:flex">
-          <div className="mb-6">
-            <div className="text-xs font-semibold tracking-wide text-zinc-500">
-              ECOM-SCHOOL
-            </div>
-            <div className="text-lg font-semibold tracking-tight text-zinc-900">
-              Espace enseignant
-            </div>
-          </div>
-          <nav className="space-y-1 text-sm">
-            {teacherNav.map((item) => (
-              <a
-                key={item.href}
-                className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
-                href={item.href}
-              >
-                {item.label}
-              </a>
-            ))}
-          </nav>
-        </aside>
+        <Sidebar
+          sections={[{ items: teacherNav }]}
+          brandTitle="Espace enseignant"
+          brandSubtitle={school?.name ?? "ECOM-SCHOOL"}
+          storageKey="ecomschool.nav.teacher"
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
             <div className="flex min-w-0 items-center gap-3">

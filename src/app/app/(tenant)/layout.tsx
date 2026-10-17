@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { appNav, groupNav } from "@/app/app/(tenant)/ui/nav";
 import { MobileNav } from "@/components/ui/MobileNav";
+import { Sidebar } from "@/components/ui/Sidebar";
 import { requireSchoolContext } from "@/lib/tenant/context";
 import { getSchoolPermissionKeys } from "@/lib/permissions/rbac";
 import {
@@ -61,37 +62,12 @@ export default async function TenantLayout({
         Aller au contenu principal
       </a>
       <div className="flex min-h-screen">
-        <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white p-4 md:flex">
-          <div className="mb-6">
-            <div className="text-xs font-semibold tracking-wide text-zinc-500">
-              ECOM-TOUCH
-            </div>
-            <div className="text-lg font-semibold tracking-tight text-zinc-900">
-              ECOM-SCHOOL
-            </div>
-          </div>
-
-          <nav className="space-y-3 text-sm">
-            {navSections.map((section) => (
-              <div key={section.title}>
-                <div className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  {section.title}
-                </div>
-                <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <a
-                      key={item.href}
-                      className="block rounded-lg px-3 py-2 text-zinc-900 hover:bg-zinc-100"
-                      href={item.href}
-                    >
-                      {item.label}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </nav>
-        </aside>
+        <Sidebar
+          sections={navSections}
+          brandTitle={school?.name ?? "ECOM-SCHOOL"}
+          brandSubtitle={academicYear?.name ?? "Espace établissement"}
+          storageKey="ecomschool.nav.app"
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-zinc-200 bg-white px-4">
