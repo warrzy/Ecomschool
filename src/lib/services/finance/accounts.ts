@@ -377,9 +377,13 @@ export async function studentFinanceYears(ctx: SchoolCtx, studentId: string) {
 }
 
 /** Liste des comptes financiers (vue agrégée) pour une année. */
+/** Normalise pour la recherche : minuscules + accents retirés. */
+const normSearch = (s: string) =>
+  s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+
 export async function listAccounts(
   ctx: SchoolCtx,
-  input: { academicYearId: string; classroomId?: string },
+  input: { academicYearId: string; classroomId?: string; query?: string },
 ) {
   const enrollments = await prisma.enrollment.findMany({
     where: {
@@ -424,6 +428,22 @@ export async function listAccounts(
     _sum: { amount: true },
   });
 
+  // Recherche serveur : nom/prénom/matricule, casse et accents ignorés.
+  // Tous les mots de la requête doivent correspondre (haystack combiné).
+  const tokens = (input.query ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(normSearch);
+  const filtered = tokens.length
+    ? enrollments.filter((e) => {
+        const hay = normSearch(
+          `${e.student.matricule} ${e.student.firstName} ${e.student.lastName}`,
+        );
+        return tokens.every((t) => hay.includes(t));
+      })
+    : enrollments;
+
   const chargeBy = new Map(charges.map((c) => [c.studentId, c._sum.amount ?? 0]));
   const paidBy = new Map(payments.map((p) => [p.studentId, p._sum.amount ?? 0]));
   const discBy = new Map<string, { type: string; value: number }[]>();
@@ -432,7 +452,7 @@ export async function listAccounts(
     discBy.get(d.studentId)!.push(d);
   }
 
-  return enrollments.map((e) => {
+  return filtered.map((e) => {
     const total = chargeBy.get(e.student.id) ?? 0;
     const disc = (discBy.get(e.student.id) ?? []).reduce(
       (s, d) =>

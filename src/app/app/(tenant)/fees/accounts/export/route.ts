@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     academicYearId: yearId,
     classroomId: p("classroom"),
     studentId: p("student"),
+    query: p("q"),
   });
   if (truncated) {
     return new NextResponse(

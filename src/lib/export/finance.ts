@@ -126,11 +126,13 @@ export async function buildAccountsExport(
     academicYearId: string;
     classroomId?: string;
     studentId?: string;
+    query?: string;
   },
 ): Promise<FinanceExport> {
   const accounts = await listAccounts(ctx, {
     academicYearId: filters.academicYearId,
     classroomId: filters.classroomId,
+    query: filters.query,
   });
   const scoped = filters.studentId
     ? accounts.filter((a) => a.student.id === filters.studentId)
