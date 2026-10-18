@@ -70,8 +70,15 @@ async function tryLogin(
 
 async function expectAccess(page: Page, path: string, allowed: boolean, label: string) {
   await page.goto(`${BASE}${path}`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(800);
-  const forbidden = page.url().includes("/forbidden");
+  // La redirection vers /app/forbidden peut se résoudre en streaming (PPR) :
+  // les refus attendent jusqu'à 12 s, les accès autorisés 2,5 s.
+  const maxWait = allowed ? 2500 : 12000;
+  const t0 = Date.now();
+  let forbidden = page.url().includes("/forbidden");
+  while (!forbidden && Date.now() - t0 < maxWait) {
+    await page.waitForTimeout(600);
+    forbidden = page.url().includes("/forbidden");
+  }
   check(`${label} ${path} → ${allowed ? "autorisé" : "refusé"}`, forbidden === !allowed);
 }
 
@@ -100,7 +107,10 @@ const ESSENTIEL: Record<string, Array<[string, boolean]>> = {
     ["/app/grades", true], ["/app/fees", false], ["/app/users", false],
   ],
   cashier: [
-    ["/app/fees/payments", true], ["/app/fees", true],
+    // /app/fees/payments exige finance.reports.read (journal) ; le caissier
+    // encaisse via /app/fees/accounts (finance.read).
+    ["/app/fees/accounts", true], ["/app/fees", true],
+    ["/app/fees/payments", false],
     ["/app/fees/settings", false], ["/app/students", false], ["/app/announcements", false],
   ],
   finance: [["/app/fees/settings", false], ["/app/fees/payments", true]],
@@ -114,7 +124,7 @@ const PRO: Record<string, Array<[string, boolean]>> = {
     ["/app/fees/payments", true], ["/app/schedules", true], ["/app/report-cards", true],
   ],
   teacher: [["/app/attendance", true], ["/app/fees", false]],
-  cashier: [["/app/fees/payments", true], ["/app/fees/settings", false], ["/app/students", false]],
+  cashier: [["/app/fees/accounts", true], ["/app/fees/payments", false], ["/app/fees/settings", false], ["/app/students", false]],
   finance: [["/app/fees/settings", true], ["/app/fees/unpaid", true], ["/app/students", false]],
   parent: [["/parent", true]],
   student: [["/student", true]],
