@@ -74,7 +74,7 @@ export function StudentImportWizard({
         </>
       )}
       resultMessage={(r) =>
-        `${r.created ?? 0} création(s), ${r.updated ?? 0} modification(s), ${r.enrollments ?? 0} inscription(s), ${r.unchanged ?? 0} inchangée(s), ${Array.isArray(r.errors) ? r.errors.length : 0} erreur(s).`
+        `${r.created ?? 0} création(s), ${r.updated ?? 0} modification(s), ${r.enrollments ?? 0} inscription(s), ${r.unchanged ?? 0} inchangée(s), ${r.chargesCreated ?? 0} créance(s) générée(s), ${r.noTariffs ?? 0} sans tarif applicable, ${r.chargesFailed ?? 0} échec(s) de génération, ${Array.isArray(r.errors) ? r.errors.length : 0} erreur(s).`
       }
     />
   );

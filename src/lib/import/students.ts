@@ -15,6 +15,7 @@ import {
   updateStudent,
 } from "@/lib/services/students";
 import { enrollStudent } from "@/lib/services/enrollments";
+import { generateStudentCharges } from "@/lib/services/finance/accounts";
 import { checkLimit } from "@/lib/services/platform/modules";
 import { studentRowSchema } from "@/lib/validations/students";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
@@ -699,6 +700,13 @@ export interface StudentsCommitResult {
   updated: number;
   unchanged: number;
   enrollments: number;
+  /** Créances créées pour les inscriptions nouvelles. */
+  chargesCreated: number;
+  /** Inscriptions pour lesquelles aucun tarif obligatoire n'est applicable. */
+  noTariffs: number;
+  /** Inscriptions dont la génération de créances a échoué (reprise
+   *  idempotente possible depuis le dossier financier). */
+  chargesFailed: number;
   errors: ImportIssue[];
 }
 
@@ -763,6 +771,9 @@ export async function commitStudentsImport(
     updated: 0,
     unchanged: 0,
     enrollments: 0,
+    chargesCreated: 0,
+    noTariffs: 0,
+    chargesFailed: 0,
     errors: [],
   };
 
@@ -780,6 +791,7 @@ export async function commitStudentsImport(
     const wantsEnrollment = prow.enrollment?.action === "create" && classroom;
 
     // Une transaction par ligne : élève + inscription atomiques.
+    let enrolledStudentId: string | null = null;
     try {
       await prisma.$transaction(async (tx) => {
         let studentId = existingByMat.get(r.matricule);
@@ -848,6 +860,7 @@ export async function commitStudentsImport(
             tx,
           );
           if (!res.ok) throw new Error(res.error);
+          enrolledStudentId = studentId;
         }
       });
     } catch (e) {
@@ -863,7 +876,31 @@ export async function commitStudentsImport(
     if (prow.action === "create") result.created++;
     else if (prow.action === "update") result.updated++;
     else result.unchanged++;
-    if (wantsEnrollment) result.enrollments++;
+    if (wantsEnrollment) {
+      result.enrollments++;
+      // Créances après commit — même règle que le guichet F2-D : un échec
+      // de génération ne remet pas en cause l'inscription, et la reprise
+      // idempotente reste possible depuis le dossier financier. Seules les
+      // inscriptions nouvelles déclenchent la génération : un élève déjà
+      // inscrit réimporté ne produit pas de créances supplémentaires.
+      try {
+        const chg = await generateStudentCharges(ctx, {
+          studentId: enrolledStudentId!,
+          academicYearId,
+        });
+        if (!chg.ok) throw new Error(chg.error);
+        result.chargesCreated += chg.result.created;
+        if (chg.result.tariffs === 0) result.noTariffs++;
+      } catch (e) {
+        result.chargesFailed++;
+        result.errors.push({
+          line: prow.line,
+          column: "frais",
+          value: r.matricule,
+          reason: `Inscription enregistrée, frais non générés (${e instanceof Error ? e.message : "ERREUR"}) — reprise possible depuis le dossier financier`,
+        });
+      }
+    }
   }
 
   await logAudit({
@@ -877,6 +914,9 @@ export async function commitStudentsImport(
       updated: result.updated,
       unchanged: result.unchanged,
       enrollments: result.enrollments,
+      chargesCreated: result.chargesCreated,
+      noTariffs: result.noTariffs,
+      chargesFailed: result.chargesFailed,
       failed: result.errors.length,
       academicYearId,
     },
