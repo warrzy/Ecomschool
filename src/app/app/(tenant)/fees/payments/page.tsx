@@ -7,7 +7,7 @@ import {
   cancelPaymentAction,
   closeCashAction,
 } from "@/app/app/(tenant)/fees/actions";
-import type { PaymentMethod } from "@prisma/client";
+import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
@@ -16,6 +16,7 @@ export const instant = false;
 
 const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
+const PAGE_SIZE = 50;
 const METHOD_LABELS: Record<string, string> = {
   CASH: "Espèces",
   BANK_TRANSFER: "Virement",
@@ -51,26 +52,81 @@ export default async function PaymentsJournalPage(props: {
   const method = str("method") as PaymentMethod | undefined;
   const from = str("from");
   const to = str("to");
-  const includeCancelled = str("cancelled") === "1";
+  const cashier = str("cashier") || undefined;
+  const q = str("q")?.trim() || undefined;
+  const status = (["VALIDATED", "CANCELLED"] as const).find(
+    (s) => s === str("status"),
+  ) as PaymentStatus | undefined;
+  const page = Math.max(1, parseInt(str("page") ?? "1", 10) || 1);
 
-  const payments = await listPayments(c, {
-    academicYearId: yearId,
-    method: method || undefined,
-    from: from ? new Date(`${from}T00:00:00Z`) : undefined,
-    to: to ? new Date(`${to}T23:59:59Z`) : undefined,
-    includeCancelled,
-  });
+  const payments = await listPayments(
+    c,
+    {
+      academicYearId: yearId,
+      method: method || undefined,
+      from: from ? new Date(`${from}T00:00:00Z`) : undefined,
+      to: to ? new Date(`${to}T23:59:59Z`) : undefined,
+      receivedById: cashier,
+      query: q,
+      status,
+      includeCancelled: !status,
+    },
+    { take: 5000 },
+  );
   const closures = await listCashClosures(c);
+  // Totaux cohérents avec les filtres : recettes = VALIDATED uniquement.
+  const totalFiltered = payments
+    .filter((p) => p.status === "VALIDATED")
+    .reduce((s, p) => s + p.amount, 0);
+  const cancelledCount = payments.filter((p) => p.status === "CANCELLED").length;
   const totalDay = payments
     .filter((p) => p.status === "VALIDATED" && dstr(p.paidAt) === dstr(new Date()))
     .reduce((s, p) => s + p.amount, 0);
 
+  // « Encaissé par » : receivedById sans relation → jointure manuelle sur les
+  // utilisateurs ayant réellement encaissé dans cet établissement.
+  const cashierRows = await prisma.payment.findMany({
+    where: { schoolId: tenant.schoolId, receivedById: { not: null } },
+    distinct: ["receivedById"],
+    select: { receivedById: true },
+  });
+  const cashierUsers = await prisma.user.findMany({
+    where: {
+      id: { in: cashierRows.map((r) => r.receivedById!) },
+      memberships: { some: { schoolId: tenant.schoolId } },
+    },
+    select: { id: true, firstName: true, lastName: true, email: true },
+    orderBy: { lastName: "asc" },
+  });
+  const agentBy = new Map(
+    cashierUsers.map((u) => [
+      u.id,
+      `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email,
+    ]),
+  );
+
+  const pageCount = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = payments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
 
-  const exportParams = `year=${yearId ?? ""}&from=${from ?? ""}&to=${to ?? ""}&method=${method ?? ""}${includeCancelled ? "" : "&status=VALIDATED"}`;
+  const exportParams = `year=${yearId ?? ""}&from=${from ?? ""}&to=${to ?? ""}&method=${method ?? ""}${status ? `&status=${status}` : ""}${cashier ? `&cashier=${cashier}` : ""}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
   const csvHref = `/app/fees/payments/export?format=csv&${exportParams}`;
   const xlsxHref = `/app/fees/payments/export?format=xlsx&${exportParams}`;
+  const pageHref = (p: number) => {
+    const u = new URLSearchParams();
+    if (yearId) u.set("year", yearId);
+    if (method) u.set("method", method);
+    if (from) u.set("from", from);
+    if (to) u.set("to", to);
+    if (cashier) u.set("cashier", cashier);
+    if (q) u.set("q", q);
+    if (status) u.set("status", status);
+    u.set("page", String(p));
+    return `?${u.toString()}`;
+  };
 
   const confirmPayment = payments.find((p) => p.id === confirmId);
   const cancelHref = `/app/fees/payments${yearId ? `?year=${yearId}` : ""}`;
@@ -130,7 +186,12 @@ export default async function PaymentsJournalPage(props: {
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-display font-bold tracking-tight text-ink">
-            Encaissements ({payments.length}) — aujourd&apos;hui : {fmt(totalDay)}
+            Encaissements ({payments.length}) — total filtré : {fmt(totalFiltered)} — aujourd&apos;hui : {fmt(totalDay)}
+            {cancelledCount > 0 ? (
+              <span className="ml-2 text-sm font-normal text-zinc-500">
+                dont {cancelledCount} annulé{cancelledCount > 1 ? "s" : ""}
+              </span>
+            ) : null}
           </h1>
           <div className="flex flex-wrap items-center gap-2">
             <a href={csvHref} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm hover:bg-mist">
@@ -164,6 +225,14 @@ export default async function PaymentsJournalPage(props: {
       <div className={card}>
         <form method="GET" className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="year" value={yearId ?? ""} />
+          <input
+            aria-label="Rechercher"
+            type="search"
+            name="q"
+            defaultValue={q ?? ""}
+            placeholder="Élève, matricule, référence ou n° reçu…"
+            className={`${input} min-w-56`}
+          />
           <input aria-label="Du" name="from" type="date" defaultValue={from ?? ""} className={input} />
           <input aria-label="Au" name="to" type="date" defaultValue={to ?? ""} className={input} />
           <select
@@ -173,12 +242,27 @@ export default async function PaymentsJournalPage(props: {
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
-          <label className="flex items-center gap-1 text-sm">
-            <input type="checkbox" name="cancelled" value="1" defaultChecked={includeCancelled} /> Inclure annulés
-          </label>
+          <select
+                  aria-label="Tous les caissiers" name="cashier" defaultValue={cashier ?? ""} className={input}>
+            <option value="">Tous les caissiers</option>
+            {cashierUsers.map((u) => (
+              <option key={u.id} value={u.id}>{agentBy.get(u.id)}</option>
+            ))}
+          </select>
+          <select
+                  aria-label="Tous statuts" name="status" defaultValue={status ?? ""} className={input}>
+            <option value="">Tous statuts</option>
+            <option value="VALIDATED">Validés</option>
+            <option value="CANCELLED">Annulés</option>
+          </select>
           <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
             Filtrer
           </button>
+          {q || cashier || status || method || from || to ? (
+            <Link href={`/app/fees/payments${yearId ? `?year=${yearId}` : ""}`} className="text-sm text-zinc-500 underline">
+              Réinitialiser
+            </Link>
+          ) : null}
         </form>
       </div>
 
@@ -192,19 +276,21 @@ export default async function PaymentsJournalPage(props: {
               <th scope="col" className="py-2">Élève</th>
               <th scope="col" className="py-2">Mode</th>
               <th scope="col" className="py-2">Référence</th>
+              <th scope="col" className="py-2">Encaissé par</th>
               <th scope="col" className="py-2 text-right">Montant</th>
               <th scope="col" className="py-2">Statut</th>
               <th scope="col" className="py-2"></th>
             </tr>
           </thead>
           <tbody>
-            {payments.map((p) => (
+            {pageRows.map((p) => (
               <tr key={p.id} className="border-b border-zinc-100 last:border-0">
                 <td className="py-2">{dstr(p.paidAt)}</td>
                 <td className="py-2 font-mono text-xs">{p.receiptNumber ?? "—"}</td>
                 <td className="py-2">{p.student.firstName} {p.student.lastName}</td>
                 <td className="py-2">{METHOD_LABELS[p.method] ?? p.method}</td>
                 <td className="py-2">{p.reference ?? "—"}</td>
+                <td className="py-2 text-xs">{p.receivedById ? (agentBy.get(p.receivedById) ?? "—") : "—"}</td>
                 <td className="py-2 text-right font-medium">{fmt(p.amount)}</td>
                 <td className={`py-2 text-xs ${p.status === "CANCELLED" ? "text-red-700" : "text-emerald-700"}`}>
                   {p.status === "CANCELLED" ? "Annulé" : "Validé"}
@@ -227,11 +313,34 @@ export default async function PaymentsJournalPage(props: {
               </tr>
             ))}
             {payments.length === 0 ? (
-              <tr><td colSpan={8} className="py-3 text-zinc-500">Aucun paiement.</td></tr>
+              <tr><td colSpan={9} className="py-3 text-zinc-500">
+                {q || cashier || status || method || from || to
+                  ? "Aucun paiement ne correspond à ces filtres."
+                  : "Aucun paiement."}
+              </td></tr>
             ) : null}
           </tbody>
         </table>
         </div>
+        {pageCount > 1 ? (
+          <nav aria-label="Pagination" className="mt-4 flex items-center justify-between text-sm">
+            <span className="text-zinc-500">
+              Page {safePage} / {pageCount} — {payments.length} opération(s)
+            </span>
+            <div className="flex gap-2">
+              {safePage > 1 ? (
+                <Link href={pageHref(safePage - 1)} className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-mist">
+                  Précédent
+                </Link>
+              ) : null}
+              {safePage < pageCount ? (
+                <Link href={pageHref(safePage + 1)} className="rounded-lg border border-zinc-300 px-3 py-1.5 hover:bg-mist">
+                  Suivant
+                </Link>
+              ) : null}
+            </div>
+          </nav>
+        ) : null}
       </div>
 
       <div className={card}>

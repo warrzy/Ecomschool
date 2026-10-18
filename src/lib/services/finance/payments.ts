@@ -344,13 +344,26 @@ export async function listPayments(
     status?: PaymentStatus;
     receivedById?: string;
     includeCancelled?: boolean;
+    query?: string;
   } = {},
   opts: { take?: number; cursor?: string } = {},
 ) {
+  const q = filters.query?.trim();
   return prisma.payment.findMany({
     where: {
       schoolId: ctx.schoolId,
       ...(filters.academicYearId ? { academicYearId: filters.academicYearId } : {}),
+      ...(q
+        ? {
+            OR: [
+              { reference: { contains: q, mode: "insensitive" } },
+              { receiptNumber: { contains: q, mode: "insensitive" } },
+              { student: { matricule: { contains: q, mode: "insensitive" } } },
+              { student: { firstName: { contains: q, mode: "insensitive" } } },
+              { student: { lastName: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
       ...(filters.from || filters.to
         ? {
             paidAt: {

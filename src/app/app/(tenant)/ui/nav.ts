@@ -76,6 +76,8 @@ export const appNav: NavItem[] = [
   { label: "Absences & retards", href: "/app/attendance", permission: "attendance.read", section: "Pédagogie", icon: I.alertClock },
 
   { label: "Finances", href: "/app/fees", permission: "finance.read", section: "Finances", icon: I.wallet },
+  // Journal personnel : filtrage strict sur receivedById côté serveur.
+  { label: "Mes encaissements", href: "/app/fees/my-payments", permission: "finance.receipts.read", section: "Finances", icon: I.file },
 
   { label: "Utilisateurs", href: "/app/users", permission: "user.read", section: "Administration", icon: I.users },
   { label: "Mon abonnement", href: "/app/subscription", permission: "school.read", section: "Administration", icon: I.card },

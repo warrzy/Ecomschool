@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
       to: date("to"),
       method,
       status,
+      receivedById: p("cashier"),
+      query: p("q"),
     },
   );
 

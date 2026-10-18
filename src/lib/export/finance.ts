@@ -76,6 +76,7 @@ export const PAYMENTS_HEADERS = [
   "prenom",
   "mode",
   "reference",
+  "encaisse_par",
   "montant_xof",
   "statut",
   "motif_annulation",
@@ -303,6 +304,8 @@ export interface PaymentsExportFilters {
   to?: Date;
   method?: PaymentMethod;
   status?: PaymentStatus;
+  receivedById?: string;
+  query?: string;
 }
 
 /**
@@ -387,6 +390,23 @@ export async function buildPaymentsExport(
   const { payments: all, truncated } = await listAllPayments(ctx, filters, opts);
   const payments = all.slice(0, cap);
 
+  // « Encaissé par » : receivedById n'est pas une relation — jointure manuelle.
+  const agentIds = [
+    ...new Set(
+      payments.map((p) => p.receivedById).filter((v): v is string => !!v),
+    ),
+  ];
+  const agents = await prisma.user.findMany({
+    where: { id: { in: agentIds } },
+    select: { id: true, firstName: true, lastName: true, email: true },
+  });
+  const agentBy = new Map(
+    agents.map((u) => [
+      u.id,
+      `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email,
+    ]),
+  );
+
   const paymentsRows = payments.map((p) => [
     iso(p.paidAt),
     p.receiptNumber ?? "",
@@ -395,6 +415,7 @@ export async function buildPaymentsExport(
     p.student.firstName,
     METHOD[p.method] ?? p.method,
     p.reference ?? "",
+    p.receivedById ? (agentBy.get(p.receivedById) ?? "") : "",
     p.amount,
     PAYMENT_STATUS[p.status] ?? p.status,
     p.cancelReason ?? "",
