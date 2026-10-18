@@ -147,7 +147,7 @@ export default async function StudentAccountPage(props: {
         ) : null}
         {error ? (
           <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-            {error === "CLOSED_DAY" ? "Journée de caisse clôturée — encaissement refusé." : errorMessage(error)}
+            {error === "CLOSED_DAY" ? "Journée de caisse clôturée — encaissement refusé." : error === "OVERPAYMENT" ? "Montant supérieur au solde restant dû — vérifiez le solde avant d'encaisser." : errorMessage(error)}
           </div>
         ) : null}
       </div>

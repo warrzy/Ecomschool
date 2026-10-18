@@ -45,6 +45,7 @@ const ERROR_LABELS: Record<string, string> = {
   INVALID_STATE: "Action impossible dans l'état actuel de l'élément.",
   INVALID_STATUS: "Statut invalide pour cette action.",
   CLOSED_DAY: "Journée clôturée : la saisie est impossible.",
+  OVERPAYMENT: "Le montant saisi dépasse le solde restant dû de l'élève.",
   TEMPLATE_REQUIRED: "Un gabarit de bulletin est requis.",
 
   // Finances

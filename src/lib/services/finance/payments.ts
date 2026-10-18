@@ -11,6 +11,7 @@ export type PaymentsError =
   | "FORBIDDEN"
   | "CLOSED_DAY"
   | "ALREADY_CANCELLED"
+  | "OVERPAYMENT"
   | "CREATE_FAILED";
 
 export type PaymentsResult<T = undefined> =
@@ -190,7 +191,15 @@ export async function recordPayment(
           0,
         );
         const due = Math.max(0, total - disc);
-        const balanceAfter = due - ((paidSum._sum.amount ?? 0) + input.amount);
+        const alreadyPaid = paidSum._sum.amount ?? 0;
+        const remainingDue = Math.max(0, due - alreadyPaid);
+        // Aucun mécanisme d'avance n'existe : un encaissement ne peut pas
+        // dépasser le solde restant dû. Vérifié dans la transaction, donc
+        // atomique face aux paiements concurrents.
+        if (input.amount > remainingDue) {
+          throw new Error("OVERPAYMENT");
+        }
+        const balanceAfter = remainingDue - input.amount;
 
         const p = await tx.payment.create({
           data: {
@@ -285,7 +294,10 @@ export async function recordPayment(
       },
     });
     return { ok: true, result: { id: payment.id, receiptNumber: payment.receiptNumber! } };
-  } catch {
+  } catch (e) {
+    if ((e as Error)?.message === "OVERPAYMENT") {
+      return { ok: false, error: "OVERPAYMENT" };
+    }
     return { ok: false, error: "CREATE_FAILED" };
   }
 }
@@ -332,75 +344,110 @@ export async function cancelPayment(
 
 // ---------- Journal et caisse ----------
 
-export async function listPayments(
-  ctx: SchoolCtx,
-  filters: {
-    academicYearId?: string;
-    from?: Date;
-    to?: Date;
-    method?: PaymentMethod;
-    classroomId?: string;
-    studentId?: string;
-    status?: PaymentStatus;
-    receivedById?: string;
-    includeCancelled?: boolean;
-    query?: string;
-  } = {},
-  opts: { take?: number; cursor?: string } = {},
-) {
+type PaymentsFilters = {
+  academicYearId?: string;
+  from?: Date;
+  to?: Date;
+  method?: PaymentMethod;
+  classroomId?: string;
+  studentId?: string;
+  status?: PaymentStatus;
+  receivedById?: string;
+  includeCancelled?: boolean;
+  query?: string;
+};
+
+function paymentsWhere(ctx: SchoolCtx, filters: PaymentsFilters) {
   const q = filters.query?.trim();
-  return prisma.payment.findMany({
-    where: {
-      schoolId: ctx.schoolId,
-      ...(filters.academicYearId ? { academicYearId: filters.academicYearId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { reference: { contains: q, mode: "insensitive" } },
-              { receiptNumber: { contains: q, mode: "insensitive" } },
-              { student: { matricule: { contains: q, mode: "insensitive" } } },
-              { student: { firstName: { contains: q, mode: "insensitive" } } },
-              { student: { lastName: { contains: q, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-      ...(filters.from || filters.to
-        ? {
-            paidAt: {
-              ...(filters.from ? { gte: filters.from } : {}),
-              ...(filters.to ? { lt: filters.to } : {}),
-            },
-          }
-        : {}),
-      ...(filters.method ? { method: filters.method } : {}),
-      ...(filters.studentId ? { studentId: filters.studentId } : {}),
-      ...(filters.status
-        ? { status: filters.status }
-        : filters.includeCancelled
-          ? {}
-          : { status: "VALIDATED" }),
-      ...(filters.receivedById ? { receivedById: filters.receivedById } : {}),
-      ...(filters.classroomId
-        ? {
-            student: {
-              enrollments: {
-                some: {
-                  classroomId: filters.classroomId,
-                  academicYearId: filters.academicYearId ?? undefined,
-                },
+  return {
+    schoolId: ctx.schoolId,
+    ...(filters.academicYearId ? { academicYearId: filters.academicYearId } : {}),
+    ...(q
+      ? {
+          OR: [
+            { reference: { contains: q, mode: "insensitive" as const } },
+            { receiptNumber: { contains: q, mode: "insensitive" as const } },
+            { student: { matricule: { contains: q, mode: "insensitive" as const } } },
+            { student: { firstName: { contains: q, mode: "insensitive" as const } } },
+            { student: { lastName: { contains: q, mode: "insensitive" as const } } },
+          ],
+        }
+      : {}),
+    ...(filters.from || filters.to
+      ? {
+          paidAt: {
+            ...(filters.from ? { gte: filters.from } : {}),
+            ...(filters.to ? { lt: filters.to } : {}),
+          },
+        }
+      : {}),
+    ...(filters.method ? { method: filters.method } : {}),
+    ...(filters.studentId ? { studentId: filters.studentId } : {}),
+    ...(filters.status
+      ? { status: filters.status }
+      : filters.includeCancelled
+        ? {}
+        : { status: "VALIDATED" as const }),
+    ...(filters.receivedById ? { receivedById: filters.receivedById } : {}),
+    ...(filters.classroomId
+      ? {
+          student: {
+            enrollments: {
+              some: {
+                classroomId: filters.classroomId,
+                academicYearId: filters.academicYearId ?? undefined,
               },
             },
-          }
-        : {}),
-    },
+          },
+        }
+      : {}),
+  };
+}
+
+export async function listPayments(
+  ctx: SchoolCtx,
+  filters: PaymentsFilters = {},
+  opts: { take?: number; skip?: number; cursor?: string } = {},
+) {
+  return prisma.payment.findMany({
+    where: paymentsWhere(ctx, filters),
     include: {
       student: { select: { matricule: true, firstName: true, lastName: true } },
     },
-    // Tri déterministe (tiebreaker id) requis pour la pagination curseur.
+    // Tri déterministe (tiebreaker id) requis pour la pagination.
     orderBy: [{ paidAt: "desc" }, { id: "asc" }],
     take: opts.take ?? 500,
-    ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+    ...(opts.cursor
+      ? { cursor: { id: opts.cursor }, skip: 1 }
+      : opts.skip
+        ? { skip: opts.skip }
+        : {}),
   });
+}
+
+/**
+ * Totaux fiables en base sur l'ensemble des résultats filtrés — utilisés
+ * par les journaux paginés pour que les totaux ne dépendent pas de la
+ * fenêtre chargée. `validatedTotal` = recettes effectives (hors annulés).
+ */
+export async function paymentsStats(
+  ctx: SchoolCtx,
+  filters: PaymentsFilters = {},
+): Promise<{ count: number; validatedTotal: number; validatedCount: number; cancelledCount: number }> {
+  const groups = await prisma.payment.groupBy({
+    by: ["status"],
+    where: paymentsWhere(ctx, filters),
+    _count: true,
+    _sum: { amount: true },
+  });
+  const v = groups.find((g) => g.status === "VALIDATED");
+  const x = groups.find((g) => g.status === "CANCELLED");
+  return {
+    count: groups.reduce((s, g) => s + g._count, 0),
+    validatedTotal: v?._sum.amount ?? 0,
+    validatedCount: v?._count ?? 0,
+    cancelledCount: x?._count ?? 0,
+  };
 }
 
 /** Clôture une journée de caisse : total figé, blocage des encaissements ultérieurs. */

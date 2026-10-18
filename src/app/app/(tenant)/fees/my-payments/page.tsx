@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
-import { listPayments } from "@/lib/services/finance/payments";
+import { listPayments, paymentsStats } from "@/lib/services/finance/payments";
 import type { PaymentStatus } from "@prisma/client";
 
 export const instant = false;
@@ -43,18 +43,24 @@ export default async function MyPaymentsPage(props: {
   ) as PaymentStatus | undefined;
   const page = Math.max(1, parseInt(str("page") ?? "1", 10) || 1);
 
-  const payments = await listPayments(
-    c,
-    {
-      receivedById: tenant.userId,
-      query: q,
-      from: from ? new Date(`${from}T00:00:00Z`) : undefined,
-      to: to ? new Date(`${to}T23:59:59Z`) : undefined,
-      status,
-      includeCancelled: !status,
-    },
-    { take: 2000 },
-  );
+  const filters = {
+    // Périmètre imposé côté serveur : uniquement les encaissements de
+    // l'utilisateur authentifié, dans son établissement.
+    receivedById: tenant.userId,
+    query: q,
+    from: from ? new Date(`${from}T00:00:00Z`) : undefined,
+    to: to ? new Date(`${to}T23:59:59Z`) : undefined,
+    status,
+    includeCancelled: !status,
+  };
+  // Totaux en base sur tout l'ensemble filtré + fenêtre de page serveur.
+  const stats = await paymentsStats(c, filters);
+  const pageCount = Math.max(1, Math.ceil(stats.count / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const payments = await listPayments(c, filters, {
+    take: PAGE_SIZE,
+    skip: (safePage - 1) * PAGE_SIZE,
+  });
 
   // Classe de l'élève (si disponible) via l'inscription de l'année du paiement.
   const yearIds = [...new Set(payments.map((p) => p.academicYearId))];
@@ -80,14 +86,10 @@ export default async function MyPaymentsPage(props: {
   );
 
   // Totaux conformes au journal : recettes = VALIDATED uniquement.
-  const totalValidated = payments
-    .filter((p) => p.status === "VALIDATED")
-    .reduce((s, p) => s + p.amount, 0);
-  const cancelledCount = payments.filter((p) => p.status === "CANCELLED").length;
+  const totalValidated = stats.validatedTotal;
+  const cancelledCount = stats.cancelledCount;
 
-  const pageCount = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pageRows = payments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = payments; // fenêtre déjà paginée côté serveur (skip/take)
   const pageHref = (p: number) => {
     const u = new URLSearchParams();
     if (q) u.set("q", q);
@@ -108,7 +110,7 @@ export default async function MyPaymentsPage(props: {
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Mes encaissements
         </div>
         <h1 className="mt-1 text-xl font-display font-bold tracking-tight text-ink">
-          Mes encaissements ({payments.length}) — total : {fmt(totalValidated)}
+          Mes encaissements ({stats.count}) — total : {fmt(totalValidated)}
           {cancelledCount > 0 ? (
             <span className="ml-2 text-sm font-normal text-zinc-500">
               dont {cancelledCount} annulé{cancelledCount > 1 ? "s" : ""}
@@ -204,7 +206,7 @@ export default async function MyPaymentsPage(props: {
         {pageCount > 1 ? (
           <nav aria-label="Pagination" className="mt-4 flex items-center justify-between text-sm">
             <span className="text-zinc-500">
-              Page {safePage} / {pageCount} — {payments.length} opération(s)
+              Page {safePage} / {pageCount} — {stats.count} opération(s)
             </span>
             <div className="flex gap-2">
               {safePage > 1 ? (

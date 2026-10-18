@@ -2,7 +2,11 @@ import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
-import { listCashClosures, listPayments } from "@/lib/services/finance/payments";
+import {
+  listCashClosures,
+  listPayments,
+  paymentsStats,
+} from "@/lib/services/finance/payments";
 import {
   cancelPaymentAction,
   closeCashAction,
@@ -59,29 +63,34 @@ export default async function PaymentsJournalPage(props: {
   ) as PaymentStatus | undefined;
   const page = Math.max(1, parseInt(str("page") ?? "1", 10) || 1);
 
-  const payments = await listPayments(
-    c,
-    {
-      academicYearId: yearId,
-      method: method || undefined,
-      from: from ? new Date(`${from}T00:00:00Z`) : undefined,
-      to: to ? new Date(`${to}T23:59:59Z`) : undefined,
-      receivedById: cashier,
-      query: q,
-      status,
-      includeCancelled: !status,
-    },
-    { take: 5000 },
-  );
-  const closures = await listCashClosures(c);
-  // Totaux cohérents avec les filtres : recettes = VALIDATED uniquement.
-  const totalFiltered = payments
-    .filter((p) => p.status === "VALIDATED")
-    .reduce((s, p) => s + p.amount, 0);
-  const cancelledCount = payments.filter((p) => p.status === "CANCELLED").length;
-  const totalDay = payments
-    .filter((p) => p.status === "VALIDATED" && dstr(p.paidAt) === dstr(new Date()))
-    .reduce((s, p) => s + p.amount, 0);
+  const filters = {
+    academicYearId: yearId,
+    method: method || undefined,
+    from: from ? new Date(`${from}T00:00:00Z`) : undefined,
+    to: to ? new Date(`${to}T23:59:59Z`) : undefined,
+    receivedById: cashier,
+    query: q,
+    status,
+    includeCancelled: !status,
+  };
+  // Totaux calculés en base sur tout l'ensemble filtré (pas la page seule).
+  const stats = await paymentsStats(c, filters);
+  const now = new Date();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayEnd = new Date(dayStart.getTime() + 86400000);
+  const dayStats = await paymentsStats(c, { ...filters, from: dayStart, to: dayEnd });
+  const pageCount = Math.max(1, Math.ceil(stats.count / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const [payments, closures] = await Promise.all([
+    listPayments(c, filters, {
+      take: PAGE_SIZE,
+      skip: (safePage - 1) * PAGE_SIZE,
+    }),
+    listCashClosures(c),
+  ]);
+  const totalFiltered = stats.validatedTotal;
+  const cancelledCount = stats.cancelledCount;
+  const totalDay = dayStats.validatedTotal;
 
   // « Encaissé par » : receivedById sans relation → jointure manuelle sur les
   // utilisateurs ayant réellement encaissé dans cet établissement.
@@ -105,9 +114,7 @@ export default async function PaymentsJournalPage(props: {
     ]),
   );
 
-  const pageCount = Math.max(1, Math.ceil(payments.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pageRows = payments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageRows = payments; // fenêtre déjà paginée côté serveur (skip/take)
 
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
@@ -186,7 +193,7 @@ export default async function PaymentsJournalPage(props: {
         </div>
         <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-xl font-display font-bold tracking-tight text-ink">
-            Encaissements ({payments.length}) — total filtré : {fmt(totalFiltered)} — aujourd&apos;hui : {fmt(totalDay)}
+            Encaissements ({stats.count}) — total filtré : {fmt(totalFiltered)} — aujourd&apos;hui : {fmt(totalDay)}
             {cancelledCount > 0 ? (
               <span className="ml-2 text-sm font-normal text-zinc-500">
                 dont {cancelledCount} annulé{cancelledCount > 1 ? "s" : ""}
@@ -325,7 +332,7 @@ export default async function PaymentsJournalPage(props: {
         {pageCount > 1 ? (
           <nav aria-label="Pagination" className="mt-4 flex items-center justify-between text-sm">
             <span className="text-zinc-500">
-              Page {safePage} / {pageCount} — {payments.length} opération(s)
+              Page {safePage} / {pageCount} — {stats.count} opération(s)
             </span>
             <div className="flex gap-2">
               {safePage > 1 ? (
