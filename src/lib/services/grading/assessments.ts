@@ -8,6 +8,9 @@ export type AssessmentError =
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "INVALID_STATUS"
+  | "YEAR_CLOSED"
+  | "PERIOD_LOCKED"
+  | "CROSS_YEAR"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -108,28 +111,53 @@ export interface AssessmentInput {
   description?: string;
 }
 
-async function checkRefs(ctx: SchoolCtx, input: AssessmentInput) {
+async function checkRefs(
+  ctx: SchoolCtx,
+  input: AssessmentInput,
+): Promise<{ error: AssessmentError | null }> {
   const [year, classroom, subject, type, period] = await Promise.all([
-    prisma.academicYear.findFirst({ where: { id: input.academicYearId, schoolId: ctx.schoolId }, select: { id: true } }),
-    prisma.classroom.findFirst({ where: { id: input.classroomId, schoolId: ctx.schoolId }, select: { id: true } }),
+    prisma.academicYear.findFirst({
+      where: { id: input.academicYearId, schoolId: ctx.schoolId },
+      select: { id: true, status: true },
+    }),
+    prisma.classroom.findFirst({
+      where: { id: input.classroomId, schoolId: ctx.schoolId },
+      select: { id: true, academicYearId: true },
+    }),
     prisma.subject.findFirst({ where: { id: input.subjectId, schoolId: ctx.schoolId }, select: { id: true } }),
     prisma.assessmentType.findFirst({ where: { id: input.typeId, schoolId: ctx.schoolId }, select: { id: true } }),
     input.academicPeriodId
       ? prisma.academicPeriod.findFirst({
           where: { id: input.academicPeriodId, schoolId: ctx.schoolId },
-          select: { id: true, isLocked: true },
+          select: { id: true, isLocked: true, academicYearId: true },
         })
-      : Promise.resolve({ id: "", isLocked: false }),
+      : Promise.resolve({ id: "", isLocked: false, academicYearId: "" }),
   ]);
-  if (!year || !classroom || !subject || !type || !period) return false;
+  if (!year || !classroom || !subject || !type || !period) {
+    return { error: "NOT_FOUND" };
+  }
+  if (year.status === "CLOSED") return { error: "YEAR_CLOSED" };
+  if (classroom.academicYearId !== input.academicYearId) {
+    return { error: "CROSS_YEAR" };
+  }
+  if (
+    input.academicPeriodId &&
+    (period.academicYearId !== input.academicYearId || period.isLocked)
+  ) {
+    return {
+      error: period.academicYearId !== input.academicYearId
+        ? "CROSS_YEAR"
+        : "PERIOD_LOCKED",
+    };
+  }
   if (input.teacherId) {
     const t = await prisma.teacher.findFirst({
       where: { id: input.teacherId, schoolId: ctx.schoolId },
       select: { id: true },
     });
-    if (!t) return false;
+    if (!t) return { error: "NOT_FOUND" };
   }
-  return true;
+  return { error: null };
 }
 
 export async function createAssessment(
@@ -138,7 +166,8 @@ export async function createAssessment(
   opts: { asTeacher?: boolean } = {},
 ): Promise<AssessmentResult<{ id: string }>> {
   if (!input.title.trim()) return { ok: false, error: "INVALID_INPUT" };
-  if (!(await checkRefs(ctx, input))) return { ok: false, error: "NOT_FOUND" };
+  const refs = await checkRefs(ctx, input);
+  if (refs.error) return { ok: false, error: refs.error };
 
   // Enseignant connecté : limité à ses affectations.
   if (opts.asTeacher) {

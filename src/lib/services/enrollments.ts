@@ -7,6 +7,7 @@ export type EnrollmentsError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   | "YEAR_CLOSED"
+  | "CLASSROOM_ARCHIVED"
   | "ALREADY_ENROLLED"
   | "CROSS_YEAR"
   | "NO_CURRENT_YEAR"
@@ -145,6 +146,9 @@ export async function enrollStudent(
     return { ok: false, error: "STUDENT_INACTIVE" };
   }
   if (year.status === "CLOSED") return { ok: false, error: "YEAR_CLOSED" };
+  if (classroom.status === "ARCHIVED") {
+    return { ok: false, error: "CLASSROOM_ARCHIVED" };
+  }
   if (classroom.academicYearId !== academicYearId) {
     return { ok: false, error: "CROSS_YEAR" };
   }
@@ -222,6 +226,9 @@ export async function transferStudent(
     select: { id: true, academicYearId: true, status: true },
   });
   if (!target) return { ok: false, error: "NOT_FOUND" };
+  if (target.status === "ARCHIVED") {
+    return { ok: false, error: "CLASSROOM_ARCHIVED" };
+  }
   if (target.academicYearId !== enrollment.academicYearId) {
     return { ok: false, error: "CROSS_YEAR" };
   }

@@ -399,10 +399,13 @@ async function analyze(
           academicYearId,
           name: { in: classNames, mode: "insensitive" },
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, status: true },
       })
     : [];
-  const classroomsByName = new Map<string, { id: string; name: string }[]>();
+  const classroomsByName = new Map<
+    string,
+    { id: string; name: string; status: string }[]
+  >();
   for (const c of classrooms) {
     const k = c.name.toLowerCase();
     classroomsByName.set(k, [...(classroomsByName.get(k) ?? []), c]);
@@ -575,6 +578,13 @@ async function analyze(
           column: "classe",
           value: r.classroomName,
           reason: "Nom de classe ambigu (plusieurs classes portent ce nom)",
+        });
+      } else if (cands[0].status === "ARCHIVED") {
+        errors.push({
+          line: r.line,
+          column: "classe",
+          value: r.classroomName,
+          reason: `Classe archivée dans l'année « ${year.name} »`,
         });
       } else if (year.status === "CLOSED") {
         errors.push({
