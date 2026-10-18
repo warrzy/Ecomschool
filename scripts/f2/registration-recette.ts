@@ -99,6 +99,27 @@ async function main() {
       status: "ARCHIVED",
     },
   });
+  // Fixture : élève inscrit SANS créances — simule un échec de génération
+  // après commit ; la reprise doit être proposée sur le dossier, sans
+  // dépendre d'un paramètre d'URL.
+  const gapStudent = await prisma.student.create({
+    data: {
+      schoolId: school.id,
+      matricule: `F2B-NC-${stamp}`,
+      firstName: "SansCreance",
+      lastName: "Fixture",
+    },
+    select: { id: true },
+  });
+  await prisma.enrollment.create({
+    data: {
+      schoolId: school.id,
+      studentId: gapStudent.id,
+      classroomId: cls.id,
+      academicYearId: year.id,
+      status: "ENROLLED",
+    },
+  });
 
   const browser = await chromium.launch();
 
@@ -125,6 +146,7 @@ async function main() {
     check("redirection vers dossier financier", pc.url().includes("/app/fees/accounts/"));
     check("inscription confirmée", /inscription enregistrée|créances/i.test(t));
     check("solde affiché", /solde/i.test(t));
+    check("aucune reprise proposée (créances complètes)", !/non générée/i.test(t));
 
     // Encaissement 1 : partiel.
     const due = await prisma.studentFeeCharge.aggregate({
@@ -171,6 +193,26 @@ async function main() {
     );
     t = await bodyText(pc);
     check("élève archivé exclu de la recherche", /aucun élève/i.test(t));
+
+    // Reprise de créances — détectée sur l'état réel (inscrit, 0 créance,
+    // tarifs configurés), sans paramètre d'URL.
+    await pc.goto(
+      `${BASE}/app/fees/accounts/${gapStudent.id}?year=${year.id}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    t = await bodyText(pc);
+    check("créances manquantes détectées sur le dossier", /non générée/i.test(t));
+    const beforeRetry = pc.url();
+    await pc.getByRole("button", { name: /relancer la génération/i }).click();
+    await pc.waitForFunction((prev) => location.href !== prev, beforeRetry, {
+      timeout: 90000,
+    });
+    t = await bodyText(pc);
+    const gapCharges = await prisma.studentFeeCharge.count({
+      where: { studentId: gapStudent.id, status: "ACTIVE" },
+    });
+    check("reprise : créances générées", gapCharges > 0);
+    check("reprise : alerte disparue", !/non générée/i.test(t));
 
     // Restrictions : le journal global reste refusé au caissier.
     await pc.goto(`${BASE}/app/fees/payments`, { waitUntil: "domcontentloaded" });
@@ -246,8 +288,15 @@ async function main() {
       `${BASE}/app/fees/registration?mode=new&dupLast=Guichet&dupFirst=Eleve`,
       { waitUntil: "domcontentloaded" },
     );
-    const t = await bodyText(pc2);
+    let t = await bodyText(pc2);
     check("doublon potentiel signalé", /similaire/i.test(t));
+    // Reconnexion : le dossier de l'élève repris ne propose plus la reprise.
+    await pc2.goto(
+      `${BASE}/app/fees/accounts/${gapStudent.id}?year=${year.id}`,
+      { waitUntil: "domcontentloaded" },
+    );
+    t = await bodyText(pc2);
+    check("reconnexion : dossier à jour, reprise non reproposée", !/non générée/i.test(t) && /créances vérifiées|solde/i.test(t));
     await pc2.context().close();
   }
 

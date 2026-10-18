@@ -286,7 +286,73 @@ export async function generateStudentCharges(
   };
 }
 
-/** Répartition en n échéances mensuelles (reliquat sur la dernière). */
+/**
+ * Lecture seule : créances attendues mais manquantes pour l'inscription
+ * active d'un élève sur une année — mêmes règles d'applicabilité que
+ * generateStudentCharges (tarifs obligatoires actifs, niveau / classe).
+ * Sert à proposer la reprise de génération sur le dossier financier,
+ * indépendamment du paramètre d'URL de la session d'inscription.
+ * `tariffs` = catégories attendues ; 0 = aucun tarif configuré
+ * (situation normale, pas une erreur — aucune reprise proposée).
+ * Une créance existante, même annulée, occupe son slot d'unicité :
+ * elle n'est donc jamais comptée « manquante ».
+ */
+export async function missingStudentCharges(
+  ctx: SchoolCtx,
+  input: { studentId: string; academicYearId: string },
+): Promise<{ enrolled: boolean; expected: number; missing: number }> {
+  const year = await prisma.academicYear.findFirst({
+    where: { id: input.academicYearId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!year) return { enrolled: false, expected: 0, missing: 0 };
+
+  const enrollment = await prisma.enrollment.findFirst({
+    where: {
+      schoolId: ctx.schoolId,
+      academicYearId: year.id,
+      studentId: input.studentId,
+      status: "ENROLLED",
+    },
+    select: { classroom: { select: { id: true, levelId: true } } },
+  });
+  if (!enrollment) return { enrolled: false, expected: 0, missing: 0 };
+
+  const [tariffs, existing] = await Promise.all([
+    prisma.feeTariff.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: year.id,
+        status: "ACTIVE",
+        mandatory: true,
+        OR: [
+          { classroomId: enrollment.classroom.id },
+          { classroomId: null },
+        ],
+      },
+      select: { categoryId: true, levelId: true },
+    }),
+    prisma.studentFeeCharge.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        academicYearId: year.id,
+      },
+      select: { categoryId: true },
+    }),
+  ]);
+
+  const expected = new Set(
+    tariffs
+      .filter(
+        (t) => t.levelId === null || t.levelId === enrollment.classroom.levelId,
+      )
+      .map((t) => t.categoryId),
+  );
+  const have = new Set(existing.map((c) => c.categoryId));
+  const missing = [...expected].filter((c) => !have.has(c)).length;
+  return { enrolled: true, expected: expected.size, missing };
+}
 async function createInstallments(
   chargeId: string,
   schoolId: string,

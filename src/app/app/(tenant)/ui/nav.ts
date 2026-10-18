@@ -68,7 +68,7 @@ export const appNav: NavItem[] = [
 
   { label: "Élèves", href: "/app/students", permission: "student.read", section: "Pédagogie", icon: I.gradcap },
   { label: "Parents", href: "/app/guardians", permission: "guardian.read", section: "Pédagogie", icon: I.users },
-  { label: "Inscriptions", href: "/app/enrollments", permission: "enrollment.read", section: "Pédagogie", icon: I.clipboard },
+  { label: "Inscriptions scolaires", href: "/app/enrollments", permission: "enrollment.read", section: "Pédagogie", icon: I.clipboard },
   { label: "Notes", href: "/app/grades", permission: "assessments.read", section: "Pédagogie", icon: I.pen },
   { label: "Moyennes", href: "/app/averages", permission: "results.read", section: "Pédagogie", icon: I.chart },
   { label: "Bulletins", href: "/app/report-cards", permission: "reportcards.read", section: "Pédagogie", icon: I.file },
@@ -77,7 +77,7 @@ export const appNav: NavItem[] = [
 
   { label: "Finances", href: "/app/fees", permission: "finance.read", section: "Finances", icon: I.wallet },
   // Guichet d'inscription : permissions fines créées en F2-D2.
-  { label: "Inscriptions", href: "/app/fees/registration", permission: "enrollment.create", section: "Finances", icon: I.clipboard },
+  { label: "Guichet d'inscription", href: "/app/fees/registration", permission: "enrollment.create", section: "Finances", icon: I.clipboard },
   // Journal personnel : filtrage strict sur receivedById côté serveur.
   { label: "Mes encaissements", href: "/app/fees/my-payments", permission: "finance.receipts.read", section: "Finances", icon: I.file },
 

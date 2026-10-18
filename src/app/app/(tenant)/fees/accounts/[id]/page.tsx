@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
-import { getStudentAccount, studentFinanceYears } from "@/lib/services/finance/accounts";
+import { getStudentAccount, missingStudentCharges, studentFinanceYears } from "@/lib/services/finance/accounts";
 import {
   archiveDiscountAction,
   createDiscountAction,
@@ -85,6 +85,13 @@ export default async function StudentAccountPage(props: {
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "enrollment.create" }),
   ]);
 
+  // Créances attendues mais manquantes (tarifs obligatoires configurés) —
+  // état réel, indépendant du paramètre d'URL : la reprise reste proposée
+  // après déconnexion/reconnexion, et jamais lorsque les tarifs sont absents.
+  const chargeGap = canEnroll
+    ? await missingStudentCharges(c, { studentId: id, academicYearId: yearId })
+    : null;
+
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
   const input = "rounded-lg border border-zinc-300 px-3 py-2 text-sm";
   const selfHref = `/app/fees/accounts/${id}?year=${yearId}`;
@@ -145,18 +152,25 @@ export default async function StudentAccountPage(props: {
         {ok ? (
           <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "payment" ? `Paiement enregistré — reçu ${sp.receipt ?? ""}.` : okMessage(ok)}
-            {ok === "registered_charges_failed" && canEnroll ? (
-              <form action={regenerateStudentChargesAction} className="mt-2">
-                <input type="hidden" name="studentId" value={id} />
-                <input type="hidden" name="academicYearId" value={yearId} />
-                <SubmitButton
-                  pendingLabel="Génération…"
-                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
-                >
-                  Relancer la génération des créances
-                </SubmitButton>
-              </form>
-            ) : null}
+          </div>
+        ) : null}
+        {chargeGap && chargeGap.missing > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            <span>
+              {chargeGap.missing} créance{chargeGap.missing > 1 ? "s" : ""}{" "}
+              attendue{chargeGap.missing > 1 ? "s" : ""} non générée
+              {chargeGap.missing > 1 ? "s" : ""} selon les tarifs configurés.
+            </span>
+            <form action={regenerateStudentChargesAction}>
+              <input type="hidden" name="studentId" value={id} />
+              <input type="hidden" name="academicYearId" value={yearId} />
+              <SubmitButton
+                pendingLabel="Génération…"
+                className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+              >
+                Relancer la génération des créances
+              </SubmitButton>
+            </form>
           </div>
         ) : null}
         {error ? (
