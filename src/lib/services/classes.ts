@@ -5,6 +5,8 @@ export type ClassesError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   | "YEAR_CLOSED"
+  | "HAS_ENROLLED"
+  | "HAS_DEPENDENCIES"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -31,6 +33,16 @@ export async function listLevels(ctx: SchoolCtx, includeArchived = false) {
       _count: { select: { classrooms: true } },
     },
   });
+}
+
+/** Nombre de classes actives par niveau (avertissement avant archivage). */
+export async function countActiveClassroomsByLevel(ctx: SchoolCtx) {
+  const rows = await prisma.classroom.groupBy({
+    by: ["levelId"],
+    where: { schoolId: ctx.schoolId, status: "ACTIVE" },
+    _count: { _all: true },
+  });
+  return new Map(rows.map((r) => [r.levelId, r._count._all]));
 }
 
 export async function createLevel(
@@ -72,6 +84,15 @@ export async function updateLevel(
     select: { id: true },
   });
   if (!level) return { ok: false, error: "NOT_FOUND" };
+
+  if (input.status === "ARCHIVED") {
+    const activeClassrooms = await prisma.classroom.count({
+      where: { levelId, schoolId: ctx.schoolId, status: "ACTIVE" },
+    });
+    if (activeClassrooms > 0) {
+      return { ok: false, error: "HAS_DEPENDENCIES" };
+    }
+  }
 
   try {
     await prisma.level.update({
@@ -177,6 +198,9 @@ export async function getClassroom(ctx: SchoolCtx, classroomId: string) {
       headTeacher: {
         select: { id: true, firstName: true, lastName: true, email: true },
       },
+      _count: {
+        select: { enrollments: { where: { status: "ENROLLED" } } },
+      },
     },
   });
 }
@@ -278,6 +302,16 @@ export async function updateClassroom(
   if (!classroom) return { ok: false, error: "NOT_FOUND" };
   if (classroom.academicYear.status === "CLOSED") {
     return { ok: false, error: "YEAR_CLOSED" };
+  }
+
+  // Archivage bloqué tant que des élèves y sont inscrits (ENROLLED) :
+  // les inscriptions historiques (TRANSFERRED/WITHDRAWN/COMPLETED) ne
+  // bloquent pas — l'historique est préservé via onDelete Restrict.
+  if (input.status === "ARCHIVED") {
+    const enrolled = await prisma.enrollment.count({
+      where: { classroomId, schoolId: ctx.schoolId, status: "ENROLLED" },
+    });
+    if (enrolled > 0) return { ok: false, error: "HAS_ENROLLED" };
   }
 
   if (input.levelId) {

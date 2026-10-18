@@ -6,6 +6,7 @@ export type StudentsError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   | "MATRICULE_TAKEN"
+  | "HAS_ACTIVE_ENROLLMENT"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -223,6 +224,18 @@ export async function updateStudent(
     select: { id: true },
   });
   if (!student) return { ok: false, error: "NOT_FOUND" };
+
+  // Archivage bloqué tant que l'élève a une inscription ENROLLED :
+  // clôturer ou transférer d'abord l'inscription. L'historique scolaire
+  // et financier est toujours conservé.
+  if (input.status === "ARCHIVED") {
+    const enrolled = await db.enrollment.count({
+      where: { studentId, schoolId: ctx.schoolId, status: "ENROLLED" },
+    });
+    if (enrolled > 0) {
+      return { ok: false, error: "HAS_ACTIVE_ENROLLMENT" };
+    }
+  }
 
   if (input.matricule) {
     const dup = await db.student.findFirst({

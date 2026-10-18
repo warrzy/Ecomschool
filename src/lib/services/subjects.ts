@@ -5,6 +5,7 @@ export type SubjectsError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   | "ALREADY_ASSIGNED"
+  | "HAS_DEPENDENCIES"
   | "CREATE_FAILED"
   | "UPDATE_FAILED"
   | "DELETE_FAILED";
@@ -76,7 +77,7 @@ export async function getSubject(ctx: SchoolCtx, subjectId: string) {
         select: {
           id: true,
           coefficient: true,
-          level: { select: { id: true, name: true } },
+          level: { select: { id: true, name: true, status: true } },
         },
       },
       classAssignments: {
@@ -88,6 +89,7 @@ export async function getSubject(ctx: SchoolCtx, subjectId: string) {
             select: {
               id: true,
               name: true,
+              status: true,
               academicYear: { select: { name: true, isCurrent: true } },
             },
           },
@@ -137,6 +139,48 @@ export async function updateSubject(
     select: { id: true },
   });
   if (!subject) return { ok: false, error: "NOT_FOUND" };
+
+  // Archivage bloqué tant que la matière est encore utilisée :
+  // affectation sur une classe active, coefficient sur un niveau actif,
+  // affectation enseignant, ou évaluation non terminée. Les évaluations
+  // publiées/annulées et les liens vers classes archivées sont de
+  // l'historique — ils ne bloquent pas.
+  if (input.status === "ARCHIVED") {
+    const [classLinks, levelLinks, assignments, liveAssessments] =
+      await Promise.all([
+        prisma.classroomSubject.count({
+          where: {
+            subjectId,
+            schoolId: ctx.schoolId,
+            classroom: { status: "ACTIVE" },
+          },
+        }),
+        prisma.levelSubject.count({
+          where: {
+            subjectId,
+            schoolId: ctx.schoolId,
+            level: { status: "ACTIVE" },
+          },
+        }),
+        prisma.teachingAssignment.count({
+          where: {
+            subjectId,
+            schoolId: ctx.schoolId,
+            academicYear: { status: { not: "CLOSED" } },
+          },
+        }),
+        prisma.assessment.count({
+          where: {
+            subjectId,
+            schoolId: ctx.schoolId,
+            status: { in: ["DRAFT", "OPEN", "SUBMITTED", "VALIDATED"] },
+          },
+        }),
+      ]);
+    if (classLinks + levelLinks + assignments + liveAssessments > 0) {
+      return { ok: false, error: "HAS_DEPENDENCIES" };
+    }
+  }
 
   try {
     await prisma.subject.update({

@@ -654,6 +654,14 @@ export default async function ClassroomDetailPage({
                     <option value="ACTIVE">ACTIVE</option>
                     <option value="ARCHIVED">ARCHIVED</option>
                   </select>
+                  {classroom.status === "ACTIVE" &&
+                  classroom._count.enrollments > 0 ? (
+                    <div className="mt-1 text-xs text-amber-700">
+                      {classroom._count.enrollments} élève(s) inscrit(s) :
+                      l&apos;archivage sera refusé tant qu&apos;ils sont
+                      présents.
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <button

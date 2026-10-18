@@ -419,6 +419,13 @@ export default async function StudentDetailPage({
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="ARCHIVED">ARCHIVED</option>
                 </select>
+                {student.status === "ACTIVE" && currentEnrollment ? (
+                  <div className="mt-1 text-xs text-amber-700">
+                    Élève inscrit en {currentEnrollment.classroom.name} :
+                    l&apos;archivage sera refusé tant que l&apos;inscription est
+                    active.
+                  </div>
+                ) : null}
               </div>
             </div>
             <SubmitButton

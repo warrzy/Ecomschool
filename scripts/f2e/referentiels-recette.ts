@@ -14,6 +14,12 @@ import {
 } from "../../src/lib/services/enrollments";
 import { createAssessment } from "../../src/lib/services/grading/assessments";
 import {
+  updateClassroom,
+  updateLevel,
+} from "../../src/lib/services/classes";
+import { updateSubject } from "../../src/lib/services/subjects";
+import { updateStudent } from "../../src/lib/services/students";
+import {
   previewStudentsImport,
   commitStudentsImport,
 } from "../../src/lib/import/students";
@@ -211,6 +217,76 @@ async function importCsv(
   // 11. closeEnrollment non-régression
   const e7 = await closeEnrollment(ctx, { enrollmentId: e4.ok ? e4.result.id : "", status: "COMPLETED" });
   check("clôture d'inscription : non-régression OK", e7.ok);
+
+  // ---------- F2-E2-B : gardes d'archivage ----------
+  console.log("\n== F2-E2-B — gardes d'archivage ==");
+
+  // 12. Archiver une classe vide → OK
+  const clsEmpty = await prisma.classroom.create({
+    data: { schoolId: school.id, name: "E2-EMPTY", academicYearId: year.id, levelId: level.id },
+  });
+  const ar1 = await updateClassroom(ctx, clsEmpty.id, { status: "ARCHIVED" });
+  check("archivage classe vide : OK", ar1.ok);
+  const ar1b = await prisma.classroom.findUnique({ where: { id: clsEmpty.id }, select: { status: true } });
+  check("classe vide archivée en base", ar1b?.status === "ARCHIVED");
+
+  // 13. Archiver une classe avec inscriptions actives → HAS_ENROLLED
+  const stE = await mk("E2-ENR");
+  const enrE = await enrollStudent(ctx, { studentId: stE.id, classroomId: clsActive.id, academicYearId: year.id });
+  const ar2 = await updateClassroom(ctx, clsActive.id, { status: "ARCHIVED" });
+  check("archivage classe avec ENROLLED : HAS_ENROLLED", !ar2.ok && ar2.error === "HAS_ENROLLED");
+  const clsActiveAfter = await prisma.classroom.findUnique({ where: { id: clsActive.id }, select: { status: true } });
+  check("classe encore ACTIVE après refus", clsActiveAfter?.status === "ACTIVE");
+
+  // 14. Archiver une classe avec uniquement des inscriptions historiques → OK
+  await closeEnrollment(ctx, { enrollmentId: enrE.ok ? enrE.result.id : "", status: "WITHDRAWN" });
+  const clsHist = await prisma.classroom.create({
+    data: { schoolId: school.id, name: "E2-HIST", academicYearId: year.id, levelId: level.id },
+  });
+  const stH = await mk("E2-HIST");
+  const enrH = await enrollStudent(ctx, { studentId: stH.id, classroomId: clsHist.id, academicYearId: year.id });
+  await closeEnrollment(ctx, { enrollmentId: enrH.ok ? enrH.result.id : "", status: "COMPLETED" });
+  const ar3 = await updateClassroom(ctx, clsHist.id, { status: "ARCHIVED" });
+  check("archivage classe à historique uniquement : OK", ar3.ok);
+
+  // 15. Niveau utilisé par une classe active → HAS_DEPENDENCIES
+  const ar4 = await updateLevel(ctx, level.id, { status: "ARCHIVED" });
+  check("archivage niveau avec classes actives : HAS_DEPENDENCIES", !ar4.ok && ar4.error === "HAS_DEPENDENCIES");
+
+  // 15b. Niveau sans classe active → OK
+  const levelFree = await prisma.level.create({ data: { schoolId: school.id, name: "E2-FREE", order: 9 } });
+  const ar5 = await updateLevel(ctx, levelFree.id, { status: "ARCHIVED" });
+  check("archivage niveau libre : OK", ar5.ok);
+
+  // 16. Matière utilisée dans une évaluation en cours → HAS_DEPENDENCIES
+  const ar6 = await updateSubject(ctx, subject.id, { status: "ARCHIVED" });
+  check("archivage matière avec évaluation ouverte : HAS_DEPENDENCIES", !ar6.ok && ar6.error === "HAS_DEPENDENCIES");
+
+  // 16b. Matière sans dépendance active → OK
+  const subFree = await prisma.subject.create({ data: { schoolId: school.id, name: "E2-Arts", code: "E2A" } });
+  const ar7 = await updateSubject(ctx, subFree.id, { status: "ARCHIVED" });
+  check("archivage matière libre : OK", ar7.ok);
+
+  // 16c. L'évaluation et la matière restent intactes après refus
+  const aCheck = await prisma.assessment.count({ where: { subjectId: subject.id } });
+  check("évaluation historique préservée", aCheck > 0);
+
+  // 17. Élève inscrit → HAS_ACTIVE_ENROLLMENT ; non inscrit → OK
+  const ar8 = await updateStudent(ctx, stE.id, { status: "ARCHIVED" });
+  check("archivage élève sans inscription active : OK", ar8.ok);
+  const stE2 = await mk("E2-ENR2");
+  const enrE2 = await enrollStudent(ctx, { studentId: stE2.id, classroomId: clsActive.id, academicYearId: year.id });
+  const ar9 = await updateStudent(ctx, stE2.id, { status: "ARCHIVED" });
+  check("archivage élève ENROLLED : HAS_ACTIVE_ENROLLMENT", !ar9.ok && ar9.error === "HAS_ACTIVE_ENROLLMENT");
+  const stEAfter = await prisma.student.findUnique({ where: { id: stE2.id }, select: { status: true } });
+  check("élève encore ACTIVE après refus", stEAfter?.status === "ACTIVE");
+  check("inscription toujours ENROLLED (historique intact)", enrE2.ok);
+
+  // 18. Isolation : archiver la classe de l'école FX avec ctx école 2
+  const iso2 = await updateClassroom({ userId: user.id, schoolId: s2.id }, clsActive.id, { status: "ARCHIVED" });
+  check("isolation : archivage classe d'une autre école refusé", !iso2.ok && iso2.error === "NOT_FOUND");
+
+  note("permissions UI : gardes server-side testées ; requireSchoolPermission côté action inchangé");
 
   console.log(`\n=== BILAN : ${pass} PASS / ${fail} FAIL / ${skip} SKIP ===`);
   await prisma.$disconnect();

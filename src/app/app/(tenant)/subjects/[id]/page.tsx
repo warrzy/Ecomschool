@@ -50,6 +50,11 @@ export default async function SubjectDetailPage({
     (a) => a.id === confirmLinkId,
   );
   const selfHref = `/app/subjects/${subject.id}`;
+  const activeDeps =
+    subject.classAssignments.filter((a) => a.classroom.status === "ACTIVE")
+      .length +
+    subject.levelAssignments.filter((a) => a.level.status === "ACTIVE")
+      .length;
 
   return (
     <div className="space-y-4">
@@ -136,6 +141,12 @@ export default async function SubjectDetailPage({
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="ARCHIVED">ARCHIVED</option>
                 </select>
+                {subject.status === "ACTIVE" && activeDeps > 0 ? (
+                  <div className="mt-1 text-xs text-amber-700">
+                    {activeDeps} dépendance(s) active(s) (classes ou niveaux) :
+                    l&apos;archivage sera refusé.
+                  </div>
+                ) : null}
               </div>
               <button
                 type="submit"

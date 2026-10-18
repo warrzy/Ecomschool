@@ -1,6 +1,9 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import { listLevels } from "@/lib/services/classes";
+import {
+  countActiveClassroomsByLevel,
+  listLevels,
+} from "@/lib/services/classes";
 import {
   createLevelAction,
   updateLevelAction,
@@ -26,10 +29,16 @@ export default async function LevelsPage(props: {
     permissionKey: "classroom.manage",
   });
 
-  const levels = await listLevels(
-    { userId: tenant.userId, schoolId: tenant.schoolId },
-    showArchived,
-  );
+  const [levels, activeClassrooms] = await Promise.all([
+    listLevels(
+      { userId: tenant.userId, schoolId: tenant.schoolId },
+      showArchived,
+    ),
+    countActiveClassroomsByLevel({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+    }),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -145,6 +154,13 @@ export default async function LevelsPage(props: {
                         >
                           {l.status === "ACTIVE" ? "Archiver" : "Réactiver"}
                         </button>
+                        {l.status === "ACTIVE" &&
+                        (activeClassrooms.get(l.id) ?? 0) > 0 ? (
+                          <div className="w-full text-xs text-amber-700">
+                            {activeClassrooms.get(l.id)} classe(s) active(s) :
+                            l&apos;archivage sera refusé.
+                          </div>
+                        ) : null}
                       </form>
                     </td>
                   ) : null}
