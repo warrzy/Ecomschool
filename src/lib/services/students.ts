@@ -113,7 +113,7 @@ export async function getStudent(ctx: SchoolCtx, studentId: string) {
   });
 }
 
-type StudentInput = {
+export type StudentInput = {
   matricule: string;
   firstName: string;
   lastName: string;

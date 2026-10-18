@@ -17,6 +17,8 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "students.manage": "STUDENTS",
   "guardians.read": "STUDENTS",
   "guardians.manage": "STUDENTS",
+  "student.create": "STUDENTS",
+  "enrollment.create": "STUDENTS",
   "enrollments.read": "STUDENTS",
   "enrollments.manage": "STUDENTS",
   // Enseignants
@@ -112,7 +114,9 @@ export const PERMISSION_MODULE_V2: Record<string, string> = {
   "guardian.manage": "STUDENTS",
   "guardians.read": "STUDENTS",
   "guardians.manage": "STUDENTS",
+  "student.create": "STUDENTS",
   "enrollment.read": "STUDENTS",
+  "enrollment.create": "STUDENTS",
   "enrollment.manage": "STUDENTS",
   "enrollments.read": "STUDENTS",
   "enrollments.manage": "STUDENTS",

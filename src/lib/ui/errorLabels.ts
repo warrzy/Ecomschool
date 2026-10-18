@@ -39,6 +39,8 @@ const ERROR_LABELS: Record<string, string> = {
   ALREADY_ENROLLED: "Cet élève est déjà inscrit dans une classe cette année.",
   CROSS_YEAR: "La classe et l'année scolaire ne correspondent pas.",
   YEAR_CLOSED: "Cette année scolaire est clôturée.",
+  STUDENT_INACTIVE: "Cet élève est archivé : l'inscription est impossible.",
+  NOT_ENROLLED: "Cet élève n'est pas inscrit pour cette année scolaire.",
   IS_CURRENT: "Action impossible sur l'année courante.",
   LOCKED: "L'évaluation ou la période est verrouillée.",
   OUT_OF_RANGE: "Une note est hors du barème autorisé.",

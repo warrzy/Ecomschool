@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
+import type { Prisma } from "@prisma/client";
 
 export type AccountsError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
+  | "NOT_ENROLLED"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -67,80 +69,16 @@ export async function generateCharges(
   let skipped = 0;
   for (const en of enrollments) {
     for (const t of tariffs) {
-      if (t.classroomId && t.classroomId !== input.classroomId) {
-        // tarif restreint à une classe précise : vérifier l'inscription réelle
-        const inClass = await prisma.enrollment.findFirst({
-          where: {
-            schoolId: ctx.schoolId,
-            academicYearId: year.id,
-            studentId: en.studentId,
-            classroomId: t.classroomId,
-            status: "ENROLLED",
-          },
-          select: { id: true },
-        });
-        if (!inClass) continue;
-      }
-      if (t.levelId && en.classroom.levelId !== t.levelId) continue;
-
-      // La contrainte unique (studentId, academicYearId, categoryId) est la
-      // source de vérité : `create` + P2002 donne un comptage exact même si
-      // deux générations tournent en concurrence — aucun doublon possible.
-      try {
-        const charge = await prisma.studentFeeCharge.create({
-          data: {
-            schoolId: ctx.schoolId,
-            studentId: en.studentId,
-            academicYearId: year.id,
-            categoryId: t.categoryId,
-            tariffId: t.id,
-            amount: t.amount,
-          },
-          select: { id: true },
-        });
-        created++;
-        await createInstallments(charge.id, ctx.schoolId, en.studentId, year.id, {
-          amount: t.amount,
-          count: t.installmentCount,
-          from: t.effectiveFrom,
-        });
-      } catch (e) {
-        if ((e as { code?: string })?.code === "P2002") {
-          existing++;
-          // La créance existait déjà : garantir ses échéances si absentes
-          // (ex. créance créée avant la définition du plan de paiement).
-          const charge = await prisma.studentFeeCharge.findUnique({
-            where: {
-              studentId_academicYearId_categoryId: {
-                studentId: en.studentId,
-                academicYearId: year.id,
-                categoryId: t.categoryId,
-              },
-            },
-            select: { id: true },
-          });
-          if (
-            charge &&
-            (await prisma.feeInstallment.count({
-              where: { chargeId: charge.id },
-            })) === 0
-          ) {
-            await createInstallments(
-              charge.id,
-              ctx.schoolId,
-              en.studentId,
-              year.id,
-              {
-                amount: t.amount,
-                count: t.installmentCount,
-                from: t.effectiveFrom,
-              },
-            );
-          }
-        } else {
-          skipped++;
-        }
-      }
+      const r = await applyTariff(prisma, {
+        schoolId: ctx.schoolId,
+        academicYearId: year.id,
+        studentId: en.studentId,
+        studentLevelId: en.classroom.levelId,
+        tariff: t,
+      });
+      if (r === "created") created++;
+      else if (r === "existing") existing++;
+      else skipped++;
     }
   }
 
@@ -155,6 +93,199 @@ export async function generateCharges(
   return { ok: true, result: { created, existing, skipped } };
 }
 
+type TariffForCharge = {
+  id: string;
+  categoryId: string;
+  levelId: string | null;
+  classroomId: string | null;
+  amount: number;
+  installmentCount: number;
+  effectiveFrom: Date;
+};
+
+/**
+ * Applique un tarif à un élève : crée la créance + ses échéances.
+ * La contrainte unique (studentId, academicYearId, categoryId) est la
+ * source de vérité : `create` + P2002 donne un comptage exact même si
+ * deux générations tournent en concurrence — aucun doublon possible.
+ */
+async function applyTariff(
+  db: Prisma.TransactionClient | typeof prisma,
+  input: {
+    schoolId: string;
+    academicYearId: string;
+    studentId: string;
+    studentLevelId: string | null;
+    tariff: TariffForCharge;
+  },
+): Promise<"created" | "existing" | "skipped"> {
+  const t = input.tariff;
+  if (t.classroomId) {
+    // Tarif restreint à une classe précise : vérifier l'inscription réelle.
+    const inClass = await db.enrollment.findFirst({
+      where: {
+        schoolId: input.schoolId,
+        academicYearId: input.academicYearId,
+        studentId: input.studentId,
+        classroomId: t.classroomId,
+        status: "ENROLLED",
+      },
+      select: { id: true },
+    });
+    if (!inClass) return "skipped";
+  }
+  if (t.levelId && input.studentLevelId !== t.levelId) return "skipped";
+
+  try {
+    const charge = await db.studentFeeCharge.create({
+      data: {
+        schoolId: input.schoolId,
+        studentId: input.studentId,
+        academicYearId: input.academicYearId,
+        categoryId: t.categoryId,
+        tariffId: t.id,
+        amount: t.amount,
+      },
+      select: { id: true },
+    });
+    await createInstallments(
+      charge.id,
+      input.schoolId,
+      input.studentId,
+      input.academicYearId,
+      { amount: t.amount, count: t.installmentCount, from: t.effectiveFrom },
+      db,
+    );
+    return "created";
+  } catch (e) {
+    if ((e as { code?: string })?.code !== "P2002") return "skipped";
+    // La créance existait déjà : garantir ses échéances si absentes
+    // (ex. créance créée avant la définition du plan de paiement).
+    const charge = await db.studentFeeCharge.findUnique({
+      where: {
+        studentId_academicYearId_categoryId: {
+          studentId: input.studentId,
+          academicYearId: input.academicYearId,
+          categoryId: t.categoryId,
+        },
+      },
+      select: { id: true },
+    });
+    if (
+      charge &&
+      (await db.feeInstallment.count({ where: { chargeId: charge.id } })) === 0
+    ) {
+      await createInstallments(
+        charge.id,
+        input.schoolId,
+        input.studentId,
+        input.academicYearId,
+        { amount: t.amount, count: t.installmentCount, from: t.effectiveFrom },
+        db,
+      );
+    }
+    return "existing";
+  }
+}
+
+/**
+ * Génère les créances applicables à UN élève inscrit pour une année
+ * (par ex. inscription au guichet après la génération en masse).
+ * Idempotent : seules les créances manquantes sont créées ; aucune remise
+ * ni montant n'est inventé — seuls les tarifs obligatoires actifs
+ * applicables (niveau / classe) sont utilisés.
+ * `tariffs` dans le résultat = nombre de tarifs applicables trouvés :
+ * 0 signifie qu'aucun tarif n'est configuré (l'inscription reste valable).
+ */
+export async function generateStudentCharges(
+  ctx: SchoolCtx,
+  input: { studentId: string; academicYearId: string },
+  tx?: Prisma.TransactionClient,
+): Promise<
+  AccountsResult<{
+    created: number;
+    existing: number;
+    skipped: number;
+    tariffs: number;
+  }>
+> {
+  const db = tx ?? prisma;
+  const year = await db.academicYear.findFirst({
+    where: { id: input.academicYearId, schoolId: ctx.schoolId },
+    select: { id: true },
+  });
+  if (!year) return { ok: false, error: "NOT_FOUND" };
+
+  const enrollment = await db.enrollment.findFirst({
+    where: {
+      schoolId: ctx.schoolId,
+      academicYearId: year.id,
+      studentId: input.studentId,
+      status: "ENROLLED",
+    },
+    select: { classroom: { select: { id: true, levelId: true } } },
+  });
+  if (!enrollment) return { ok: false, error: "NOT_ENROLLED" };
+
+  const tariffs = await db.feeTariff.findMany({
+    where: {
+      schoolId: ctx.schoolId,
+      academicYearId: year.id,
+      status: "ACTIVE",
+      mandatory: true,
+      OR: [
+        { classroomId: enrollment.classroom.id },
+        { classroomId: null },
+      ],
+    },
+    select: {
+      id: true,
+      categoryId: true,
+      levelId: true,
+      classroomId: true,
+      amount: true,
+      installmentCount: true,
+      effectiveFrom: true,
+    },
+  });
+
+  let created = 0;
+  let existing = 0;
+  let skipped = 0;
+  for (const t of tariffs) {
+    const r = await applyTariff(db, {
+      schoolId: ctx.schoolId,
+      academicYearId: year.id,
+      studentId: input.studentId,
+      studentLevelId: enrollment.classroom.levelId,
+      tariff: t,
+    });
+    if (r === "created") created++;
+    else if (r === "existing") existing++;
+    else skipped++;
+  }
+
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "finance.charges.generate",
+    entity: "Student",
+    entityId: input.studentId,
+    metadata: {
+      created,
+      existing,
+      skipped,
+      tariffs: tariffs.length,
+      academicYearId: year.id,
+    },
+    tx,
+  });
+  return {
+    ok: true,
+    result: { created, existing, skipped, tariffs: tariffs.length },
+  };
+}
+
 /** Répartition en n échéances mensuelles (reliquat sur la dernière). */
 async function createInstallments(
   chargeId: string,
@@ -162,6 +293,7 @@ async function createInstallments(
   studentId: string,
   academicYearId: string,
   opts: { amount: number; count: number; from: Date },
+  db: Prisma.TransactionClient | typeof prisma = prisma,
 ) {
   const n = Math.max(1, opts.count);
   const base = Math.floor(opts.amount / n);
@@ -176,7 +308,7 @@ async function createInstallments(
       Date.UTC(opts.from.getUTCFullYear(), opts.from.getUTCMonth() + i, 1),
     ),
   }));
-  await prisma.feeInstallment.createMany({ data: rows });
+  await db.feeInstallment.createMany({ data: rows });
 }
 
 export async function updateInstallment(

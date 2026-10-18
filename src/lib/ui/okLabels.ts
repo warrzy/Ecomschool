@@ -57,6 +57,12 @@ const OK_LABELS: Record<string, string> = {
   activated: "Activation effectuée.",
 
   // Finances
+  registered: "Inscription enregistrée et créances générées.",
+  registered_no_tariffs:
+    "Inscription enregistrée. Aucun tarif n'est configuré pour cette année : le dossier financier est prêt, les créances seront à générer après configuration.",
+  charges_checked: "Inscription déjà active — créances vérifiées et complétées si nécessaire.",
+  registered_charges_failed:
+    "Inscription enregistrée, mais la génération des créances a échoué. Relancez la génération depuis le tableau de bord financier.",
   payment: "Paiement encaissé.",
   recorded: "Paiement enregistré.",
   payment_cancelled: "Paiement annulé.",

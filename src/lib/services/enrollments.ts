@@ -10,6 +10,7 @@ export type EnrollmentsError =
   | "ALREADY_ENROLLED"
   | "CROSS_YEAR"
   | "NO_CURRENT_YEAR"
+  | "STUDENT_INACTIVE"
   | "LIMIT_REACHED"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
@@ -140,6 +141,9 @@ export async function enrollStudent(
   ]);
 
   if (!student || !classroom || !year) return { ok: false, error: "NOT_FOUND" };
+  if (student.status !== "ACTIVE") {
+    return { ok: false, error: "STUDENT_INACTIVE" };
+  }
   if (year.status === "CLOSED") return { ok: false, error: "YEAR_CLOSED" };
   if (classroom.academicYearId !== academicYearId) {
     return { ok: false, error: "CROSS_YEAR" };
