@@ -36,6 +36,10 @@ export async function listStudents(
   filters: {
     status?: "ACTIVE" | "ARCHIVED";
     q?: string;
+    /** Périmètre inscription : élève possédant au moins une inscription
+     * dans l'année et/ou la classe demandée (mêmes règles que l'export). */
+    academicYearId?: string;
+    classroomId?: string;
     page?: number;
     pageSize?: number;
   } = {},
@@ -47,6 +51,21 @@ export async function listStudents(
   const where = {
     schoolId: ctx.schoolId,
     ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.academicYearId || filters.classroomId
+      ? {
+          enrollments: {
+            some: {
+              schoolId: ctx.schoolId,
+              ...(filters.academicYearId
+                ? { academicYearId: filters.academicYearId }
+                : {}),
+              ...(filters.classroomId
+                ? { classroomId: filters.classroomId }
+                : {}),
+            },
+          },
+        }
+      : {}),
     ...(q
       ? {
           OR: [

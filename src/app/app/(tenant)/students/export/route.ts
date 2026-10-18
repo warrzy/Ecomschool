@@ -9,7 +9,7 @@ import {
 import { exportFile } from "@/lib/export/respond";
 
 /**
- * GET /app/students/export?format=csv|xlsx&year&classroom&status&full=1
+ * GET /app/students/export?format=csv|xlsx&year&classroom&status&q&full=1
  * Standard (student.read) : données pédagogiques minimales.
  * full=1 (student.manage) : fiche administrative complète.
  */
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       academicYearId: p("year"),
       classroomId: p("classroom"),
       status,
+      q: p("q"),
     },
     { full },
   );

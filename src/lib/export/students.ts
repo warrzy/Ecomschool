@@ -59,6 +59,8 @@ export interface ReferentielFilters {
   academicYearId?: string;
   classroomId?: string;
   status?: string;
+  /** Recherche matricule/nom/prénom — appliquée aux élèves uniquement. */
+  q?: string;
 }
 
 /**
@@ -85,10 +87,20 @@ export async function buildStudentsExport(
       }
     : undefined;
 
+  const q = filters.q?.trim();
   const students = await prisma.student.findMany({
     where: {
       schoolId: ctx.schoolId,
       ...(filters.status ? { status: filters.status as never } : {}),
+      ...(q
+        ? {
+            OR: [
+              { matricule: { contains: q, mode: "insensitive" as const } },
+              { firstName: { contains: q, mode: "insensitive" as const } },
+              { lastName: { contains: q, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
       ...(enrollWhere ? { enrollments: enrollWhere } : {}),
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],

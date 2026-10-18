@@ -21,8 +21,15 @@ export default async function StudentsPage(props: {
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
   const status =
-    sp.status === "ARCHIVED" ? ("ARCHIVED" as const) : ("ACTIVE" as const);
+    sp.status === "ARCHIVED"
+      ? ("ARCHIVED" as const)
+      : sp.status === "ALL"
+        ? undefined
+        : ("ACTIVE" as const);
   const q = typeof sp.q === "string" ? sp.q : undefined;
+  const yearId = typeof sp.year === "string" && sp.year ? sp.year : undefined;
+  const classroomId =
+    typeof sp.classroom === "string" && sp.classroom ? sp.classroom : undefined;
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
 
   const [canManage, canReadEnrollments] = await Promise.all([
@@ -38,28 +45,48 @@ export default async function StudentsPage(props: {
     }),
   ]);
 
-  const [{ items, total, pageSize }, years, classrooms] = await Promise.all([
-    listStudents(
-      { userId: tenant.userId, schoolId: tenant.schoolId },
-      { status, q, page },
-    ),
-    prisma.academicYear.findMany({
-      where: { schoolId: tenant.schoolId },
-      orderBy: { startDate: "desc" },
-      select: { id: true, name: true },
-    }),
-    prisma.classroom.findMany({
-      where: { schoolId: tenant.schoolId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const [{ items, total, pageSize }, years, classroomsRaw, selectedClassroom] =
+    await Promise.all([
+      listStudents(
+        { userId: tenant.userId, schoolId: tenant.schoolId },
+        { status, q, academicYearId: yearId, classroomId, page },
+      ),
+      prisma.academicYear.findMany({
+        where: { schoolId: tenant.schoolId },
+        orderBy: { startDate: "desc" },
+        select: { id: true, name: true },
+      }),
+      // Les classes proposées sont bornées à l'année choisie ; sans année,
+      // toutes les classes de l'établissement restent accessibles.
+      prisma.classroom.findMany({
+        where: {
+          schoolId: tenant.schoolId,
+          ...(yearId ? { academicYearId: yearId } : {}),
+        },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      classroomId
+        ? prisma.classroom.findFirst({
+            where: { id: classroomId, schoolId: tenant.schoolId },
+            select: { id: true, name: true },
+          })
+        : Promise.resolve(null),
+    ]);
+  // Si la classe sélectionnée n'appartient pas à l'année affichée, on la
+  // conserve dans la liste pour que le filtre actif reste visible.
+  const classrooms =
+    selectedClassroom && !classroomsRaw.some((c) => c.id === classroomId)
+      ? [selectedClassroom, ...classroomsRaw]
+      : classroomsRaw;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const pageHref = (p: number) => {
     const params = new URLSearchParams();
-    if (status === "ARCHIVED") params.set("status", "ARCHIVED");
+    if (sp.status) params.set("status", String(sp.status));
     if (q) params.set("q", q);
+    if (yearId) params.set("year", yearId);
+    if (classroomId) params.set("classroom", classroomId);
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return `/app/students${qs ? `?${qs}` : ""}`;
@@ -107,12 +134,39 @@ export default async function StudentsPage(props: {
             />
           </div>
           <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-students-year">Année scolaire</label>
+            <select id="fld-students-year"
+              name="year"
+              defaultValue={yearId ?? ""}
+              className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+            >
+              <option value="">Toutes les années</option>
+              {years.map((y) => (
+                <option key={y.id} value={y.id}>{y.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-zinc-500" htmlFor="fld-students-classroom">Classe</label>
+            <select id="fld-students-classroom"
+              name="classroom"
+              defaultValue={classroomId ?? ""}
+              className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
+            >
+              <option value="">Toutes les classes</option>
+              {classrooms.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
             <label className="text-xs font-medium text-zinc-500" htmlFor="fld-src-app-app-tenant-students-page-tsx-2">Statut</label>
             <select id="fld-src-app-app-tenant-students-page-tsx-2"
               name="status"
-              defaultValue={status}
+              defaultValue={status ?? "ALL"}
               className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
             >
+              <option value="ALL">Tous</option>
               <option value="ACTIVE">Actifs</option>
               <option value="ARCHIVED">Archivés</option>
             </select>
@@ -123,6 +177,12 @@ export default async function StudentsPage(props: {
           >
             Filtrer
           </button>
+          <Link
+            href="/app/students"
+            className="flex h-10 items-center rounded-xl px-3 text-sm text-zinc-500 hover:text-zinc-800 hover:bg-mist"
+          >
+            Réinitialiser
+          </Link>
         </form>
       </div>
 
@@ -135,9 +195,11 @@ export default async function StudentsPage(props: {
           action="/app/students/export"
           className="flex flex-wrap items-end gap-3"
         >
+          {q ? <input type="hidden" name="q" value={q} /> : null}
           <select
                   aria-label="Toutes les années"
             name="year"
+            defaultValue={yearId ?? ""}
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
             <option value="">Toutes les années</option>
@@ -148,6 +210,7 @@ export default async function StudentsPage(props: {
           <select
                   aria-label="Toutes les classes"
             name="classroom"
+            defaultValue={classroomId ?? ""}
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
             <option value="">Toutes les classes</option>
@@ -158,6 +221,7 @@ export default async function StudentsPage(props: {
           <select
                   aria-label="Tous statuts"
             name="status"
+            defaultValue={status ?? ""}
             className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm"
           >
             <option value="">Tous statuts</option>
@@ -182,7 +246,7 @@ export default async function StudentsPage(props: {
             type="submit"
             className="h-10 rounded-xl border border-zinc-300 px-4 text-sm font-medium hover:bg-mist"
           >
-            Exporter
+            Exporter la liste
           </button>
           {canReadEnrollments ? (
             <>
@@ -202,9 +266,11 @@ export default async function StudentsPage(props: {
           ) : null}
         </form>
         <p className="mt-2 text-xs text-zinc-500">
-          L&#8217;export standard ne contient que les données pédagogiques
-          (matricule, identité, classe). La fiche complète est réservée
-          aux administrateurs.
+          L&#8217;export reprend les filtres actifs (recherche, année, classe,
+          statut) et couvre l&#8217;ensemble de la sélection — pas seulement la
+          page affichée. L&#8217;export standard ne contient que les données
+          pédagogiques (matricule, identité, classe) ; la fiche complète est
+          réservée aux administrateurs.
         </p>
       </div>
 
@@ -395,7 +461,7 @@ export default async function StudentsPage(props: {
               {items.length === 0 ? (
                 <tr>
                   <td className="py-6 text-zinc-500" colSpan={7}>
-                    {q || sp.status ? "Aucun élève ne correspond aux filtres." : "Aucun élève enregistré — créez-le ci-dessus ou via l'import."}
+                    {q || sp.status || yearId || classroomId ? "Aucun élève ne correspond aux filtres." : "Aucun élève enregistré — créez-le ci-dessus ou via l'import."}
                   </td>
                 </tr>
               ) : null}
