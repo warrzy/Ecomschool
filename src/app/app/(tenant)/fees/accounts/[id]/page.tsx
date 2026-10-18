@@ -10,6 +10,7 @@ import {
   recordPaymentAction,
   updateInstallmentAction,
 } from "@/app/app/(tenant)/fees/actions";
+import { regenerateStudentChargesAction } from "@/app/app/(tenant)/fees/registration/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -76,11 +77,12 @@ export default async function StudentAccountPage(props: {
   const account = await getStudentAccount(c, { studentId: id, academicYearId: yearId });
   if (!account) notFound();
 
-  const [canManage, canDiscount, canPay, canPrint] = await Promise.all([
+  const [canManage, canDiscount, canPay, canPrint, canEnroll] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.fees.manage" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.discounts.manage" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.payments.create" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.receipts.print" }),
+    userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "enrollment.create" }),
   ]);
 
   const card = "rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft";
@@ -143,6 +145,18 @@ export default async function StudentAccountPage(props: {
         {ok ? (
           <div role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {ok === "payment" ? `Paiement enregistré — reçu ${sp.receipt ?? ""}.` : okMessage(ok)}
+            {ok === "registered_charges_failed" && canEnroll ? (
+              <form action={regenerateStudentChargesAction} className="mt-2">
+                <input type="hidden" name="studentId" value={id} />
+                <input type="hidden" name="academicYearId" value={yearId} />
+                <SubmitButton
+                  pendingLabel="Génération…"
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                >
+                  Relancer la génération des créances
+                </SubmitButton>
+              </form>
+            ) : null}
           </div>
         ) : null}
         {error ? (
@@ -275,7 +289,12 @@ export default async function StudentAccountPage(props: {
 
         <div className={card}>
           <div className="mb-3 text-sm font-medium text-zinc-900">Encaisser un paiement</div>
-          {canPay ? (
+          {account.totals.balance <= 0 ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+              Frais soldés — aucun encaissement possible tant qu&apos;aucune
+              autre créance payable n&apos;existe.
+            </div>
+          ) : canPay ? (
             <form action={recordPaymentAction} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="studentId" value={id} />
               <input type="hidden" name="academicYearId" value={yearId} />

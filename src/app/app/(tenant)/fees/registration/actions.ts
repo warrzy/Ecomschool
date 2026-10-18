@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { registerStudent } from "@/lib/services/registration";
+import { generateStudentCharges } from "@/lib/services/finance/accounts";
 import { studentCreateSchema } from "@/lib/validations/students";
 import { idField, optionalText } from "@/lib/validations/form";
 import { z } from "zod";
@@ -109,4 +110,33 @@ export async function registerExistingStudentAction(formData: FormData) {
   }
   const r = res.result;
   back(target(r.studentId, r.academicYearId, `&ok=${okCode(r)}`));
+}
+
+// ---------- Reprise : génération des créances après échec ----------
+// Si la génération automatique a échoué après commit de l'inscription
+// (ok=registered_charges_failed), l'agent peut la relancer depuis le
+// dossier. Idempotent : seules les créances manquantes sont créées,
+// sans doublon ni montant inventé. Gardée par enrollment.create —
+// aucune permission de configuration financière n'est exigée.
+
+export async function regenerateStudentChargesAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("enrollment.create");
+
+  const parsed = z
+    .object({ studentId: idField, academicYearId: idField })
+    .safeParse({
+      studentId: formData.get("studentId"),
+      academicYearId: formData.get("academicYearId"),
+    });
+  if (!parsed.success) {
+    return back("/app/fees/registration?error=INVALID_INPUT");
+  }
+
+  const res = await generateStudentCharges(ctx(tenant), {
+    studentId: parsed.data.studentId,
+    academicYearId: parsed.data.academicYearId,
+  });
+  const tgt = target(parsed.data.studentId, parsed.data.academicYearId);
+  if (!res.ok) return back(`${tgt}&error=${res.error}`);
+  back(`${tgt}&ok=${res.result.tariffs === 0 ? "registered_no_tariffs" : "charges_checked"}`);
 }

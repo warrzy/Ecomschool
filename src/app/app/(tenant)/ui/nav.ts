@@ -76,6 +76,8 @@ export const appNav: NavItem[] = [
   { label: "Absences & retards", href: "/app/attendance", permission: "attendance.read", section: "Pédagogie", icon: I.alertClock },
 
   { label: "Finances", href: "/app/fees", permission: "finance.read", section: "Finances", icon: I.wallet },
+  // Guichet d'inscription : permissions fines créées en F2-D2.
+  { label: "Inscriptions", href: "/app/fees/registration", permission: "enrollment.create", section: "Finances", icon: I.clipboard },
   // Journal personnel : filtrage strict sur receivedById côté serveur.
   { label: "Mes encaissements", href: "/app/fees/my-payments", permission: "finance.receipts.read", section: "Finances", icon: I.file },
 
