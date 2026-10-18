@@ -93,6 +93,18 @@ async function main() {
     // Reçu PDF : permission receipts.print couvre l'école — accès attendu.
     const pdf = await pc.request.get(`${BASE}/app/fees/receipts/pdf?payment=${PAYMENT_1_ID}`);
     check("caissier : PDF reçu de l'école", pdf.status() === 200);
+    // Guichet d'inscription (F2-D) — permissions fines bootstrapées.
+    await expectAccess(pc, "/app/fees/registration", true, "caissier");
+    const guichet = await pageText(pc, "/app/fees/registration");
+    check("caissier : guichet affiché", /inscriptions|guichet/i.test(guichet));
+    check("caissier : onglet nouvel élève", /nouvel élève/i.test(guichet));
+    const recherche = await pageText(pc, "/app/fees/registration?q=DEMO-");
+    check("caissier : recherche guichet trouve des élèves", /inscrit/i.test(recherche));
+    // Liste pédagogique (lecture) : enrollment.read accordé — consultable.
+    await expectAccess(pc, "/app/enrollments", true, "caissier");
+    // Dossier financier d'un élève existant (lecture seule).
+    const accPage = await pageText(pc, "/app/fees/accounts?q=DEMO-");
+    check("caissier : dossiers financiers listés", /solde|dossier/i.test(accPage));
     await pc.context().close();
   }
 
@@ -129,6 +141,15 @@ async function main() {
     // Exports.
     const csv = await pfm.request.get(`${BASE}/app/fees/payments/csv`);
     check("FM : export CSV paiements", csv.status() === 200);
+    // Guichet d'inscription.
+    await expectAccess(pfm, "/app/fees/registration", true, "FM");
+    const guichetFm = await pageText(pfm, "/app/fees/registration?q=DEMO-");
+    check("FM : guichet + recherche élève", /inscrit/i.test(guichetFm));
+    // Navigation : les deux entrées renommées sont présentes.
+    check(
+      "FM : navigation « Guichet d'inscription »",
+      /guichet d.inscription/i.test(guichetFm),
+    );
     await pfm.context().close();
   }
 
@@ -141,6 +162,12 @@ async function main() {
     await expectAccess(padm, "/app/fees/my-payments", true, "admin");
     const journalAdm = await pageText(padm, "/app/fees/payments");
     check("admin : journal affiche les reçus", journalAdm.includes(RECEIPT_1));
+    await expectAccess(padm, "/app/fees/registration", true, "admin");
+    const guichetAdm = await pageText(padm, "/app/fees/registration");
+    check(
+      "admin : guichet + deux parcours",
+      /nouvel élève/i.test(guichetAdm) && /élève existant/i.test(guichetAdm),
+    );
     await padm.context().close();
   }
 
