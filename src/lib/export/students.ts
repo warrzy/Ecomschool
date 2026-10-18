@@ -61,6 +61,10 @@ export interface ReferentielFilters {
   status?: string;
   /** Recherche matricule/nom/prénom — appliquée aux élèves uniquement. */
   q?: string;
+  /** Statut d'inscription pris en compte : ENROLLED (défaut — effectif
+   * actuel) ou "ALL" pour inclure transférées/retirées/terminées.
+   * Ne s'applique qu'à l'export élèves. */
+  enrollmentStatus?: string;
 }
 
 /**
@@ -73,10 +77,15 @@ export async function buildStudentsExport(
   filters: ReferentielFilters,
   opts: { full?: boolean } = {},
 ): Promise<{ rows: (string | number | null)[][]; truncated: boolean }> {
+  const enrStatus =
+    (filters.enrollmentStatus ?? "ENROLLED") !== "ALL"
+      ? (filters.enrollmentStatus ?? "ENROLLED")
+      : undefined;
   const enrollWhere = filters.academicYearId || filters.classroomId
     ? {
         some: {
           schoolId: ctx.schoolId,
+          ...(enrStatus ? { status: enrStatus as never } : {}),
           ...(filters.academicYearId
             ? { academicYearId: filters.academicYearId }
             : {}),
@@ -120,6 +129,7 @@ export async function buildStudentsExport(
       enrollments: {
         where: {
           schoolId: ctx.schoolId,
+          ...(enrStatus ? { status: enrStatus as never } : {}),
           ...(filters.academicYearId
             ? { academicYearId: filters.academicYearId }
             : {}),

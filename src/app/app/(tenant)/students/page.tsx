@@ -30,6 +30,7 @@ export default async function StudentsPage(props: {
   const yearId = typeof sp.year === "string" && sp.year ? sp.year : undefined;
   const classroomId =
     typeof sp.classroom === "string" && sp.classroom ? sp.classroom : undefined;
+  const hist = sp.hist === "1";
   const page = typeof sp.page === "string" ? Number(sp.page) || 1 : 1;
 
   const [canManage, canReadEnrollments] = await Promise.all([
@@ -49,7 +50,14 @@ export default async function StudentsPage(props: {
     await Promise.all([
       listStudents(
         { userId: tenant.userId, schoolId: tenant.schoolId },
-        { status, q, academicYearId: yearId, classroomId, page },
+        {
+          status,
+          q,
+          academicYearId: yearId,
+          classroomId,
+          enrollmentStatus: hist ? "ALL" : undefined,
+          page,
+        },
       ),
       prisma.academicYear.findMany({
         where: { schoolId: tenant.schoolId },
@@ -87,6 +95,7 @@ export default async function StudentsPage(props: {
     if (q) params.set("q", q);
     if (yearId) params.set("year", yearId);
     if (classroomId) params.set("classroom", classroomId);
+    if (hist) params.set("hist", "1");
     if (p > 1) params.set("page", String(p));
     const qs = params.toString();
     return `/app/students${qs ? `?${qs}` : ""}`;
@@ -171,6 +180,11 @@ export default async function StudentsPage(props: {
               <option value="ARCHIVED">Archivés</option>
             </select>
           </div>
+          <label className="flex h-10 items-center gap-2 text-sm text-zinc-700"
+            title="Inclure les inscriptions transférées, retirées ou terminées dans l'effectif">
+            <input type="checkbox" name="hist" value="1" defaultChecked={hist} />
+            Historique
+          </label>
           <button
             type="submit"
             className="h-10 rounded-xl border border-zinc-200 px-4 text-sm hover:bg-mist"
@@ -196,6 +210,7 @@ export default async function StudentsPage(props: {
           className="flex flex-wrap items-end gap-3"
         >
           {q ? <input type="hidden" name="q" value={q} /> : null}
+          {hist ? <input type="hidden" name="hist" value="1" /> : null}
           <select
                   aria-label="Toutes les années"
             name="year"

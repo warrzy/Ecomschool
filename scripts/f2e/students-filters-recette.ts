@@ -62,7 +62,7 @@ async function fixtures() {
     prisma.student.create({
       data: { schoolId: school.id, matricule, firstName: "Etu", lastName: matricule, status },
     });
-  const mkEnr = (studentId: string, classroomId: string, academicYearId: string, status: "ENROLLED" | "TRANSFERRED" = "ENROLLED") =>
+  const mkEnr = (studentId: string, classroomId: string, academicYearId: string, status: "ENROLLED" | "TRANSFERRED" | "WITHDRAWN" = "ENROLLED") =>
     prisma.enrollment.create({
       data: { schoolId: school.id, studentId, classroomId, academicYearId, status },
     });
@@ -85,6 +85,9 @@ async function fixtures() {
   const s11 = await mkSt("F2E-11");
   await mkEnr(s11.id, cA.id, y2.id, "TRANSFERRED");
   await mkEnr(s11.id, cB.id, y2.id);
+  // 12 : retirée de 6e A Y2 (WITHDRAWN)
+  const s12 = await mkSt("F2E-12");
+  await mkEnr(s12.id, cA.id, y2.id, "WITHDRAWN");
 
   return { school, y1, y2, cY1A, cA, cB, cEmpty, s08 };
 }
@@ -97,7 +100,7 @@ async function serviceChecks() {
   const ids = (items: { matricule: string }[]) => items.map((s) => s.matricule).sort();
 
   let r = await listStudents(ctx, {});
-  check("sans filtre : 11 élèves", r.total === 11);
+  check("sans filtre : 12 élèves", r.total === 12);
 
   r = await listStudents(ctx, { academicYearId: f.y2.id });
   check("année Y2 : 9 élèves (exclut non-inscrit et Y1-only)", r.total === 9);
@@ -105,10 +108,13 @@ async function serviceChecks() {
     !ids(r.items).includes("F2E-08") && !ids(r.items).includes("F2E-10"));
 
   r = await listStudents(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id });
-  check("année Y2 + classe 6e A : 7 (inclut archivé + transférée F2E-11)", r.total === 7);
+  check("année Y2 + classe 6e A : effectif actuel = 6 (archivée F2E-09 incluse, transférée/retirée exclues)", r.total === 6);
+
+  r = await listStudents(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id, enrollmentStatus: "ALL" });
+  check("6e A Y2 + historique : 8 (inclut transférée F2E-11 + retirée F2E-12)", r.total === 8);
 
   r = await listStudents(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id, status: "ACTIVE" });
-  check("année + classe + actifs : 6", r.total === 6);
+  check("année + classe + actifs : 5", r.total === 5);
   check("archivé F2E-09 exclu du filtre actif", !ids(r.items).includes("F2E-09"));
 
   r = await listStudents(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id, status: "ACTIVE", q: "F2E-01" });
@@ -122,11 +128,16 @@ async function serviceChecks() {
   check("6e B Y2 : 3 élèves (06, 07 transférée, 11)", r.total === 3 && bIds.includes("F2E-07") && bIds.includes("F2E-11"));
 
   r = await listStudents(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id });
-  check("transférée F2E-11 conserve son historique 6e A",
-    ids(r.items).includes("F2E-11"));
+  check("transférée F2E-11 absente de l'effectif actuel 6e A",
+    !ids(r.items).includes("F2E-11"));
+  check("retirée F2E-12 absente de l'effectif actuel 6e A",
+    !ids(r.items).includes("F2E-12"));
 
   r = await listStudents(ctx, { academicYearId: f.y1.id, classroomId: f.cY1A.id });
-  check("Y1 6e A : F2E-07 + F2E-10 (inscription TRANSFERRED visible)",
+  check("Y1 6e A effectif actuel : F2E-10 seul (07 transférée exclue)",
+    r.total === 1 && ids(r.items).includes("F2E-10"));
+  r = await listStudents(ctx, { academicYearId: f.y1.id, classroomId: f.cY1A.id, enrollmentStatus: "ALL" });
+  check("Y1 6e A + historique : F2E-07 + F2E-10",
     r.total === 2 && ids(r.items).includes("F2E-07") && ids(r.items).includes("F2E-10"));
 
   r = await listStudents(ctx, { academicYearId: f.y2.id, pageSize: 3, page: 2 });
@@ -143,14 +154,16 @@ async function serviceChecks() {
 
   // Export — mêmes règles, toute la sélection
   let e = await buildStudentsExport(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id });
-  check("export Y2+6e A : 7 lignes (inclut archivé + transférée)", e.rows.length === 7 && !e.truncated);
+  check("export Y2+6e A : 6 lignes = effectif actuel", e.rows.length === 6 && !e.truncated);
+  e = await buildStudentsExport(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id, enrollmentStatus: "ALL" });
+  check("export Y2+6e A + historique : 8 lignes", e.rows.length === 8);
   e = await buildStudentsExport(ctx, { academicYearId: f.y2.id, classroomId: f.cA.id, status: "ACTIVE" });
-  check("export Y2+6e A actifs : 6 lignes", e.rows.length === 6);
+  check("export Y2+6e A actifs : 5 lignes", e.rows.length === 5);
   e = await buildStudentsExport(ctx, { academicYearId: f.y2.id, q: "F2E-0" });
   check("export année + q : cohérent avec la liste",
     e.rows.length === (await listStudents(ctx, { academicYearId: f.y2.id, q: "F2E-0" })).total);
   e = await buildStudentsExport(ctx, {});
-  check("export sans filtre : 11 lignes, pas tronqué", e.rows.length === 11 && !e.truncated);
+  check("export sans filtre : 12 lignes, pas tronqué", e.rows.length === 12 && !e.truncated);
 
   // Isolation : mêmes filtres sur l'école démo → aucun élève F2E
   const demo = await prisma.school.findFirst({ where: { name: { contains: "Démo" } }, select: { id: true } });
@@ -204,6 +217,8 @@ async function uiChecks(browser: Browser) {
       (await page.locator('select[name="classroom"]').count()) >= 2);
     check("UI : option « Tous » sur le statut",
       await page.locator('select[name="status"] option[value="ALL"]').count() >= 1);
+    check("UI : case Historique présente",
+      (await page.locator('input[name="hist"][type="checkbox"]').count()) >= 1);
     check("UI : bouton Réinitialiser", (await page.getByRole("link", { name: /réinitialiser/i }).count()) >= 1);
     check("UI : action « Exporter la liste »", (await page.getByRole("button", { name: /exporter la liste/i }).count()) >= 1);
 

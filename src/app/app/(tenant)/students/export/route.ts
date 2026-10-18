@@ -9,7 +9,9 @@ import {
 import { exportFile } from "@/lib/export/respond";
 
 /**
- * GET /app/students/export?format=csv|xlsx&year&classroom&status&q&full=1
+ * GET /app/students/export?format=csv|xlsx&year&classroom&status&q&hist&full=1
+ * Par défaut : effectif actuel (inscriptions ENROLLED). `hist=1` inclut les
+ * inscriptions transférées/retirées/terminées (export historique).
  * Standard (student.read) : données pédagogiques minimales.
  * full=1 (student.manage) : fiche administrative complète.
  */
@@ -43,6 +45,7 @@ export async function GET(req: NextRequest) {
       classroomId: p("classroom"),
       status,
       q: p("q"),
+      enrollmentStatus: p("hist") === "1" ? "ALL" : undefined,
     },
     { full },
   );

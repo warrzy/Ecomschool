@@ -40,6 +40,9 @@ export async function listStudents(
      * dans l'année et/ou la classe demandée (mêmes règles que l'export). */
     academicYearId?: string;
     classroomId?: string;
+    /** Statut d'inscription pris en compte : ENROLLED (défaut — effectif
+     * actuel) ou "ALL" pour inclure transférées/retirées/terminées. */
+    enrollmentStatus?: "ENROLLED" | "TRANSFERRED" | "WITHDRAWN" | "COMPLETED" | "ALL";
     page?: number;
     pageSize?: number;
   } = {},
@@ -47,6 +50,12 @@ export async function listStudents(
   const page = Math.max(1, filters.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
   const q = filters.q?.trim();
+  const enrollmentStatus =
+    filters.enrollmentStatus && filters.enrollmentStatus !== "ALL"
+      ? filters.enrollmentStatus
+      : filters.enrollmentStatus === "ALL"
+        ? undefined
+        : ("ENROLLED" as const);
 
   const where = {
     schoolId: ctx.schoolId,
@@ -56,6 +65,7 @@ export async function listStudents(
           enrollments: {
             some: {
               schoolId: ctx.schoolId,
+              ...(enrollmentStatus ? { status: enrollmentStatus } : {}),
               ...(filters.academicYearId
                 ? { academicYearId: filters.academicYearId }
                 : {}),
