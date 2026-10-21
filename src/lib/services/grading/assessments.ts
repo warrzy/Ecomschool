@@ -279,9 +279,28 @@ export async function setAssessmentStatus(
 ): Promise<AssessmentResult> {
   const a = await prisma.assessment.findFirst({
     where: { id, schoolId: ctx.schoolId },
-    select: { id: true, status: true, teacherId: true, classroomId: true, subjectId: true },
+    select: {
+      id: true,
+      status: true,
+      teacherId: true,
+      classroomId: true,
+      subjectId: true,
+      academicYear: { select: { status: true } },
+      academicPeriod: { select: { isLocked: true } },
+    },
   });
   if (!a) return { ok: false, error: "NOT_FOUND" };
+  if (a.academicYear.status === "CLOSED") {
+    return { ok: false, error: "YEAR_CLOSED" };
+  }
+  // Période verrouillée : seules les transitions « vers l'avant » sont
+  // permises (VALIDATED→PUBLISHED, →CANCELLED). Toute transition vers
+  // OPEN (réouverture DRAFT/SUBMITTED/VALIDATED→OPEN) est refusée —
+  // la saisie de notes est déjà bloquée par saveGrades, la réouverture
+  // n'aurait aucun effet métier sauf fausser le suivi.
+  if (a.academicPeriod?.isLocked && status === "OPEN") {
+    return { ok: false, error: "PERIOD_LOCKED" };
+  }
   if (!TRANSITIONS[a.status].includes(status)) {
     return { ok: false, error: "INVALID_STATUS" };
   }

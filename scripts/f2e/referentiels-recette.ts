@@ -12,7 +12,11 @@ import {
   transferStudent,
   closeEnrollment,
 } from "../../src/lib/services/enrollments";
-import { createAssessment } from "../../src/lib/services/grading/assessments";
+import {
+  createAssessment,
+  setAssessmentStatus,
+} from "../../src/lib/services/grading/assessments";
+import { yearClosureReport, closeYear } from "../../src/lib/services/academic";
 import {
   updateClassroom,
   updateLevel,
@@ -287,6 +291,101 @@ async function importCsv(
   check("isolation : archivage classe d'une autre école refusé", !iso2.ok && iso2.error === "NOT_FOUND");
 
   note("permissions UI : gardes server-side testées ; requireSchoolPermission côté action inchangé");
+
+  // ---------- F2-E2-C : transitions évaluations + bilan de clôture ----------
+  console.log("\n== F2-E2-C — verrous évaluations & pré-clôture ==");
+
+  // 19. Transitions autorisées sur année/période ouvertes
+  const t1 = await setAssessmentStatus(ctx, a1.ok ? a1.result.id : "", "SUBMITTED");
+  const t2 = await setAssessmentStatus(ctx, a1.ok ? a1.result.id : "", "VALIDATED");
+  check("transitions OPEN→SUBMITTED→VALIDATED : OK", t1.ok && t2.ok);
+  const t3 = await setAssessmentStatus(ctx, a1.ok ? a1.result.id : "", "OPEN");
+  check("réouverture VALIDATED→OPEN sur période ouverte : OK", t3.ok);
+
+  // 20. Réouverture sur période verrouillée → PERIOD_LOCKED
+  const aLocked = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: year.id, academicPeriodId: pLocked!.id,
+      classroomId: clsActive.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval T1 verrouillée", date: new Date("2025-11-01"),
+      status: "VALIDATED", createdById: user.id,
+    },
+  });
+  const t4 = await setAssessmentStatus(ctx, aLocked.id, "OPEN");
+  check("réouverture sur période verrouillée : PERIOD_LOCKED",
+    !t4.ok && t4.error === "PERIOD_LOCKED");
+  const aLockAfter = await prisma.assessment.findUnique({ where: { id: aLocked.id }, select: { status: true } });
+  check("évaluation toujours VALIDATED après refus", aLockAfter?.status === "VALIDATED");
+
+  // 21. Transitions « vers l'avant » permises sur période verrouillée
+  const t5 = await setAssessmentStatus(ctx, aLocked.id, "PUBLISHED");
+  check("VALIDATED→PUBLISHED sur période verrouillée : OK", t5.ok);
+  const aCancel = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: year.id, academicPeriodId: pLocked!.id,
+      classroomId: clsActive.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval à annuler", date: new Date("2025-11-02"),
+      status: "DRAFT", createdById: user.id,
+    },
+  });
+  const t6 = await setAssessmentStatus(ctx, aCancel.id, "CANCELLED");
+  check("DRAFT→CANCELLED sur période verrouillée : OK", t6.ok);
+  const aDraftOpen = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: year.id, academicPeriodId: pLocked!.id,
+      classroomId: clsActive.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval DRAFT T1", date: new Date("2025-11-03"),
+      status: "DRAFT", createdById: user.id,
+    },
+  });
+  const t7 = await setAssessmentStatus(ctx, aDraftOpen.id, "OPEN");
+  check("DRAFT→OPEN sur période verrouillée : PERIOD_LOCKED",
+    !t7.ok && t7.error === "PERIOD_LOCKED");
+
+  // 22. Année fermée : toute transition bloquée
+  const aClosed = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: closedYear.id,
+      classroomId: clsOtherYear.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval année close", date: new Date("2025-02-01"),
+      status: "SUBMITTED", createdById: user.id,
+    },
+  });
+  const t8 = await setAssessmentStatus(ctx, aClosed.id, "VALIDATED");
+  check("transition sur année fermée : YEAR_CLOSED",
+    !t8.ok && t8.error === "YEAR_CLOSED");
+
+  // 23. Bilan de pré-clôture
+  const rep = await yearClosureReport(ctx, year.id);
+  check("bilan : classes et inscriptions comptées",
+    rep !== null && rep.classrooms > 0 && rep.enrollments > 0);
+  check("bilan : inscriptions actives détectées",
+    rep !== null && rep.activeEnrollments > 0);
+  check("bilan : période non verrouillée détectée",
+    rep !== null && rep.unlockedPeriods >= 1);
+  check("bilan : évaluations non finalisées détectées",
+    rep !== null && rep.liveAssessments > 0);
+  check("bilan : aucun résultat annuel calculé détecté",
+    rep !== null && rep.computedResults === 0);
+
+  // 24. Année vide : bilan sans anomalie
+  const emptyYear = await prisma.academicYear.create({
+    data: { schoolId: school.id, name: "E2-EMPTY-Y", startDate: new Date("2023-09-01"), endDate: new Date("2024-06-30"), status: "DRAFT" },
+  });
+  const repEmpty = await yearClosureReport(ctx, emptyYear.id);
+  check("année vide : bilan 0 anomalie",
+    repEmpty !== null && repEmpty.activeEnrollments === 0 &&
+    repEmpty.unlockedPeriods === 0 && repEmpty.liveAssessments === 0);
+
+  // 25. Isolation du bilan
+  const repIso = await yearClosureReport({ userId: user.id, schoolId: s2.id }, year.id);
+  check("isolation : bilan d'une année d'une autre école → null", repIso === null);
+
+  // 26. Clôture : non-régression (mécanisme inchangé)
+  const cy1 = await closeYear(ctx, year.id);
+  check("clôture année courante refusée : IS_CURRENT", !cy1.ok && cy1.error === "IS_CURRENT");
+  const cy2 = await closeYear(ctx, emptyYear.id);
+  check("clôture année non courante : OK (décision administrative)", cy2.ok);
 
   console.log(`\n=== BILAN : ${pass} PASS / ${fail} FAIL / ${skip} SKIP ===`);
   await prisma.$disconnect();

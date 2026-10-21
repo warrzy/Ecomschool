@@ -166,6 +166,68 @@ export async function setCurrentYear(
   }
 }
 
+/** Bilan de pré-clôture : compteurs affichés avant `closeYear`.
+ *  Aucune condition n'est bloquante — la décision reste administrative. */
+export async function yearClosureReport(ctx: SchoolCtx, yearId: string) {
+  const year = await prisma.academicYear.findFirst({
+    where: { id: yearId, schoolId: ctx.schoolId },
+    select: { id: true, name: true, status: true, isCurrent: true },
+  });
+  if (!year) return null;
+
+  const [
+    classrooms,
+    enrollments,
+    activeEnrollments,
+    unlockedPeriods,
+    liveAssessments,
+    computedResults,
+  ] = await Promise.all([
+    prisma.classroom.count({
+      where: { schoolId: ctx.schoolId, academicYearId: yearId },
+    }),
+    prisma.enrollment.count({
+      where: { schoolId: ctx.schoolId, academicYearId: yearId },
+    }),
+    prisma.enrollment.count({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: yearId,
+        status: "ENROLLED",
+      },
+    }),
+    prisma.academicPeriod.count({
+      where: { academicYearId: yearId, isLocked: false },
+    }),
+    prisma.assessment.count({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: yearId,
+        status: { in: ["DRAFT", "OPEN", "SUBMITTED", "VALIDATED"] },
+      },
+    }),
+    prisma.studentAnnualResult.count({
+      where: { schoolId: ctx.schoolId, academicYearId: yearId },
+    }),
+  ]);
+
+  return {
+    year,
+    classrooms,
+    enrollments,
+    /** Inscriptions encore ENROLLED : elles resteront orphelines
+     *  fonctionnellement après clôture (non clôturées automatiquement). */
+    activeEnrollments,
+    /** Périodes non verrouillées : elles resteront modifiables par
+     *  updatePeriod mais inaccessibles à la saisie sur année close. */
+    unlockedPeriods,
+    /** Évaluations DRAFT/OPEN/SUBMITTED/VALIDATED non finalisées. */
+    liveAssessments,
+    /** Résultats annuels déjà calculés (0 = aucun calcul effectué). */
+    computedResults,
+  };
+}
+
 export async function closeYear(
   ctx: SchoolCtx,
   yearId: string,

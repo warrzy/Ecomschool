@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import { listYears } from "@/lib/services/academic";
+import { listYears, yearClosureReport } from "@/lib/services/academic";
 import {
   closeYearAction,
   createYearAction,
@@ -37,6 +37,13 @@ export default async function AcademicYearsPage(props: {
     schoolId: tenant.schoolId,
   });
   const confirmTarget = years.find((y) => y.id === confirmId);
+  const closureReport =
+    confirm === "close" && confirmTarget
+      ? await yearClosureReport(
+          { userId: tenant.userId, schoolId: tenant.schoolId },
+          confirmTarget.id,
+        )
+      : null;
 
   return (
     <div className="space-y-4">
@@ -67,6 +74,48 @@ export default async function AcademicYearsPage(props: {
           définitivement ses inscriptions, notes, évaluations et périodes.{" "}
           <strong>Cette action est irréversible</strong> : aucune réouverture
           n&apos;est possible depuis l&apos;interface.
+          {closureReport ? (
+            <span className="mt-3 block rounded-xl border border-red-200 bg-white/60 p-3 text-left text-sm">
+              <span className="block font-medium">
+                Bilan avant clôture — {closureReport.year.name}
+              </span>
+              <span className="mt-1 block">
+                {closureReport.classrooms} classe(s) ·{" "}
+                {closureReport.enrollments} inscription(s) au total
+              </span>
+              {closureReport.activeEnrollments > 0 ? (
+                <span className="mt-1 block font-medium text-red-700">
+                  ⚠ {closureReport.activeEnrollments} inscription(s) encore
+                  active(s) — elles ne seront pas clôturées automatiquement.
+                </span>
+              ) : null}
+              {closureReport.unlockedPeriods > 0 ? (
+                <span className="mt-1 block text-amber-700">
+                  ⚠ {closureReport.unlockedPeriods} période(s) non
+                  verrouillée(s).
+                </span>
+              ) : null}
+              {closureReport.liveAssessments > 0 ? (
+                <span className="mt-1 block text-amber-700">
+                  ⚠ {closureReport.liveAssessments} évaluation(s) non
+                  finalisée(s) (brouillon, ouverte ou en validation).
+                </span>
+              ) : null}
+              {closureReport.computedResults === 0 &&
+              closureReport.enrollments > 0 ? (
+                <span className="mt-1 block text-amber-700">
+                  ⚠ Aucun résultat annuel calculé sur cette année.
+                </span>
+              ) : null}
+              {closureReport.activeEnrollments === 0 &&
+              closureReport.unlockedPeriods === 0 &&
+              closureReport.liveAssessments === 0 ? (
+                <span className="mt-1 block text-emerald-700">
+                  Aucune anomalie détectée : l&apos;année peut être clôturée.
+                </span>
+              ) : null}
+            </span>
+          ) : null}
         </ConfirmPanel>
       ) : null}
       <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-soft">
