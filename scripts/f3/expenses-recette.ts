@@ -148,6 +148,11 @@ async function cleanup(schoolId: string) {
     where: { schoolId: school.id, idempotencyKey: "f3b-idem-1" },
   });
   check("idempotence : une seule ligne", idemCount === 1);
+  const i3 = await createExpense(ctx, {
+    categoryId: fonct.id, label: "Clé réutilisée, contenu différent",
+    amount: 9999, beneficiary: "B", idempotencyKey: "f3b-idem-1",
+  });
+  check("même clé, contenu différent → refus", !i3.ok && i3.error === "IDEMPOTENCY_CONFLICT");
 
   // ---------- Modification DRAFT ----------
   console.log("— Modification —");

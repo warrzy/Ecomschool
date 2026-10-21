@@ -81,8 +81,6 @@ export async function createExpenseAction(formData: FormData) {
       amount: intField.refine((v) => v > 0),
       beneficiary: requiredText.max(200),
       expenseAt: dateField,
-      method: paymentMethodSchema.optional(),
-      paymentReference: optionalText,
       attachmentRef: optionalText,
     })
     .safeParse({
@@ -92,8 +90,6 @@ export async function createExpenseAction(formData: FormData) {
       amount: formData.get("amount"),
       beneficiary: formData.get("beneficiary"),
       expenseAt: formData.get("expenseAt"),
-      method: formData.get("method") || undefined,
-      paymentReference: formData.get("paymentReference"),
       attachmentRef: formData.get("attachmentRef"),
     });
   if (!parsed.success) return back("/app/expenses?error=INVALID_INPUT");

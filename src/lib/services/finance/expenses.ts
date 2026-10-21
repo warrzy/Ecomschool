@@ -12,6 +12,7 @@ export type ExpensesError =
   | "YEAR_CLOSED"
   | "ALREADY_PAID"
   | "ALREADY_CANCELLED"
+  | "IDEMPOTENCY_CONFLICT"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -175,9 +176,19 @@ export async function createExpense(
   if (input.idempotencyKey) {
     const existing = await prisma.expense.findFirst({
       where: { schoolId: ctx.schoolId, idempotencyKey: input.idempotencyKey },
-      select: { id: true },
+      select: { id: true, categoryId: true, label: true, amount: true, beneficiary: true },
     });
-    if (existing) return { ok: true, result: existing };
+    if (existing) {
+      // Rejeu strict : la clé ne renvoie l'existant que si le contenu est
+      // identique. Une clé réutilisée avec d'autres données est refusée.
+      const same =
+        existing.categoryId === input.categoryId &&
+        existing.label === input.label.trim() &&
+        existing.amount === input.amount &&
+        existing.beneficiary === input.beneficiary.trim();
+      if (!same) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
+      return { ok: true, result: existing };
+    }
   }
 
   try {
@@ -211,9 +222,18 @@ export async function createExpense(
     if (isUniqueViolation(err)) {
       const existing = await prisma.expense.findFirst({
         where: { schoolId: ctx.schoolId, idempotencyKey },
-        select: { id: true },
+        select: { id: true, categoryId: true, label: true, amount: true, beneficiary: true },
       });
-      if (existing) return { ok: true, result: existing };
+      if (existing) {
+        const same =
+          existing.categoryId === input.categoryId &&
+          existing.label === input.label.trim() &&
+          existing.amount === input.amount &&
+          existing.beneficiary === input.beneficiary.trim();
+        return same
+          ? { ok: true, result: existing }
+          : { ok: false, error: "IDEMPOTENCY_CONFLICT" };
+      }
     }
     return { ok: false, error: "CREATE_FAILED" };
   }
