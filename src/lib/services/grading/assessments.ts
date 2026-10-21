@@ -293,13 +293,14 @@ export async function setAssessmentStatus(
   if (a.academicYear.status === "CLOSED") {
     return { ok: false, error: "YEAR_CLOSED" };
   }
-  // Période verrouillée : seules les transitions « vers l'avant » sont
-  // permises (VALIDATED→PUBLISHED, →CANCELLED). Toute transition vers
-  // OPEN (réouverture DRAFT/SUBMITTED/VALIDATED→OPEN) est refusée —
-  // la saisie de notes est déjà bloquée par saveGrades, la réouverture
-  // n'aurait aucun effet métier sauf fausser le suivi.
-  if (a.academicPeriod?.isLocked && status === "OPEN") {
-    return { ok: false, error: "PERIOD_LOCKED" };
+  // Période verrouillée : seule VALIDATED→PUBLISHED reste permise
+  // (diffusion administrative, sans impact sur les notes). Toute
+  // transition vers OPEN (réouverture) ou CANCELLED (retrait d'une
+  // évaluation des calculs ultérieurs) est refusée — sinon un recalcul
+  // de la période divergerait des bulletins déjà émis.
+  if (a.academicPeriod?.isLocked) {
+    const allowed = a.status === "VALIDATED" && status === "PUBLISHED";
+    if (!allowed) return { ok: false, error: "PERIOD_LOCKED" };
   }
   if (!TRANSITIONS[a.status].includes(status)) {
     return { ok: false, error: "INVALID_STATUS" };

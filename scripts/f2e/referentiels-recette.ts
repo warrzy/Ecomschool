@@ -329,7 +329,33 @@ async function importCsv(
     },
   });
   const t6 = await setAssessmentStatus(ctx, aCancel.id, "CANCELLED");
-  check("DRAFT→CANCELLED sur période verrouillée : OK", t6.ok);
+  check("DRAFT→CANCELLED sur période verrouillée : PERIOD_LOCKED",
+    !t6.ok && t6.error === "PERIOD_LOCKED");
+  const aCancelAfter = await prisma.assessment.findUnique({ where: { id: aCancel.id }, select: { status: true } });
+  check("évaluation toujours DRAFT après refus d'annulation", aCancelAfter?.status === "DRAFT");
+  // VALIDATED→CANCELLED : bloqué par le verrou avant la matrice de transitions
+  const aVal = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: year.id, academicPeriodId: pLocked!.id,
+      classroomId: clsActive.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval validée T1", date: new Date("2025-11-04"),
+      status: "VALIDATED", createdById: user.id,
+    },
+  });
+  const t6b = await setAssessmentStatus(ctx, aVal.id, "CANCELLED");
+  check("VALIDATED→CANCELLED sur période verrouillée : PERIOD_LOCKED",
+    !t6b.ok && t6b.error === "PERIOD_LOCKED");
+  // Annulation sur période ouverte : comportement existant préservé
+  const aCancelOpen = await prisma.assessment.create({
+    data: {
+      schoolId: school.id, academicYearId: year.id, academicPeriodId: pOpen!.id,
+      classroomId: clsActive.id, subjectId: subject.id, typeId: aType.id,
+      title: "Éval à annuler T2", date: new Date("2026-02-02"),
+      status: "DRAFT", createdById: user.id,
+    },
+  });
+  const t6c = await setAssessmentStatus(ctx, aCancelOpen.id, "CANCELLED");
+  check("DRAFT→CANCELLED sur période ouverte : OK (inchangé)", t6c.ok);
   const aDraftOpen = await prisma.assessment.create({
     data: {
       schoolId: school.id, academicYearId: year.id, academicPeriodId: pLocked!.id,
