@@ -282,11 +282,8 @@ test.describe("P5d — aperçu et commit élèves", () => {
       },
       select: { student: { select: { matricule: true } } },
     });
-    const multi = !!(
-      school.settings &&
-      typeof school.settings === "object" &&
-      (school.settings as Record<string, unknown>).allowMultipleEnrollments
-    );
+    // E2-D : une seule inscription ENROLLED par élève/année — le réglage
+    // allowMultipleEnrollments est inopérant (index unique partiel).
 
     const csv = [
       STD_HEADER,
@@ -323,7 +320,7 @@ test.describe("P5d — aperçu et commit élèves", () => {
     });
     if (sameClass) {
       expect(rowAlready.enrollment?.action).toBe("existing");
-    } else if (!multi) {
+    } else {
       expect(rowAlready.action).toBe("error");
     }
 
@@ -343,7 +340,6 @@ test.describe("P5d — aperçu et commit élèves", () => {
       },
     });
     expect(enr).not.toBeNull();
-    void multi;
   });
 
   test("jeton : falsifié, rejoué, état obsolète", async ({ request }) => {

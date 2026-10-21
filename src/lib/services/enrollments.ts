@@ -22,21 +22,13 @@ export type EnrollmentsResult<T = undefined> =
 
 type SchoolCtx = { userId: string; schoolId: string };
 
-async function allowsMultipleEnrollments(
-  schoolId: string,
-  tx?: Prisma.TransactionClient,
-) {
-  const school = await (tx ?? prisma).school.findUnique({
-    where: { id: schoolId },
-    select: { settings: true },
-  });
-  const settings = school?.settings;
-  if (settings && typeof settings === "object" && !Array.isArray(settings)) {
-    return (
-      (settings as Record<string, unknown>).allowMultipleEnrollments === true
-    );
-  }
-  return false;
+/** Violation d'unicité PostgreSQL remontée par Prisma (P2002). */
+function isUniqueViolation(e: unknown): boolean {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    (e as { code?: string }).code === "P2002"
+  );
 }
 
 export async function listEnrollments(
@@ -153,19 +145,22 @@ export async function enrollStudent(
     return { ok: false, error: "CROSS_YEAR" };
   }
 
-  const allowMultiple = await allowsMultipleEnrollments(ctx.schoolId, tx);
-  if (!allowMultiple) {
-    const existing = await db.enrollment.findFirst({
-      where: {
-        schoolId: ctx.schoolId,
-        studentId: input.studentId,
-        academicYearId,
-        status: "ENROLLED",
-      },
-      select: { id: true },
-    });
-    if (existing) return { ok: false, error: "ALREADY_ENROLLED" };
-  }
+  // Une seule inscription ENROLLED par élève et par année — contrôle métier
+  // systématique, doublé par l'index unique partiel
+  // Enrollment_active_per_year_key (filet transactionnel, P2002 ci-dessous).
+  // Le réglage School.settings.allowMultipleEnrollments est volontairement
+  // inopérant : l'index rendait toute seconde inscription active impossible,
+  // le réglage « true » produisait un CREATE_FAILED incompréhensible (E2-D).
+  const existing = await db.enrollment.findFirst({
+    where: {
+      schoolId: ctx.schoolId,
+      studentId: input.studentId,
+      academicYearId,
+      status: "ENROLLED",
+    },
+    select: { id: true },
+  });
+  if (existing) return { ok: false, error: "ALREADY_ENROLLED" };
 
   // Limite commerciale d'élèves (abonnement SaaS)
   const limit = await checkLimit(ctx.schoolId, "students", tx);
@@ -198,7 +193,10 @@ export async function enrollStudent(
     });
 
     return { ok: true, result: { id: enrollment.id } };
-  } catch {
+  } catch (e) {
+    // Course entre deux inscriptions concurrentes : l'index unique partiel
+    // a tranché — on convertit en erreur métier compréhensible.
+    if (isUniqueViolation(e)) return { ok: false, error: "ALREADY_ENROLLED" };
     return { ok: false, error: "CREATE_FAILED" };
   }
 }
@@ -266,7 +264,8 @@ export async function transferStudent(
     });
 
     return { ok: true, result: { id: created.id } };
-  } catch {
+  } catch (e) {
+    if (isUniqueViolation(e)) return { ok: false, error: "ALREADY_ENROLLED" };
     return { ok: false, error: "UPDATE_FAILED" };
   }
 }

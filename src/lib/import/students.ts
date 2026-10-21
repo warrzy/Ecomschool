@@ -436,19 +436,9 @@ async function analyze(
     : [];
   const byMatricule = new Map(existing.map((s) => [s.matricule, s]));
 
-  // Règle « une inscription ENROLLED par année » (sauf réglage contraire)
-  // — même lecture que enrollStudent.
-  const school = await prisma.school.findUnique({
-    where: { id: ctx.schoolId },
-    select: { settings: true },
-  });
-  const settings = school?.settings;
-  const allowMultiple =
-    !!settings &&
-    typeof settings === "object" &&
-    !Array.isArray(settings) &&
-    (settings as Record<string, unknown>).allowMultipleEnrollments === true;
-
+  // Règle « une inscription ENROLLED par élève et par année » — même
+  // contrôle que enrollStudent (E2-D : allowMultipleEnrollments inopérant,
+  // l'index unique partiel prime toujours).
   const limit = await checkLimit(ctx.schoolId, "students");
   let enrollBudget =
     limit.ok || limit.max == null || limit.count == null
@@ -602,7 +592,7 @@ async function analyze(
             classroomName: classroom.name,
             action: "existing",
           };
-        } else if (!allowMultiple && enrolled.length > 0) {
+        } else if (enrolled.length > 0) {
           errors.push({
             line: r.line,
             column: "classe",
