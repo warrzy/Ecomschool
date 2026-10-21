@@ -79,6 +79,12 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "finance.receipts.print": "FINANCE",
   "finance.reports.read": "FINANCE",
   "finance.cash.close": "FINANCE",
+  // Dépenses (F3)
+  "expenses.read": "FINANCE",
+  "expenses.create": "FINANCE",
+  "expenses.pay": "FINANCE",
+  "expenses.cancel": "FINANCE",
+  "expenses.categories.manage": "FINANCE",
   // Communication
   "announcements.read": "COMMUNICATION",
   "announcements.manage": "COMMUNICATION",
@@ -191,6 +197,12 @@ export const PERMISSION_MODULE_V2: Record<string, string> = {
   "finance.payments.cancel": "FINANCE_MGMT",
   "finance.cash.close": "FINANCE_MGMT",
   "finance.manage": "FINANCE_MGMT",
+  // Dépenses — supervision financière (F3)
+  "expenses.read": "FINANCE_MGMT",
+  "expenses.create": "FINANCE_MGMT",
+  "expenses.pay": "FINANCE_MGMT",
+  "expenses.cancel": "FINANCE_MGMT",
+  "expenses.categories.manage": "FINANCE_MGMT",
   // Communication
   "announcements.read": "COMMUNICATION",
   "announcements.manage": "COMMUNICATION",

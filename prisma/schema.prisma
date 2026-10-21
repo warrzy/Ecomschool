@@ -219,6 +219,8 @@ model School {
   payments            Payment[]
   cashClosures        CashClosure[]
   feeReminders        FeeReminder[]
+  expenseCategories   ExpenseCategory[]
+  expenses            Expense[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -586,6 +588,74 @@ model FeeReminder {
   @@index([studentId])
 }
 
+/** Catégorie de dépense (fonctionnement, salaires, fournitures…). */
+model ExpenseCategory {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  code        String
+  label       String
+  description String?
+  status      RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+/**
+ * Dépense / décaissement d'un établissement.
+ * Cycle : DRAFT → PAID, DRAFT|PAID → CANCELLED (motif obligatoire).
+ * Jamais de suppression physique — la trace du décaissement est conservée.
+ * `method`/`paidAt` sont facultatifs tant que la dépense est DRAFT ;
+ * ils deviennent obligatoires au passage PAID.
+ */
+model Expense {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  label       String
+  amount      Int // XOF, entier — jamais de flottant
+  currency    String @default("XOF")
+  beneficiary String
+  expenseAt   DateTime @default(now())
+  paidAt      DateTime?
+  method      PaymentMethod?
+  paymentReference  String?
+  attachmentRef     String?
+
+  status        ExpenseStatus @default(DRAFT)
+  recordedById  String?
+  cancelledAt   DateTime?
+  cancelledById String?
+  cancelReason  String?
+
+  idempotencyKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, idempotencyKey])
+  @@index([schoolId])
+  @@index([categoryId])
+  @@index([academicYearId])
+  @@index([expenseAt])
+  @@index([paidAt])
+  @@index([status])
+}
+
 model AcademicYear {
   id       String @id @default(cuid())
   schoolId String
@@ -614,6 +684,7 @@ model AcademicYear {
   feeInstallments     FeeInstallment[]
   feeDiscounts        FeeDiscount[]
   payments            Payment[]
+  expenses            Expense[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -1534,6 +1605,12 @@ enum PaymentMethod {
 
 enum PaymentStatus {
   VALIDATED
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PAID
   CANCELLED
 }
 

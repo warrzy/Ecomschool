@@ -75,6 +75,9 @@ const OK_LABELS: Record<string, string> = {
   credit: "Avoir enregistré.",
   reminded: "Relance envoyée.",
   account: "Compte enregistré.",
+  expense: "Dépense enregistrée.",
+  expense_paid: "Dépense marquée payée.",
+  expense_cancelled: "Dépense annulée.",
 
   // Communication / plateforme
   sent: "Envoi lancé.",

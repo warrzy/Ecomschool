@@ -58,6 +58,7 @@ const ERROR_LABELS: Record<string, string> = {
 
   // Finances
   ALREADY_CANCELLED: "Cet élément est déjà annulé.",
+  ALREADY_PAID: "Cet élément est déjà payé.",
 
   // Abonnement / limites commerciales
   LIMIT_REACHED: "La limite de votre abonnement est atteinte. Contactez ECOM-TOUCH.",
