@@ -17,6 +17,8 @@ export type ResultsError =
   | "NOT_FOUND"
   | "INVALID_INPUT"
   | "INVALID_STATUS"
+  | "PERIOD_LOCKED"
+  | "YEAR_CLOSED"
   | "UPDATE_FAILED";
 
 export type ResultsResult<T = undefined> =
@@ -253,6 +255,19 @@ export async function computeAndStore(
   ctx: SchoolCtx,
   input: { classroomId: string; academicPeriodId: string },
 ): Promise<ResultsResult<{ students: number }>> {
+  // Verrous : une période verrouillée ou une année close fige les résultats
+  // stockés — tout recalcul écraserait silencieusement les moyennes (et
+  // rétrograderait leur statut) alors que les bulletins publiés sont figés.
+  const period = await prisma.academicPeriod.findFirst({
+    where: { id: input.academicPeriodId, schoolId: ctx.schoolId },
+    select: { isLocked: true, academicYear: { select: { status: true } } },
+  });
+  if (!period) return { ok: false, error: "NOT_FOUND" };
+  if (period.academicYear.status === "CLOSED") {
+    return { ok: false, error: "YEAR_CLOSED" };
+  }
+  if (period.isLocked) return { ok: false, error: "PERIOD_LOCKED" };
+
   const calc = await calculateClassPeriod(ctx, input);
   if (!calc.ok) return calc;
   const { rules, students } = calc.result;
@@ -361,14 +376,33 @@ export async function setValidationStatus(
   ctx: SchoolCtx,
   input: { classroomId: string; academicPeriodId: string; status: ResultStatus; note?: string },
 ): Promise<ResultsResult> {
-  const rv = await prisma.resultValidation.findFirst({
-    where: {
-      schoolId: ctx.schoolId,
-      classroomId: input.classroomId,
-      academicPeriodId: input.academicPeriodId,
-    },
-  });
-  if (!rv) return { ok: false, error: "NOT_FOUND" };
+  const [rv, period] = await Promise.all([
+    prisma.resultValidation.findFirst({
+      where: {
+        schoolId: ctx.schoolId,
+        classroomId: input.classroomId,
+        academicPeriodId: input.academicPeriodId,
+      },
+    }),
+    prisma.academicPeriod.findFirst({
+      where: { id: input.academicPeriodId, schoolId: ctx.schoolId },
+      select: { isLocked: true, academicYear: { select: { status: true } } },
+    }),
+  ]);
+  if (!rv || !period) return { ok: false, error: "NOT_FOUND" };
+  if (period.academicYear.status === "CLOSED") {
+    return { ok: false, error: "YEAR_CLOSED" };
+  }
+  // Période verrouillée : seule VALIDATED→PUBLISHED reste permise
+  // (diffusion administrative) — miroir de la règle setAssessmentStatus.
+  // Toute rétrogradation (→CALCULATED, →DRAFT) désynchroniserait les
+  // résultats figés des bulletins émis.
+  if (
+    period.isLocked &&
+    !(rv.status === "VALIDATED" && input.status === "PUBLISHED")
+  ) {
+    return { ok: false, error: "PERIOD_LOCKED" };
+  }
   const allowed: Record<ResultStatus, ResultStatus[]> = {
     DRAFT: ["CALCULATED"],
     CALCULATED: ["VALIDATED", "DRAFT"],
@@ -451,9 +485,10 @@ export async function computeAnnualResults(
 ): Promise<ResultsResult<{ students: number }>> {
   const year = await prisma.academicYear.findFirst({
     where: { id: academicYearId, schoolId: ctx.schoolId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!year) return { ok: false, error: "NOT_FOUND" };
+  if (year.status === "CLOSED") return { ok: false, error: "YEAR_CLOSED" };
   const weights = await annualWeightsFor(ctx, academicYearId);
   const periodResults = await prisma.studentPeriodResult.findMany({
     where: {

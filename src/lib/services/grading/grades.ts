@@ -9,6 +9,7 @@ export type GradesError =
   | "NOT_FOUND"
   | "FORBIDDEN"
   | "LOCKED"
+  | "YEAR_CLOSED"
   | "OUT_OF_RANGE"
   | "UPDATE_FAILED";
 
@@ -114,9 +115,13 @@ export async function saveGrades(
     select: {
       id: true, maxScore: true, status: true, classroomId: true, subjectId: true,
       academicPeriod: { select: { isLocked: true } },
+      academicYear: { select: { status: true } },
     },
   });
   if (!assessment) return { ok: false, error: "NOT_FOUND" };
+  if (assessment.academicYear.status === "CLOSED") {
+    return { ok: false, error: "YEAR_CLOSED" };
+  }
   if (assessment.academicPeriod?.isLocked) return { ok: false, error: "LOCKED" };
   if (["VALIDATED", "PUBLISHED", "CANCELLED"].includes(assessment.status)) {
     return { ok: false, error: "LOCKED" };

@@ -4,8 +4,12 @@ import type { ResultStatus } from "@prisma/client";
 
 export type ReportCardsError =
   | "NOT_FOUND"
+  | "INVALID_INPUT"
   | "INVALID_STATUS"
   | "FORBIDDEN"
+  | "PERIOD_LOCKED"
+  | "YEAR_CLOSED"
+  | "RECTIFICATION_REQUIRED"
   | "CREATE_FAILED";
 
 export type ReportCardsResult<T = undefined> =
@@ -105,15 +109,46 @@ export async function buildReportCardPayload(
 /**
  * Génère (ou régénère en nouvelle version) le bulletin d'un élève.
  * Les résultats doivent être au moins CALCULATED.
+ * Sur période verrouillée ou année close, et pour tout bulletin déjà
+ * PUBLISHED, la génération ordinaire est refusée : seule la voie de
+ * rectification (motif obligatoire, nouvelle version historisée) reste
+ * ouverte — `rectifyReportCard` passe `opts.rectification`.
  */
 export async function generateReportCard(
   ctx: SchoolCtx,
   input: { studentId: string; academicPeriodId: string; reason?: string },
+  opts: { rectification?: boolean } = {},
 ): Promise<ReportCardsResult<{ id: string; version: number }>> {
   const payload = await buildReportCardPayload(ctx, input.studentId, input.academicPeriodId);
   if (!payload) return { ok: false, error: "NOT_FOUND" };
   if (["DRAFT"].includes(payload.status)) {
     return { ok: false, error: "INVALID_STATUS" };
+  }
+
+  if (!opts.rectification) {
+    const [period, existing] = await Promise.all([
+      prisma.academicPeriod.findFirst({
+        where: { id: input.academicPeriodId, schoolId: ctx.schoolId },
+        select: { isLocked: true, academicYear: { select: { status: true } } },
+      }),
+      prisma.reportCard.findUnique({
+        where: {
+          academicPeriodId_studentId: {
+            academicPeriodId: input.academicPeriodId,
+            studentId: input.studentId,
+          },
+        },
+        select: { status: true },
+      }),
+    ]);
+    if (!period) return { ok: false, error: "NOT_FOUND" };
+    if (period.academicYear.status === "CLOSED") {
+      return { ok: false, error: "YEAR_CLOSED" };
+    }
+    if (period.isLocked) return { ok: false, error: "PERIOD_LOCKED" };
+    if (existing?.status === "PUBLISHED") {
+      return { ok: false, error: "RECTIFICATION_REQUIRED" };
+    }
   }
 
   try {
@@ -177,6 +212,16 @@ export async function generateClassReportCards(
   ctx: SchoolCtx,
   input: { classroomId: string; academicPeriodId: string },
 ): Promise<ReportCardsResult<{ generated: number; failed: number }>> {
+  const period = await prisma.academicPeriod.findFirst({
+    where: { id: input.academicPeriodId, schoolId: ctx.schoolId },
+    select: { isLocked: true, academicYear: { select: { status: true } } },
+  });
+  if (!period) return { ok: false, error: "NOT_FOUND" };
+  if (period.academicYear.status === "CLOSED") {
+    return { ok: false, error: "YEAR_CLOSED" };
+  }
+  if (period.isLocked) return { ok: false, error: "PERIOD_LOCKED" };
+
   const results = await prisma.studentPeriodResult.findMany({
     where: {
       schoolId: ctx.schoolId,
@@ -244,16 +289,21 @@ export async function rectifyReportCard(
   id: string,
   reason: string,
 ): Promise<ReportCardsResult<{ id: string; version: number }>> {
+  if (!reason.trim()) return { ok: false, error: "INVALID_INPUT" };
   const card = await prisma.reportCard.findFirst({
     where: { id, schoolId: ctx.schoolId },
     select: { studentId: true, academicPeriodId: true },
   });
   if (!card) return { ok: false, error: "NOT_FOUND" };
-  const res = await generateReportCard(ctx, {
-    studentId: card.studentId,
-    academicPeriodId: card.academicPeriodId,
-    reason,
-  });
+  const res = await generateReportCard(
+    ctx,
+    {
+      studentId: card.studentId,
+      academicPeriodId: card.academicPeriodId,
+      reason,
+    },
+    { rectification: true },
+  );
   if (res.ok) {
     await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId,
       action: "reportcard.rectify",

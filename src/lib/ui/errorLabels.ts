@@ -48,6 +48,7 @@ const ERROR_LABELS: Record<string, string> = {
   IS_CURRENT: "Action impossible sur l'année courante.",
   LOCKED: "L'évaluation ou la période est verrouillée.",
   PERIOD_LOCKED: "Cette période de notation est verrouillée.",
+  RECTIFICATION_REQUIRED: "Ce bulletin est publié : utilisez la rectification avec motif pour produire une nouvelle version.",
   OUT_OF_RANGE: "Une note est hors du barème autorisé.",
   INVALID_STATE: "Action impossible dans l'état actuel de l'élément.",
   INVALID_STATUS: "Statut invalide pour cette action.",
