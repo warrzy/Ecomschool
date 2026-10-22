@@ -3,6 +3,7 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import {
+  campaignCapacityStats,
   campaignLevelIds,
   campaignTrainingOptions,
   getPrivacyText,
@@ -64,6 +65,15 @@ export default async function AdmissionsCampaignsPage(props: {
     getPrivacyText(tenant.schoolId),
   ]);
   const editing = editId ? campaigns.find((c) => c.id === editId) : undefined;
+  const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const capStats = new Map<
+    string,
+    NonNullable<Awaited<ReturnType<typeof campaignCapacityStats>>>
+  >();
+  for (const c of campaigns) {
+    const s = await campaignCapacityStats(ctx, c.id);
+    if (s) capStats.set(c.id, s);
+  }
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
   return (
@@ -161,7 +171,7 @@ export default async function AdmissionsCampaignsPage(props: {
                 />
               </label>
               <label className="block text-sm">
-                Capacité indicative
+                Capacité
                 <input
                   aria-label="Capacité"
                   name="capacity"
@@ -170,6 +180,21 @@ export default async function AdmissionsCampaignsPage(props: {
                   defaultValue={editing?.capacity ?? ""}
                   className={`mt-1 ${input}`}
                 />
+              </label>
+              <label className="flex items-end gap-2 pb-2 text-sm">
+                <input
+                  type="checkbox"
+                  aria-label="Capacité contraignante"
+                  name="capacityEnforced"
+                  defaultChecked={editing?.capacityEnforced ?? false}
+                />
+                <span>
+                  Plafond contraignant
+                  <span className="block text-xs text-zinc-500">
+                    Bloque les admissions au-delà de la capacité (admis +
+                    conditionnels réservent une place).
+                  </span>
+                </span>
               </label>
               <label className="block text-sm">
                 Frais de candidature (FCFA)
@@ -346,6 +371,7 @@ export default async function AdmissionsCampaignsPage(props: {
                 <th scope="col" className="py-2">Année</th>
                 <th scope="col" className="py-2">Période</th>
                 <th scope="col" className="py-2">Dossiers</th>
+                <th scope="col" className="py-2">Capacité</th>
                 <th scope="col" className="py-2">Statut</th>
                 <th scope="col" className="py-2"></th>
               </tr>
@@ -365,6 +391,27 @@ export default async function AdmissionsCampaignsPage(props: {
                     >
                       {c._count.applications}
                     </Link>
+                  </td>
+                  <td className="py-2 text-xs">
+                    {(() => {
+                      const s = capStats.get(c.id);
+                      if (!s || s.campaign.capacity == null) {
+                        return <span className="text-zinc-400">—</span>;
+                      }
+                      return (
+                        <span
+                          className={
+                            s.seatsLeft === 0
+                              ? "font-semibold text-red-700"
+                              : "text-zinc-700"
+                          }
+                          title={`Admis ${s.accepted} + conditionnels ${s.conditional} · attente ${s.waitlisted}`}
+                        >
+                          {s.reserved}/{s.campaign.capacity}
+                          {s.campaign.capacityEnforced ? " 🔒" : ""}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="py-2">
                     <span
@@ -423,7 +470,7 @@ export default async function AdmissionsCampaignsPage(props: {
               ))}
               {campaigns.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-3 text-zinc-500">
+                  <td colSpan={7} className="py-3 text-zinc-500">
                     Aucune campagne.
                   </td>
                 </tr>

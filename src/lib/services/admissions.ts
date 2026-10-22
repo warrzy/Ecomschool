@@ -10,11 +10,14 @@ import {
   type DocumentsError,
 } from "@/lib/services/documents";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
+import { notifyUsers } from "@/lib/services/notifications";
 import type {
   AdmissionApplication,
   AdmissionApplicationStatus,
   AdmissionCampaign,
   AdmissionCampaignStatus,
+  AdmissionInterview,
+  AdmissionInterviewType,
   Document,
   Gender,
 } from "@prisma/client";
@@ -50,6 +53,7 @@ export type AdmissionsError =
   | "CREATE_FAILED"
   | "UPDATE_FAILED"
   | "CONFIG_ERROR"
+  | "CAPACITY_FULL"
   | DocumentsError;
 
 export type AdmissionsResult<T = undefined> =
@@ -145,6 +149,7 @@ export type CampaignInput = {
   trainingOptions: string[];
   requiredDocs: RequiredDoc[];
   capacity?: number;
+  capacityEnforced?: boolean;
   applicationFee?: number;
 };
 
@@ -210,6 +215,7 @@ function campaignData(input: CampaignInput) {
       required: d.required !== false,
     })),
     capacity: input.capacity ?? null,
+    capacityEnforced: !!input.capacity && !!input.capacityEnforced,
     applicationFee: input.applicationFee ?? null,
   };
 }
@@ -808,6 +814,12 @@ export async function submitApplication(
       group: submissionGroupId,
     },
   });
+  // Notification interne des instructeurs — sans données nominatives.
+  await notifyReviewers(campaign.schoolId, {
+    title: "Nouvelle candidature",
+    body: `${fileNumbers.length} dossier(s) reçu(s) sur la campagne « ${campaign.name} ».`,
+    link: "/app/admissions",
+  }).catch(() => {});
   return {
     ok: true,
     result: { fileNumbers, trackingSecret, reusedGroup },
@@ -908,6 +920,9 @@ export async function getTrackingView(input: {
         orderBy: { createdAt: "asc" },
         select: { kind: true, body: true, createdAt: true },
       },
+      interviews: {
+        orderBy: { scheduledAt: "asc" },
+      },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -933,10 +948,16 @@ export async function getTrackingView(input: {
       targetLevel: a.targetLevel?.name ?? null,
       submittedAt: a.submittedAt,
       infoRequestNote: a.infoRequestNote,
+      decisionReason: a.decisionReason,
+      decisionConditions: a.decisionConditions,
+      waitlistRank: a.waitlistRank,
       canEditDocs: canMutateDocs(a.status),
       canWithdraw: canMutateDocs(a.status),
+      canReply: REVIEW_STATUSES.includes(a.status),
       events: a.events,
       messages: a.messages,
+      // Convocations uniquement — résultat/appréciation restent internes.
+      interviews: a.interviews.map(publicInterviewView),
       documents: docRows
         .filter((d) => d.ownerId === a.id)
         .map((d) => ({
@@ -1177,8 +1198,11 @@ export async function getApplicationDetail(ctx: SchoolCtx, id: string) {
       campaign: { select: { name: true, academicYear: { select: { name: true } } } },
       targetLevel: { select: { name: true } },
       targetClassroom: { select: { name: true } },
+      assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
+      decidedBy: { select: { firstName: true, lastName: true } },
       events: { orderBy: { createdAt: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
+      interviews: { orderBy: { scheduledAt: "desc" } },
     },
   });
   if (!app) return null;
@@ -1199,16 +1223,16 @@ export async function getApplicationDetail(ctx: SchoolCtx, id: string) {
 }
 
 /**
- * Transitions d'instruction. G2-B n'expose que SUBMITTED→UNDER_REVIEW et
- * les demandes de complément ; les décisions (`admissions.decide`) sont
- * prêtes pour G2-C — refus toujours motivé.
+ * Transitions d'instruction (`admissions.review`). Les statuts de
+ * DÉCISION (ACCEPTED, CONDITIONALLY_ACCEPTED, WAITLISTED, REJECTED)
+ * passent exclusivement par `decideApplication` — seule voie dotée du
+ * contrôle de capacité et du verrou de concurrence. CONVERTED est
+ * réservé à G2-D.
  */
 const APPLICATION_TRANSITIONS: Record<
-  AdmissionApplicationStatus,
+  string,
   { from: AdmissionApplicationStatus[]; perm: string; noteRequired?: boolean }
 > = {
-  DRAFT: { from: [], perm: "admissions.manage" },
-  SUBMITTED: { from: [], perm: "admissions.manage" },
   UNDER_REVIEW: {
     from: ["SUBMITTED", "ADDITIONAL_INFO_REQUIRED"],
     perm: "admissions.review",
@@ -1218,34 +1242,6 @@ const APPLICATION_TRANSITIONS: Record<
     perm: "admissions.review",
     noteRequired: true,
   },
-  WAITLISTED: {
-    from: ["SUBMITTED", "UNDER_REVIEW"],
-    perm: "admissions.decide",
-  },
-  ACCEPTED: {
-    from: ["UNDER_REVIEW", "WAITLISTED", "ADDITIONAL_INFO_REQUIRED"],
-    perm: "admissions.decide",
-  },
-  CONDITIONALLY_ACCEPTED: {
-    from: ["UNDER_REVIEW", "WAITLISTED", "ADDITIONAL_INFO_REQUIRED"],
-    perm: "admissions.decide",
-    noteRequired: true,
-  },
-  REJECTED: {
-    from: [
-      "SUBMITTED",
-      "UNDER_REVIEW",
-      "WAITLISTED",
-      "ADDITIONAL_INFO_REQUIRED",
-    ],
-    perm: "admissions.decide",
-    noteRequired: true,
-  },
-  CONVERTED: {
-    from: ["ACCEPTED", "CONDITIONALLY_ACCEPTED"],
-    perm: "admissions.decide",
-  },
-  WITHDRAWN: { from: [], perm: "admissions.manage" },
 };
 
 export async function transitionApplication(
@@ -1275,13 +1271,6 @@ export async function transitionApplication(
         ? { infoRequestNote: note!.trim() }
         : {}),
       ...(to === "UNDER_REVIEW" ? { infoRequestNote: null } : {}),
-      ...(["ACCEPTED", "CONDITIONALLY_ACCEPTED", "REJECTED"].includes(to)
-        ? {
-            decidedById: ctx.userId,
-            decidedAt: new Date(),
-            decisionReason: note?.trim() || null,
-          }
-        : {}),
     },
   });
   if (updated.count === 0) return { ok: false, error: "INVALID_STATE" };
@@ -1390,3 +1379,907 @@ export async function setPrivacyText(
   });
   return { ok: true, result: undefined };
 }
+
+/* ======================================================================
+ * G2-C — Instruction administrative et décisions d'admission.
+ * Décisions transactionnelles (verrou advisory par campagne), capacité
+ * contraignante optionnelle, réexamen borné et audité, entretiens,
+ * notes internes, notifications internes.
+ * ==================================================================== */
+
+// ---------- Notifications internes ----------
+
+/** userIds des membres actifs de l'école disposant d'une permission. */
+async function userIdsWithPermission(schoolId: string, key: string) {
+  const ms = await prisma.schoolMembership.findMany({
+    where: {
+      schoolId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      role: { rolePermissions: { some: { permission: { key } } } },
+    },
+    select: { userId: true },
+  });
+  return ms.map((m) => m.userId);
+}
+
+/** Signale une action dossier aux agents habilités (aucune donnée sensible). */
+async function notifyReviewers(
+  schoolId: string,
+  input: { title: string; body?: string; link?: string; perm?: string },
+) {
+  const userIds = await userIdsWithPermission(
+    schoolId,
+    input.perm ?? "admissions.review",
+  );
+  if (!userIds.length) return;
+  await notifyUsers({
+    schoolId,
+    userIds,
+    type: "ADMIN_MESSAGE",
+    title: input.title,
+    body: input.body,
+    link: input.link,
+  });
+}
+
+// ---------- Notes internes et compléments ----------
+
+/** Kinds de demande adressée au candidat (visible dans le suivi). */
+export const COMPLEMENT_KINDS = [
+  "DOC_MISSING",
+  "DOC_REPLACE",
+  "INFO_REQUEST",
+  "CORRECTION",
+] as const;
+export type ComplementKind = (typeof COMPLEMENT_KINDS)[number];
+
+const REVIEW_STATUSES: AdmissionApplicationStatus[] = [
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "ADDITIONAL_INFO_REQUIRED",
+];
+
+/** Note interne : visible uniquement par les agents habilités, jamais publique. */
+export async function addInternalNote(
+  ctx: SchoolCtx,
+  applicationId: string,
+  body: string,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const clean = body.trim().slice(0, 4000);
+  if (!clean) return { ok: false, error: "INVALID_INPUT" };
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    select: { id: true, fileNumber: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  await prisma.admissionMessage.create({
+    data: {
+      schoolId: ctx.schoolId,
+      applicationId: app.id,
+      kind: "INTERNAL_NOTE",
+      body: clean,
+      createdById: ctx.userId,
+      visibleToApplicant: false,
+    },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.note.create",
+    entity: "AdmissionApplication",
+    entityId: app.id,
+    metadata: { fileNumber: app.fileNumber },
+  });
+  return { ok: true, result: undefined };
+}
+
+/**
+ * Demande de complément au candidat : pièce manquante, remplacement,
+ * information ou correction. Passe le dossier en ADDITIONAL_INFO_REQUIRED
+ * et crée le message visible dans le suivi.
+ */
+export async function requestComplement(
+  ctx: SchoolCtx,
+  applicationId: string,
+  kind: ComplementKind,
+  note: string,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  if (!COMPLEMENT_KINDS.includes(kind)) return { ok: false, error: "INVALID_INPUT" };
+  const clean = note.trim().slice(0, 2000);
+  if (!clean) return { ok: false, error: "INVALID_INPUT" };
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    select: { id: true, status: true, fileNumber: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+
+  const updated = await prisma.admissionApplication.updateMany({
+    where: { id: app.id, status: { in: REVIEW_STATUSES } },
+    data: {
+      status: "ADDITIONAL_INFO_REQUIRED",
+      infoRequestNote: clean,
+    },
+  });
+  if (updated.count === 0) return { ok: false, error: "INVALID_STATE" };
+  await prisma.$transaction([
+    prisma.admissionMessage.create({
+      data: {
+        schoolId: ctx.schoolId,
+        applicationId: app.id,
+        kind,
+        body: clean,
+        createdById: ctx.userId,
+        visibleToApplicant: true,
+      },
+    }),
+    prisma.admissionEvent.create({
+      data: {
+        schoolId: ctx.schoolId,
+        applicationId: app.id,
+        fromStatus: app.status,
+        toStatus: "ADDITIONAL_INFO_REQUIRED",
+        actorId: ctx.userId,
+        actorLabel: "administration",
+        note: clean,
+      },
+    }),
+  ]);
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.complement.request",
+    entity: "AdmissionApplication",
+    entityId: app.id,
+    metadata: { fileNumber: app.fileNumber, kind },
+  });
+  return { ok: true, result: undefined };
+}
+
+/** Réponse du candidat à une demande (message tracé, notifie les agents). */
+export async function addApplicantMessage(input: {
+  fileNumber: string;
+  secret: string;
+  applicationId: string;
+  body: string;
+  ip?: string;
+}): Promise<AdmissionsResult> {
+  const v = await verifyApplicant(input.fileNumber, input.secret);
+  if (!v) return { ok: false, error: "FORBIDDEN" };
+  const app = v.group.find((a) => a.id === input.applicationId);
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  if (!REVIEW_STATUSES.includes(app.status)) {
+    return { ok: false, error: "INVALID_STATE" };
+  }
+  const clean = input.body.trim().slice(0, 4000);
+  if (!clean) return { ok: false, error: "INVALID_INPUT" };
+  await prisma.admissionMessage.create({
+    data: {
+      schoolId: app.schoolId,
+      applicationId: app.id,
+      kind: "APPLICANT_REPLY",
+      body: clean,
+      createdById: null,
+      visibleToApplicant: true,
+    },
+  });
+  await logAudit({
+    schoolId: app.schoolId,
+    action: "admissions.complement.reply",
+    entity: "AdmissionApplication",
+    entityId: app.id,
+    metadata: { fileNumber: app.fileNumber, ip: input.ip },
+  });
+  await notifyReviewers(app.schoolId, {
+    title: `Réponse du déposant — ${app.fileNumber}`,
+    link: `/app/admissions?id=${app.id}`,
+  });
+  return { ok: true, result: undefined };
+}
+
+// ---------- Affectation de l'instructeur ----------
+
+export async function assignInstructor(
+  ctx: SchoolCtx,
+  applicationId: string,
+  assigneeUserId: string | null,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    select: { id: true, status: true, fileNumber: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  if (app.status === "CONVERTED") return { ok: false, error: "INVALID_STATE" };
+  if (assigneeUserId) {
+    const member = await prisma.schoolMembership.findFirst({
+      where: {
+        schoolId: ctx.schoolId,
+        userId: assigneeUserId,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+      },
+      select: { id: true },
+    });
+    if (!member) return { ok: false, error: "INVALID_INPUT" };
+  }
+  await prisma.admissionApplication.update({
+    where: { id: app.id },
+    data: { assignedToId: assigneeUserId },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.assign",
+    entity: "AdmissionApplication",
+    entityId: app.id,
+    metadata: { fileNumber: app.fileNumber, assigneeUserId },
+  });
+  return { ok: true, result: undefined };
+}
+
+/** Membres affectables (pour le sélecteur d'instructeur). */
+export async function listAssignableMembers(ctx: SchoolCtx) {
+  const ms = await prisma.schoolMembership.findMany({
+    where: {
+      schoolId: ctx.schoolId,
+      status: "ACTIVE",
+      user: { status: "ACTIVE" },
+      role: {
+        rolePermissions: { some: { permission: { key: "admissions.review" } } },
+      },
+    },
+    select: {
+      userId: true,
+      user: { select: { firstName: true, lastName: true, email: true } },
+    },
+    orderBy: { user: { lastName: "asc" } },
+  });
+  return ms.map((m) => ({
+    id: m.userId,
+    name:
+      [m.user.firstName, m.user.lastName].filter(Boolean).join(" ") ||
+      m.user.email,
+  }));
+}
+
+// ---------- Entretiens et tests ----------
+
+const INTERVIEW_TYPES: AdmissionInterviewType[] = [
+  "INTERVIEW",
+  "WRITTEN_TEST",
+  "EVALUATION",
+  "OTHER",
+];
+const INTERVIEW_APP_STATUSES: AdmissionApplicationStatus[] = [
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "ADDITIONAL_INFO_REQUIRED",
+  "WAITLISTED",
+];
+
+export async function scheduleInterview(
+  ctx: SchoolCtx,
+  input: {
+    applicationId: string;
+    type: AdmissionInterviewType;
+    scheduledAt: string;
+    location?: string;
+    evaluatorName?: string;
+    evaluatorId?: string;
+    instructions?: string;
+  },
+): Promise<AdmissionsResult<{ id: string }>> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  if (!INTERVIEW_TYPES.includes(input.type)) {
+    return { ok: false, error: "INVALID_INPUT" };
+  }
+  const when = new Date(input.scheduledAt);
+  if (Number.isNaN(when.getTime())) return { ok: false, error: "INVALID_INPUT" };
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: input.applicationId, schoolId: ctx.schoolId },
+    select: { id: true, status: true, fileNumber: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  if (!INTERVIEW_APP_STATUSES.includes(app.status)) {
+    return { ok: false, error: "INVALID_STATE" };
+  }
+  const interview = await prisma.admissionInterview.create({
+    data: {
+      schoolId: ctx.schoolId,
+      applicationId: app.id,
+      type: input.type,
+      scheduledAt: when,
+      location: input.location?.trim().slice(0, 200) || null,
+      evaluatorId: input.evaluatorId || null,
+      evaluatorName: input.evaluatorName?.trim().slice(0, 120) || null,
+      instructions: input.instructions?.trim().slice(0, 2000) || null,
+      createdById: ctx.userId,
+    },
+  });
+  await prisma.admissionEvent.create({
+    data: {
+      schoolId: ctx.schoolId,
+      applicationId: app.id,
+      fromStatus: app.status,
+      toStatus: app.status,
+      actorId: ctx.userId,
+      actorLabel: "administration",
+      note: `Convocation ${input.type} — ${when.toISOString()}`,
+    },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.interview.schedule",
+    entity: "AdmissionInterview",
+    entityId: interview.id,
+    metadata: {
+      applicationId: app.id,
+      fileNumber: app.fileNumber,
+      type: input.type,
+    },
+  });
+  return { ok: true, result: { id: interview.id } };
+}
+
+/** Reprogrammation : conserve l'ancienne date (previousScheduledAt). */
+export async function rescheduleInterview(
+  ctx: SchoolCtx,
+  interviewId: string,
+  scheduledAt: string,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const when = new Date(scheduledAt);
+  if (Number.isNaN(when.getTime())) return { ok: false, error: "INVALID_INPUT" };
+  const iv = await prisma.admissionInterview.findFirst({
+    where: { id: interviewId, schoolId: ctx.schoolId, status: "PLANNED" },
+    select: {
+      id: true,
+      applicationId: true,
+      scheduledAt: true,
+      previousScheduledAt: true,
+      application: { select: { fileNumber: true } },
+    },
+  });
+  if (!iv) return { ok: false, error: "NOT_FOUND" };
+  await prisma.admissionInterview.update({
+    where: { id: iv.id },
+    data: {
+      scheduledAt: when,
+      previousScheduledAt: iv.previousScheduledAt ?? iv.scheduledAt,
+    },
+  });
+  await prisma.admissionEvent.create({
+    data: {
+      schoolId: ctx.schoolId,
+      applicationId: iv.applicationId,
+      toStatus: "UNDER_REVIEW",
+      actorId: ctx.userId,
+      actorLabel: "administration",
+      note: `Reprogrammation — ${iv.scheduledAt.toISOString()} → ${when.toISOString()}`,
+    },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.interview.reschedule",
+    entity: "AdmissionInterview",
+    entityId: iv.id,
+    metadata: {
+      applicationId: iv.applicationId,
+      fileNumber: iv.application.fileNumber,
+    },
+  });
+  return { ok: true, result: undefined };
+}
+
+/** Clôture d'un entretien : statut + résultat/appréciation internes. */
+export async function updateInterviewOutcome(
+  ctx: SchoolCtx,
+  interviewId: string,
+  input: {
+    status: "COMPLETED" | "CANCELLED" | "NO_SHOW";
+    result?: string;
+    internalNote?: string;
+  },
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.review"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  if (!["COMPLETED", "CANCELLED", "NO_SHOW"].includes(input.status)) {
+    return { ok: false, error: "INVALID_INPUT" };
+  }
+  const iv = await prisma.admissionInterview.findFirst({
+    where: { id: interviewId, schoolId: ctx.schoolId, status: "PLANNED" },
+    select: {
+      id: true,
+      applicationId: true,
+      application: { select: { fileNumber: true } },
+    },
+  });
+  if (!iv) return { ok: false, error: "NOT_FOUND" };
+  await prisma.admissionInterview.update({
+    where: { id: iv.id },
+    data: {
+      status: input.status,
+      result: input.result?.trim().slice(0, 1000) || null,
+      internalNote: input.internalNote?.trim().slice(0, 4000) || null,
+    },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: `admissions.interview.${input.status.toLowerCase()}`,
+    entity: "AdmissionInterview",
+    entityId: iv.id,
+    metadata: {
+      applicationId: iv.applicationId,
+      fileNumber: iv.application.fileNumber,
+    },
+  });
+  return { ok: true, result: undefined };
+}
+
+export async function listUpcomingInterviews(ctx: SchoolCtx, days = 30) {
+  return prisma.admissionInterview.findMany({
+    where: {
+      schoolId: ctx.schoolId,
+      status: "PLANNED",
+      scheduledAt: {
+        gte: new Date(),
+        lte: new Date(Date.now() + days * 86400_000),
+      },
+    },
+    include: {
+      application: {
+        select: {
+          fileNumber: true,
+          candidateFirstName: true,
+          candidateLastName: true,
+        },
+      },
+    },
+    orderBy: { scheduledAt: "asc" },
+    take: 50,
+  });
+}
+
+// ---------- Décisions ----------
+
+type DecisionStatus =
+  | "ACCEPTED"
+  | "CONDITIONALLY_ACCEPTED"
+  | "WAITLISTED"
+  | "REJECTED";
+
+/** États depuis lesquels chaque décision est autorisée (réexamen borné). */
+const DECISION_FROM: Record<DecisionStatus, AdmissionApplicationStatus[]> = {
+  ACCEPTED: [
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "ADDITIONAL_INFO_REQUIRED",
+    "WAITLISTED",
+    "CONDITIONALLY_ACCEPTED",
+  ],
+  CONDITIONALLY_ACCEPTED: [
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "ADDITIONAL_INFO_REQUIRED",
+    "WAITLISTED",
+  ],
+  WAITLISTED: [
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "ADDITIONAL_INFO_REQUIRED",
+    "CONDITIONALLY_ACCEPTED",
+  ],
+  REJECTED: [
+    "SUBMITTED",
+    "UNDER_REVIEW",
+    "ADDITIONAL_INFO_REQUIRED",
+    "WAITLISTED",
+    "ACCEPTED",
+    "CONDITIONALLY_ACCEPTED",
+  ],
+};
+
+/**
+ * Décision d'admission — `admissions.decide` requis.
+ * Transactionnelle : verrou advisory par campagne → capacité contraignante
+ * respectée même sous décisions concurrentes ; updateMany borné sur les
+ * états autorisés → une seule décision l'emporte.
+ * Règle capacité : ACCEPTED + CONDITIONALLY_ACCEPTED réservent une place
+ * (une condition levée ne libère pas de siège tant que le statut tient).
+ */
+export async function decideApplication(
+  ctx: SchoolCtx,
+  applicationId: string,
+  to: DecisionStatus,
+  opts: { reason?: string; conditions?: string; waitlistRank?: number } = {},
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.decide"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const reason = opts.reason?.trim().slice(0, 2000) || undefined;
+  const conditions = opts.conditions?.trim().slice(0, 2000) || undefined;
+  if (to === "REJECTED" && !reason) return { ok: false, error: "INVALID_INPUT" };
+  if (to === "CONDITIONALLY_ACCEPTED" && !conditions) {
+    return { ok: false, error: "INVALID_INPUT" };
+  }
+  if (
+    opts.waitlistRank != null &&
+    (!Number.isInteger(opts.waitlistRank) || opts.waitlistRank < 1)
+  ) {
+    return { ok: false, error: "INVALID_INPUT" };
+  }
+
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    select: { id: true, status: true, fileNumber: true, campaignId: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  if (app.status === "CONVERTED") return { ok: false, error: "INVALID_STATE" };
+  if (!DECISION_FROM[to].includes(app.status)) {
+    return { ok: false, error: "INVALID_STATE" };
+  }
+
+  const res = await prisma.$transaction(async (tx) => {
+    // Sérialise les décisions par campagne → capacité fiable en concurrence.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"adm-cap:" + app.campaignId}))`;
+    const campaign = await tx.admissionCampaign.findUniqueOrThrow({
+      where: { id: app.campaignId },
+      select: { capacity: true, capacityEnforced: true },
+    });
+    if (
+      campaign.capacityEnforced &&
+      campaign.capacity != null &&
+      (to === "ACCEPTED" || to === "CONDITIONALLY_ACCEPTED")
+    ) {
+      const taken = await tx.admissionApplication.count({
+        where: {
+          campaignId: app.campaignId,
+          status: { in: ["ACCEPTED", "CONDITIONALLY_ACCEPTED"] },
+          id: { not: app.id },
+        },
+      });
+      if (taken >= campaign.capacity) {
+        return { ok: false as const, error: "CAPACITY_FULL" as const };
+      }
+    }
+    const updated = await tx.admissionApplication.updateMany({
+      where: { id: app.id, status: { in: DECISION_FROM[to] } },
+      data: {
+        status: to,
+        decisionReason: reason ?? null,
+        decisionConditions:
+          to === "CONDITIONALLY_ACCEPTED" ? conditions! : null,
+        waitlistRank: to === "WAITLISTED" ? (opts.waitlistRank ?? null) : null,
+        decidedById: ctx.userId,
+        decidedAt: new Date(),
+        infoRequestNote: null,
+      },
+    });
+    if (updated.count === 0) {
+      return { ok: false as const, error: "INVALID_STATE" as const };
+    }
+    await tx.admissionEvent.create({
+      data: {
+        schoolId: ctx.schoolId,
+        applicationId: app.id,
+        fromStatus: app.status,
+        toStatus: to,
+        actorId: ctx.userId,
+        actorLabel: "décision",
+        note: reason ?? conditions ?? null,
+      },
+    });
+    await tx.admissionMessage.create({
+      data: {
+        schoolId: ctx.schoolId,
+        applicationId: app.id,
+        kind: "DECISION",
+        body:
+          to === "CONDITIONALLY_ACCEPTED"
+            ? `Admission sous conditions : ${conditions}`
+            : to === "REJECTED"
+              ? `Refus : ${reason}`
+              : to === "WAITLISTED"
+                ? `Placement en liste d'attente${opts.waitlistRank ? ` (rang ${opts.waitlistRank})` : ""}${reason ? ` — ${reason}` : ""}`
+                : "Admission acceptée",
+        createdById: ctx.userId,
+        visibleToApplicant: true,
+      },
+    });
+    return { ok: true as const, result: undefined };
+  });
+  if (res.ok) {
+    await logAudit({
+      actorId: ctx.userId,
+      schoolId: ctx.schoolId,
+      action: `admissions.decision.${to.toLowerCase()}`,
+      entity: "AdmissionApplication",
+      entityId: app.id,
+      metadata: { fileNumber: app.fileNumber },
+    });
+  }
+  return res;
+}
+
+/** Réexamen d'une décision — transitions bornées, motivées et auditées. */
+const REOPEN_FROM: AdmissionApplicationStatus[] = [
+  "REJECTED",
+  "CONDITIONALLY_ACCEPTED",
+  "WAITLISTED",
+];
+
+export async function reopenDecision(
+  ctx: SchoolCtx,
+  applicationId: string,
+  note: string,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.decide"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const clean = note.trim().slice(0, 2000);
+  if (!clean) return { ok: false, error: "INVALID_INPUT" };
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    select: { id: true, status: true, fileNumber: true },
+  });
+  if (!app) return { ok: false, error: "NOT_FOUND" };
+  const updated = await prisma.admissionApplication.updateMany({
+    where: { id: app.id, status: { in: REOPEN_FROM } },
+    data: { status: "UNDER_REVIEW" },
+  });
+  if (updated.count === 0) return { ok: false, error: "INVALID_STATE" };
+  await prisma.admissionEvent.create({
+    data: {
+      schoolId: ctx.schoolId,
+      applicationId: app.id,
+      fromStatus: app.status,
+      toStatus: "UNDER_REVIEW",
+      actorId: ctx.userId,
+      actorLabel: "réexamen",
+      note: clean,
+    },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.decision.reopen",
+    entity: "AdmissionApplication",
+    entityId: app.id,
+    metadata: { fileNumber: app.fileNumber, from: app.status },
+  });
+  return { ok: true, result: undefined };
+}
+
+// ---------- Tableau de bord et capacités ----------
+
+export async function admissionDashboardStats(ctx: SchoolCtx) {
+  const [byStatus, upcoming, weekCount] = await Promise.all([
+    prisma.admissionApplication.groupBy({
+      by: ["status"],
+      where: { schoolId: ctx.schoolId },
+      _count: { _all: true },
+    }),
+    prisma.admissionInterview.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "PLANNED",
+        scheduledAt: { gte: new Date() },
+      },
+    }),
+    prisma.admissionApplication.count({
+      where: {
+        schoolId: ctx.schoolId,
+        submittedAt: { gte: new Date(Date.now() - 7 * 86400_000) },
+      },
+    }),
+  ]);
+  const count = (s: AdmissionApplicationStatus) =>
+    byStatus.find((b) => b.status === s)?._count._all ?? 0;
+  const total = byStatus.reduce((s, b) => s + b._count._all, 0);
+  const byCampaign = await prisma.admissionApplication.groupBy({
+    by: ["campaignId"],
+    where: { schoolId: ctx.schoolId },
+    _count: { _all: true },
+  });
+  const campaigns = await prisma.admissionCampaign.findMany({
+    where: { id: { in: byCampaign.map((c) => c.campaignId) } },
+    select: { id: true, name: true },
+  });
+  const nameOf = new Map(campaigns.map((c) => [c.id, c.name]));
+  const byLevel = await prisma.admissionApplication.groupBy({
+    by: ["targetLevelId"],
+    where: { schoolId: ctx.schoolId, targetLevelId: { not: null } },
+    _count: { _all: true },
+  });
+  const levels = await prisma.level.findMany({
+    where: { id: { in: byLevel.map((l) => l.targetLevelId!) } },
+    select: { id: true, name: true },
+  });
+  const levelName = new Map(levels.map((l) => [l.id, l.name]));
+
+  return {
+    total,
+    recent: weekCount,
+    submitted: count("SUBMITTED"),
+    underReview: count("UNDER_REVIEW"),
+    incomplete: count("ADDITIONAL_INFO_REQUIRED"),
+    accepted: count("ACCEPTED"),
+    conditional: count("CONDITIONALLY_ACCEPTED"),
+    waitlisted: count("WAITLISTED"),
+    rejected: count("REJECTED"),
+    converted: count("CONVERTED"),
+    withdrawn: count("WITHDRAWN"),
+    upcomingInterviews: upcoming,
+    byCampaign: byCampaign.map((c) => ({
+      name: nameOf.get(c.campaignId) ?? "?",
+      count: c._count._all,
+    })),
+    byLevel: byLevel.map((l) => ({
+      name: levelName.get(l.targetLevelId!) ?? "?",
+      count: l._count._all,
+    })),
+  };
+}
+
+/** Capacités par campagne : dossiers, admis, conditionnels, liste, places. */
+export async function campaignCapacityStats(
+  ctx: SchoolCtx,
+  campaignId: string,
+) {
+  const campaign = await prisma.admissionCampaign.findFirst({
+    where: { id: campaignId, schoolId: ctx.schoolId },
+    select: { id: true, name: true, capacity: true, capacityEnforced: true },
+  });
+  if (!campaign) return null;
+  const rows = await prisma.admissionApplication.groupBy({
+    by: ["status"],
+    where: { campaignId },
+    _count: { _all: true },
+  });
+  const count = (s: AdmissionApplicationStatus) =>
+    rows.find((r) => r.status === s)?._count._all ?? 0;
+  const reserved = count("ACCEPTED") + count("CONDITIONALLY_ACCEPTED");
+  return {
+    campaign,
+    total: rows.reduce((s, r) => s + r._count._all, 0),
+    accepted: count("ACCEPTED"),
+    conditional: count("CONDITIONALLY_ACCEPTED"),
+    waitlisted: count("WAITLISTED"),
+    rejected: count("REJECTED"),
+    pending:
+      count("SUBMITTED") +
+      count("UNDER_REVIEW") +
+      count("ADDITIONAL_INFO_REQUIRED"),
+    reserved,
+    seatsLeft:
+      campaign.capacity != null
+        ? Math.max(0, campaign.capacity - reserved)
+        : null,
+  };
+}
+
+// ---------- Préparation G2-D : éligibilité à la conversion ----------
+
+/**
+ * Rapport de convertibilité (lecture seule) pour le futur lot G2-D.
+ * Aucune écriture : Student/Guardian/Enrollment/créances non créés.
+ */
+export async function getConversionReadiness(
+  ctx: SchoolCtx,
+  applicationId: string,
+) {
+  const app = await prisma.admissionApplication.findFirst({
+    where: { id: applicationId, schoolId: ctx.schoolId },
+    include: {
+      campaign: {
+        select: {
+          id: true,
+          name: true,
+          academicYearId: true,
+          capacity: true,
+          capacityEnforced: true,
+          academicYear: { select: { id: true, name: true } },
+          requiredDocs: true,
+        },
+      },
+      targetLevel: { select: { id: true, name: true } },
+      targetClassroom: { select: { id: true, name: true } },
+    },
+  });
+  if (!app) return null;
+  const docs = await prisma.document.findMany({
+    where: { ownerType: "ADMISSION", ownerId: app.id, status: "ACTIVE" },
+    select: { category: true, label: true },
+  });
+  const required = requiredDocsOf(app.campaign as unknown as AdmissionCampaign)
+    .filter((d) => d.required !== false)
+    .map((d) => d.label);
+  const cap = await campaignCapacityStats(ctx, app.campaignId);
+  const eligible =
+    app.status === "ACCEPTED" || app.status === "CONDITIONALLY_ACCEPTED";
+  return {
+    eligible,
+    status: app.status,
+    conditionsPending:
+      app.status === "CONDITIONALLY_ACCEPTED"
+        ? (app.decisionConditions ?? null)
+        : null,
+    campaign: app.campaign,
+    schoolId: app.schoolId,
+    candidate: {
+      firstName: app.candidateFirstName,
+      lastName: app.candidateLastName,
+      birthDate: app.birthDate,
+      birthPlace: app.birthPlace,
+      sex: app.sex,
+      previousSchool: app.previousSchool,
+      selfApplicant: app.selfApplicant,
+      extraInfo: app.extraInfo,
+    },
+    guardian: app.selfApplicant
+      ? null
+      : {
+          firstName: app.guardianFirstName,
+          lastName: app.guardianLastName,
+          relation: app.guardianRelation,
+          phone: app.guardianPhone,
+          email: app.guardianEmail,
+          address: app.guardianAddress,
+          secondaryContact: app.secondaryContact,
+        },
+    target: {
+      level: app.targetLevel,
+      classroom: app.targetClassroom,
+      training: app.targetTraining,
+    },
+    documents: { provided: docs.length, required },
+    duplicateFlag: app.duplicateOfId != null,
+    capacity: cap
+      ? {
+          seatsLeft: cap.seatsLeft,
+          enforced: app.campaign.capacityEnforced,
+          available: cap.seatsLeft == null || cap.seatsLeft > 0,
+        }
+      : null,
+    // Points d'attention pour G2-D (à résoudre avant création).
+    blockers: [
+      ...(eligible ? [] : ["statut_non_admis"]),
+      ...(app.duplicateOfId ? ["doublon_possible"] : []),
+      ...(cap?.seatsLeft === 0 &&
+      !["ACCEPTED", "CONDITIONALLY_ACCEPTED"].includes(app.status)
+        ? ["capacite_pleine"]
+        : []),
+    ],
+  };
+}
+
+/** Entretiens visibles dans le suivi candidat (convocations uniquement). */
+export function publicInterviewView(iv: AdmissionInterview) {
+  return {
+    id: iv.id,
+    type: iv.type,
+    scheduledAt: iv.scheduledAt,
+    location: iv.location,
+    instructions: iv.instructions,
+    status: iv.status,
+    previousScheduledAt: iv.previousScheduledAt,
+  };
+}
+

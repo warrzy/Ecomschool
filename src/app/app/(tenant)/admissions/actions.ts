@@ -4,13 +4,22 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import {
+  addInternalNote,
+  assignInstructor,
   createCampaign,
+  decideApplication,
+  reopenDecision,
+  requestComplement,
+  rescheduleInterview,
   rotateTrackingSecret,
+  scheduleInterview,
   setCampaignStatus,
   setPrivacyText,
   transitionApplication,
   updateCampaign,
+  updateInterviewOutcome,
   type CampaignInput,
+  type ComplementKind,
 } from "@/lib/services/admissions";
 import {
   intNonNegative,
@@ -34,14 +43,31 @@ const CAMPAIGN_STATUSES: AdmissionCampaignStatus[] = [
   "CLOSED",
   "ARCHIVED",
 ];
+// Transitions d'instruction seulement — les décisions passent par
+// decideApplicationAction (contrôle de capacité + verrou concurrence).
 const APP_STATUSES: AdmissionApplicationStatus[] = [
   "UNDER_REVIEW",
   "ADDITIONAL_INFO_REQUIRED",
-  "WAITLISTED",
+];
+const DECISION_STATUSES = [
   "ACCEPTED",
   "CONDITIONALLY_ACCEPTED",
+  "WAITLISTED",
   "REJECTED",
-];
+] as const;
+const INTERVIEW_OUTCOMES = ["COMPLETED", "CANCELLED", "NO_SHOW"] as const;
+const INTERVIEW_TYPES = [
+  "INTERVIEW",
+  "WRITTEN_TEST",
+  "EVALUATION",
+  "OTHER",
+] as const;
+const COMPLEMENT_KINDS = [
+  "DOC_MISSING",
+  "DOC_REPLACE",
+  "INFO_REQUEST",
+  "CORRECTION",
+] as const;
 
 const campaignSchema = z.object({
   id: z.string().optional(),
@@ -103,6 +129,7 @@ function readCampaignForm(formData: FormData): CampaignInput | null {
     trainingOptions,
     requiredDocs,
     capacity: parsed.data.capacity,
+    capacityEnforced: formData.get("capacityEnforced") === "on",
     applicationFee: parsed.data.applicationFee,
   };
 }
@@ -164,6 +191,135 @@ export async function transitionApplicationAction(formData: FormData) {
       ? `/app/admissions?id=${id}&ok=status`
       : `/app/admissions?id=${id}&error=${res.error}`,
   );
+}
+
+// ---------- G2-C : instruction, compléments, entretiens, décisions ----------
+
+const backTo = (id: string, suffix: string): never =>
+  back(`/app/admissions?id=${id}&${suffix}`);
+
+export async function decideApplicationAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.decide");
+  const id = String(formData.get("id") ?? "");
+  const to = String(formData.get("to") ?? "") as
+    (typeof DECISION_STATUSES)[number];
+  if (!id || !(DECISION_STATUSES as readonly string[]).includes(to)) {
+    return back("/app/admissions?error=INVALID_INPUT");
+  }
+  const rankRaw = String(formData.get("waitlistRank") ?? "").trim();
+  const res = await decideApplication(ctx(tenant), id, to, {
+    reason: String(formData.get("reason") ?? "") || undefined,
+    conditions: String(formData.get("conditions") ?? "") || undefined,
+    waitlistRank: rankRaw ? Number(rankRaw) : undefined,
+  });
+  backTo(id, res.ok ? "ok=decision" : `error=${res.error}`);
+}
+
+export async function reopenDecisionAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.decide");
+  const id = String(formData.get("id") ?? "");
+  const res = await reopenDecision(
+    ctx(tenant),
+    id,
+    String(formData.get("note") ?? ""),
+  );
+  backTo(id, res.ok ? "ok=reopened" : `error=${res.error}`);
+}
+
+export async function addInternalNoteAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const id = String(formData.get("id") ?? "");
+  const res = await addInternalNote(
+    ctx(tenant),
+    id,
+    String(formData.get("body") ?? ""),
+  );
+  backTo(id, res.ok ? "ok=note" : `error=${res.error}`);
+}
+
+export async function requestComplementAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const id = String(formData.get("id") ?? "");
+  const kind = String(formData.get("kind") ?? "") as ComplementKind;
+  if (!id || !(COMPLEMENT_KINDS as readonly string[]).includes(kind)) {
+    return back("/app/admissions?error=INVALID_INPUT");
+  }
+  const res = await requestComplement(
+    ctx(tenant),
+    id,
+    kind,
+    String(formData.get("note") ?? ""),
+  );
+  backTo(id, res.ok ? "ok=complement" : `error=${res.error}`);
+}
+
+export async function assignInstructorAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const id = String(formData.get("id") ?? "");
+  const assignee = String(formData.get("assigneeUserId") ?? "").trim() || null;
+  const res = await assignInstructor(ctx(tenant), id, assignee);
+  backTo(id, res.ok ? "ok=assigned" : `error=${res.error}`);
+}
+
+const interviewSchema = z.object({
+  applicationId: requiredText,
+  type: z.enum(INTERVIEW_TYPES),
+  scheduledAt: requiredText,
+  location: z.string().max(200).optional(),
+  evaluatorName: z.string().max(120).optional(),
+  instructions: z.string().max(2000).optional(),
+});
+
+export async function scheduleInterviewAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const parsed = interviewSchema.safeParse({
+    applicationId: formData.get("applicationId"),
+    type: formData.get("type"),
+    scheduledAt: formData.get("scheduledAt"),
+    location: formData.get("location") || undefined,
+    evaluatorName: formData.get("evaluatorName") || undefined,
+    instructions: formData.get("instructions") || undefined,
+  });
+  if (!parsed.success) return back("/app/admissions?error=INVALID_INPUT");
+  const res = await scheduleInterview(ctx(tenant), {
+    ...parsed.data,
+    evaluatorId: formData.get("evaluatorId")
+      ? String(formData.get("evaluatorId"))
+      : undefined,
+  });
+  backTo(
+    parsed.data.applicationId,
+    res.ok ? "ok=interview" : `error=${res.error}`,
+  );
+}
+
+export async function rescheduleInterviewAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const id = String(formData.get("interviewId") ?? "");
+  const appId = String(formData.get("applicationId") ?? "");
+  const res = await rescheduleInterview(
+    ctx(tenant),
+    id,
+    String(formData.get("scheduledAt") ?? ""),
+  );
+  backTo(appId, res.ok ? "ok=interview" : `error=${res.error}`);
+}
+
+export async function interviewOutcomeAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.review");
+  const id = String(formData.get("interviewId") ?? "");
+  const appId = String(formData.get("applicationId") ?? "");
+  const status = String(formData.get("status") ?? "") as
+    (typeof INTERVIEW_OUTCOMES)[number];
+  if (!(INTERVIEW_OUTCOMES as readonly string[]).includes(status)) {
+    return backTo(appId, "error=INVALID_INPUT");
+  }
+  const res = await updateInterviewOutcome(ctx(tenant), id, {
+    status,
+    result: String(formData.get("result") ?? "") || undefined,
+    internalNote: String(formData.get("internalNote") ?? "") || undefined,
+  });
+  backTo(appId, res.ok ? "ok=interview" : `error=${res.error}`);
 }
 
 export async function updatePrivacyTextAction(formData: FormData) {

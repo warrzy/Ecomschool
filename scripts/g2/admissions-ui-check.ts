@@ -209,17 +209,67 @@ async function main() {
       await adm.getByRole("button", { name: "Passer en instruction" }).click();
       await adm.waitForTimeout(3000);
       check("transition UNDER_REVIEW", /En instruction/.test(await adm.locator("body").innerText()));
+
+      // ---------- G2-C : instruction complète ----------
+      console.log("== G2-C : dashboard + instruction ==");
+      const dashBody = await adm.locator("body").innerText();
+      check("dashboard : indicateurs présents",
+        /En instruction/.test(dashBody) && /Liste d'attente/.test(dashBody) &&
+        /Entretiens à venir/.test(dashBody));
+
+      // Note interne — jamais visible côté candidat.
+      await adm.getByLabel("Note interne").fill("Note confidentielle G2C");
+      await adm.getByRole("button", { name: "Ajouter la note" }).click();
+      await adm.waitForTimeout(3000);
+      check("note interne enregistrée",
+        /Note confidentielle G2C/.test(await adm.locator("body").innerText()));
+
+      // Demande de complément.
+      await adm.getByLabel("Message de la demande").fill("Bulletin manquant");
+      await adm.getByRole("button", { name: "Demander un complément" }).click();
+      await adm.waitForTimeout(3000);
+      check("complément demandé",
+        /Bulletin manquant/.test(await adm.locator("body").innerText()));
+
+      // Convocation.
+      await adm.getByLabel("Date de l'entretien").fill("2099-01-15T10:30");
+      await adm.getByLabel("Lieu de l'entretien").fill("Salle 7");
+      await adm.getByLabel("Consignes pour le candidat").fill("Venir 15 min avant");
+      await adm.getByRole("button", { name: "Convoquer" }).click();
+      await adm.waitForTimeout(3000);
+      check("entretien planifié",
+        /Salle 7/.test(await adm.locator("body").innerText()));
+
+      // Décision : refus motivé.
+      await adm.getByLabel("Motif du refus").fill("Capacité atteinte");
+      await adm.getByRole("button", { name: "Refuser" }).click();
+      await adm.waitForTimeout(3000);
+      check("décision refus enregistrée",
+        /Refusé/.test(await adm.locator("body").innerText()));
+
+      // Réexamen puis admission.
+      await adm.getByLabel("Motif du réexamen").fill("Place libérée");
+      await adm.getByRole("button", { name: "Réexaminer" }).click();
+      await adm.waitForTimeout(3000);
+      await adm.getByRole("button", { name: "Admettre", exact: true }).click();
+      await adm.waitForTimeout(3000);
+      check("réexamen → admis",
+        /Admis/.test(await adm.locator("body").innerText()));
       await adm.context().close();
     }
 
-    // Suivi reflète la transition
+    // Suivi reflète la décision + convocation, sans note interne
     const suivi2 = await browser.newPage();
     await suivi2.goto(`${BASE}/candidature/${school.slug}/suivi`, { waitUntil: "domcontentloaded" });
     await suivi2.getByLabel("Numéro de dossier").fill(fileNumber);
     await suivi2.getByLabel("Code de suivi").fill(secret);
     await suivi2.getByRole("button", { name: /Consulter/ }).click();
     await suivi2.waitForTimeout(3000);
-    check("suivi : statut en instruction", /instruction/i.test(await suivi2.locator("body").innerText()));
+    const track2 = await suivi2.locator("body").innerText();
+    check("suivi : décision admis visible", /Admis/.test(track2));
+    check("suivi : convocation visible", /Salle 7/.test(track2));
+    check("suivi : note interne absente", !/Note confidentielle G2C/.test(track2));
+    check("suivi : demande de complément historisée", /Bulletin manquant/.test(track2));
     await suivi2.context().close();
 
     console.log("== Rôle sans habilitation ==");
@@ -248,6 +298,7 @@ async function main() {
     const root = process.env.DOCUMENTS_ROOT;
     if (root) for (const d of docs) fs.rmSync(path.join(root, d.storagePath), { force: true });
     await prisma.document.deleteMany({ where: { ownerType: "ADMISSION", ownerId: { in: ids } } });
+    await prisma.admissionInterview.deleteMany({ where: { applicationId: { in: ids } } });
     await prisma.admissionEvent.deleteMany({ where: { applicationId: { in: ids } } });
     await prisma.admissionMessage.deleteMany({ where: { applicationId: { in: ids } } });
     await prisma.admissionApplication.deleteMany({ where: { id: { in: ids } } });

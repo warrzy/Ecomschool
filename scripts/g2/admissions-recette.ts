@@ -22,6 +22,7 @@ import {
   applicantReplaceDocument,
   applicantUploadDocument,
   createCampaign,
+  decideApplication,
   getApplicationDetail,
   getPrivacyText,
   getPublicCampaignForm,
@@ -439,13 +440,13 @@ const baseGuardian = {
   const view3 = await getTrackingView({ fileNumber: fn0, secret });
   check("parent voit la demande de complément",
     view3!.applications[0]!.status === "ADDITIONAL_INFO_REQUIRED" && view3!.applications[0]!.infoRequestNote === "Extrait illisible");
-  const trRej = await transitionApplication(ctxRev, appId, "REJECTED", "motif");
+  const trRej = await decideApplication(ctxRev, appId, "REJECTED", { reason: "motif" });
   check("décision sans admissions.decide → FORBIDDEN", !trRej.ok && trRej.error === "FORBIDDEN");
-  const trRejNoNote = await transitionApplication(ctxDec, appId, "REJECTED");
+  const trRejNoNote = await decideApplication(ctxDec, appId, "REJECTED");
   check("refus sans motif → refusé", !trRejNoNote.ok && trRejNoNote.error === "INVALID_INPUT");
   const trBack = await transitionApplication(ctxRev, appId, "UNDER_REVIEW");
   check("retour en instruction après complément", trBack.ok);
-  const trRejOk = await transitionApplication(ctxDec, appId, "REJECTED", "Dossier incomplet");
+  const trRejOk = await decideApplication(ctxDec, appId, "REJECTED", { reason: "Dossier incomplet" });
   check("refus motivé par decide → OK + tracé", trRejOk.ok);
   const evts = await prisma.admissionEvent.findMany({ where: { applicationId: appId }, orderBy: { createdAt: "asc" } });
   check("chronologie complète", evts.length >= 4 && evts.at(-1)!.toStatus === "REJECTED");

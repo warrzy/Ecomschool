@@ -226,6 +226,7 @@ model School {
   admissionApplications AdmissionApplication[]
   admissionEvents     AdmissionEvent[]
   admissionMessages   AdmissionMessage[]
+  admissionInterviews AdmissionInterview[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -281,6 +282,8 @@ model User {
   accountInvites    AccountInvite[]
   supportAgentSessions     SupportSession[]
   supportAuthorizedSessions SupportSession[] @relation("SupportAuthorizedBy")
+  assignedAdmissions AdmissionApplication[] @relation("AdmissionAssignedTo")
+  decidedAdmissions  AdmissionApplication[] @relation("AdmissionDecider")
 
   @@index([schoolId])
   @@index([email])
@@ -2389,6 +2392,13 @@ model AdmissionCampaign {
 
   /** Capacité indicative (affichage back-office, pas de blocage). */
   capacity       Int?
+  /**
+   * Capacité contraignante : si true, ACCEPTED/CONDITIONALLY_ACCEPTED sont
+   * refusés au-delà de `capacity`. false = avertissement sans blocage.
+   * Ne concerne que l'admission — la capacité réelle des classes est
+   * arbitrée à la conversion (G2-D).
+   */
+  capacityEnforced Boolean @default(false)
   /** Frais de candidature indicatifs en FCFA — réglés au guichet (pas de paiement en ligne à ce stade). */
   applicationFee Int?
 
@@ -2460,8 +2470,16 @@ model AdmissionApplication {
   /** Complément demandé — visible sur la page de suivi (G2-C complet). */
   infoRequestNote String?
   decisionReason  String?
+  /** Conditions de l'admission conditionnelle — visibles par le candidat. */
+  decisionConditions String?
+  /** Rang en liste d'attente (facultatif). */
+  waitlistRank    Int?
   decidedById     String?
+  decidedBy       User?    @relation("AdmissionDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   decidedAt       DateTime?
+  /** Agent instructeur affecté au dossier (membre de l'établissement). */
+  assignedToId    String?
+  assignedTo      User?    @relation("AdmissionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   studentId    String?
   student      Student?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
@@ -2470,8 +2488,9 @@ model AdmissionApplication {
   enrollmentId String?
   enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
 
-  events   AdmissionEvent[]
-  messages AdmissionMessage[]
+  events     AdmissionEvent[]
+  messages   AdmissionMessage[]
+  interviews AdmissionInterview[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2502,6 +2521,60 @@ model AdmissionEvent {
 
   @@index([applicationId])
   @@index([schoolId])
+}
+
+enum AdmissionInterviewType {
+  INTERVIEW
+  WRITTEN_TEST
+  EVALUATION
+  OTHER
+}
+
+enum AdmissionInterviewStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+/**
+ * G2-C — Test ou entretien d'admission (facultatif, avant décision).
+ * `instructions` est visible par le candidat dans son suivi ;
+ * `result` et `internalNote` sont strictement internes.
+ * `previousScheduledAt` trace la date d'origine après reprogrammation.
+ */
+model AdmissionInterview {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  applicationId String
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  type        AdmissionInterviewType
+  scheduledAt DateTime
+  /** Lieu physique ou modalité (salle, visio…) — visible candidat. */
+  location      String?
+  /** Évaluateur / responsable — nom affiché en interne. */
+  evaluatorId   String?
+  evaluatorName String?
+  /** Consignes destinées au candidat (visibles dans le suivi). */
+  instructions  String?
+  /** Résultat / note d'évaluation — interne uniquement. */
+  result        String?
+  /** Appréciation interne de l'évaluateur — jamais publique. */
+  internalNote  String?
+
+  status AdmissionInterviewStatus @default(PLANNED)
+  /** Date d'origine conservée après reprogrammation (traçabilité). */
+  previousScheduledAt DateTime?
+
+  createdById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationId])
+  @@index([schoolId, status, scheduledAt])
 }
 
 /** Message lié à un dossier (demande de complément, note interne). */

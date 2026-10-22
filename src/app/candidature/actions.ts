@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { throttleKey } from "@/lib/auth/ratelimit";
 import {
+  addApplicantMessage,
   applicantReplaceDocument,
   applicantUploadDocument,
   getTrackingView,
@@ -241,6 +242,20 @@ export async function applicantReplaceAction(formData: FormData) {
     originalName: file.name,
     ip,
   });
+  if (!res.ok) return fail(res.error);
+  return { ok: true as const, result: res.result };
+}
+
+/** Réponse du candidat à une demande de complément (suivi G2-C). */
+export async function applicantReplyAction(input: {
+  fileNumber: string;
+  secret: string;
+  applicationId: string;
+  body: string;
+}) {
+  const ip = await clientIp();
+  if (!throttleKey(`adm:track:${input.fileNumber}`)) return RATE_LIMITED;
+  const res = await addApplicantMessage({ ...input, ip });
   if (!res.ok) return fail(res.error);
   return { ok: true as const, result: res.result };
 }

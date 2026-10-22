@@ -81,6 +81,7 @@ const ERROR_LABELS: Record<string, string> = {
   TOO_MANY_DOCS: "Trop de pièces jointes pour ce dossier.",
   RATE_LIMITED: "Trop de tentatives — réessayez dans quelques instants.",
   CONFIG_ERROR: "Configuration indisponible — contactez l'administrateur.",
+  CAPACITY_FULL: "La capacité de la campagne est atteinte : placez le dossier en liste d'attente ou augmentez le plafond.",
 
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",

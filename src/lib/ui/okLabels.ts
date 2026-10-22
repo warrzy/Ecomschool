@@ -83,6 +83,11 @@ const OK_LABELS: Record<string, string> = {
   campaign: "Campagne enregistrée.",
   secret_rotated: "Code de suivi régénéré.",
   privacy: "Politique de confidentialité enregistrée.",
+  decision: "Décision enregistrée.",
+  reopened: "Dossier rouvert pour réexamen.",
+  note: "Note interne ajoutée.",
+  complement: "Demande de complément envoyée au candidat.",
+  interview: "Entretien enregistré.",
 
   // Documents (G2-A)
   uploaded: "Document déposé.",

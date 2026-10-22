@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
+  applicantReplyAction,
   applicantReplaceAction,
   applicantUploadAction,
   lookupTrackingAction,
@@ -78,6 +79,24 @@ export default function TrackingForm(props: { schoolSlug: string }) {
     fd.set("secret", secret);
     fd.set("documentId", docId);
     const res = await applicantReplaceAction(fd);
+    setBusy(null);
+    if (!res.ok) {
+      setError(res.message);
+      return;
+    }
+    await refresh();
+  }
+
+  async function onReply(e: React.FormEvent<HTMLFormElement>, appId: string) {
+    e.preventDefault();
+    setBusy(`rp-${appId}`);
+    const fd = new FormData(e.currentTarget);
+    const res = await applicantReplyAction({
+      fileNumber,
+      secret,
+      applicationId: appId,
+      body: String(fd.get("body") ?? ""),
+    });
     setBusy(null);
     if (!res.ok) {
       setError(res.message);
@@ -187,7 +206,140 @@ export default function TrackingForm(props: { schoolSlug: string }) {
               {a.infoRequestNote}
             </div>
           ) : null}
-          {a.status === "REJECTED" && a.infoRequestNote ? null : null}
+
+          {/* Résultat de la décision — visible par la famille */}
+          {["ACCEPTED", "CONDITIONALLY_ACCEPTED", "WAITLISTED", "REJECTED", "CONVERTED"].includes(
+            a.status,
+          ) ? (
+            <div
+              className={`mt-3 rounded-xl border p-3 text-sm ${
+                a.status === "ACCEPTED" || a.status === "CONVERTED"
+                  ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                  : a.status === "CONDITIONALLY_ACCEPTED"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : a.status === "WAITLISTED"
+                      ? "border-amber-300 bg-amber-50 text-amber-900"
+                      : "border-red-200 bg-red-50 text-red-900"
+              }`}
+            >
+              <span className="font-semibold">
+                Décision : {STATUS_LABELS[a.status] ?? a.status}
+              </span>
+              {a.decisionReason ? ` — ${a.decisionReason}` : ""}
+              {a.decisionConditions ? (
+                <div className="mt-1">
+                  Conditions à satisfaire : {a.decisionConditions}
+                </div>
+              ) : null}
+              {a.status === "WAITLISTED" && a.waitlistRank ? (
+                <div className="mt-1">
+                  Rang en liste d&apos;attente : {a.waitlistRank}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Convocations — consignes visibles, résultats internes exclus */}
+          {a.interviews.length ? (
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase text-zinc-500">
+                Convocations
+              </div>
+              <ul className="mt-2 space-y-2">
+                {a.interviews.map((iv) => (
+                  <li
+                    key={iv.id}
+                    className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900"
+                  >
+                    <span className="font-medium">
+                      {iv.type === "INTERVIEW"
+                        ? "Entretien"
+                        : iv.type === "WRITTEN_TEST"
+                          ? "Test écrit"
+                          : iv.type === "EVALUATION"
+                            ? "Évaluation"
+                            : "Convocation"}
+                    </span>{" "}
+                    — le {new Date(iv.scheduledAt).toLocaleString("fr-FR")}
+                    {iv.location ? ` · ${iv.location}` : ""}
+                    {iv.status === "CANCELLED" ? (
+                      <span className="ml-2 font-semibold text-red-700">
+                        Annulé
+                      </span>
+                    ) : null}
+                    {iv.previousScheduledAt &&
+                    iv.status === "PLANNED" ? (
+                      <span className="ml-1 text-xs">
+                        (reprogrammé — initialement le{" "}
+                        {new Date(iv.previousScheduledAt).toLocaleString(
+                          "fr-FR",
+                        )}
+                        )
+                      </span>
+                    ) : null}
+                    {iv.instructions ? (
+                      <div className="mt-1 text-xs">{iv.instructions}</div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Échanges avec l'établissement */}
+          {a.messages.length ? (
+            <div className="mt-4">
+              <div className="text-xs font-semibold uppercase text-zinc-500">
+                Messages
+              </div>
+              <ul className="mt-2 space-y-1">
+                {a.messages.map((m, i) => (
+                  <li
+                    key={i}
+                    className={`rounded-lg border px-3 py-2 text-sm ${
+                      m.kind === "APPLICANT_REPLY"
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-zinc-200 bg-mist/50"
+                    }`}
+                  >
+                    <span className="text-xs text-zinc-500">
+                      {new Date(m.createdAt).toISOString().slice(0, 10)} ·{" "}
+                      {m.kind === "APPLICANT_REPLY" ? "Vous" : "Établissement"}
+                    </span>
+                    <div>{m.body}</div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Réponse du candidat */}
+          {a.canReply ? (
+            <form
+              onSubmit={(e) => onReply(e, a.id)}
+              className="mt-3 flex items-end gap-2"
+            >
+              <label className="flex-1 text-xs font-medium text-zinc-700">
+                Répondre à l&apos;établissement
+                <textarea
+                  aria-label="Réponse à l'établissement"
+                  name="body"
+                  required
+                  rows={2}
+                  maxLength={4000}
+                  placeholder="Votre réponse à la demande de complément…"
+                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={busy === `rp-${a.id}`}
+                className="h-9 rounded-lg bg-brand-600 px-3 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                Envoyer
+              </button>
+            </form>
+          ) : null}
 
           {/* Pièces */}
           <div className="mt-4">
