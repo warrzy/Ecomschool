@@ -75,6 +75,13 @@ const ERROR_LABELS: Record<string, string> = {
   TRANSACTIONAL_REQUIRED: "Le canal transactionnel doit être activé pour cet envoi.",
   ENQUEUE_FAILED: "L'envoi n'a pas pu être planifié. Réessayez.",
 
+  // Documents (G2-A)
+  FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",
+  UNSUPPORTED_TYPE: "Ce type de fichier n'est pas accepté (PDF, JPEG ou PNG uniquement).",
+  QUOTA_EXCEEDED: "Le quota de stockage de l'établissement est atteint.",
+  STORAGE_FAILED: "L'enregistrement du fichier a échoué. Réessayez.",
+  INTEGRITY_ERROR: "Le fichier a été altéré : contactez l'administrateur.",
+
   // Divers
   SETTINGS_NOT_OBJECT: "Paramètres invalides.",
   UNKNOWN_ERROR: "Une erreur inattendue est survenue. Réessayez.",

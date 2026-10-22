@@ -221,6 +221,7 @@ model School {
   feeReminders        FeeReminder[]
   expenseCategories   ExpenseCategory[]
   expenses            Expense[]
+  documents           Document[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -2265,4 +2266,64 @@ model TaskRun {
   finishedAt DateTime?
 
   @@index([task, startedAt])
+}
+
+enum DocumentStatus {
+  ACTIVE
+  REPLACED
+  DELETED
+  PURGED
+}
+
+/**
+ * Brique documentaire transversale (G2-A) : fichier privé associé à un
+ * objet métier générique. `ownerType`/`ownerId` restent des chaînes sans
+ * clé étrangère — la cible varie (candidature, élève, dépense…) et la
+ * liste des types est validée côté service.
+ *
+ * Cycle : ACTIVE → REPLACED (nouvelle version créée) → DELETED (logique,
+ * motif) → PURGED (fichier physiquement purgé, métadonnées conservées).
+ * Jamais de suppression de ligne.
+ */
+model Document {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  ownerType String  @default("STANDALONE")
+  ownerId   String?
+
+  category    String
+  label       String?
+  description String?
+
+  fileName     String
+  originalName String
+  extension    String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+  storagePath  String
+
+  status       DocumentStatus @default(ACTIVE)
+  version      Int            @default(1)
+  replacedById String?
+  replacedAt   DateTime?
+  deletedAt    DateTime?
+  deletedById  String?
+  deleteReason String?
+  purgedAt     DateTime?
+
+  uploadedById String?
+  uploadedByIp String?
+  /** Jeton public opaque — futur accès limité (suivi candidature G2-B). */
+  accessToken  String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, fileName])
+  @@index([schoolId, status])
+  @@index([schoolId, ownerType, ownerId])
+  @@index([sha256])
 }

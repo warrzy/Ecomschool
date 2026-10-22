@@ -70,3 +70,7 @@ scripts/d4/shots/
 scripts/d5/shots/
 scripts/d6/shots/
 scripts/a3/snapshots/
+
+# Documents privés locaux (G2-A) — jamais commités
+documents-private/
+uploads/

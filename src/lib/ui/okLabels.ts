@@ -79,6 +79,11 @@ const OK_LABELS: Record<string, string> = {
   expense_paid: "Dépense marquée payée.",
   expense_cancelled: "Dépense annulée.",
 
+  // Documents (G2-A)
+  uploaded: "Document déposé.",
+  replaced: "Document remplacé.",
+  deleted: "Document supprimé.",
+
   // Communication / plateforme
   sent: "Envoi lancé.",
   request: "Demande envoyée.",

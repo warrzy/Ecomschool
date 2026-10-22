@@ -83,6 +83,8 @@ export const appNav: NavItem[] = [
   { label: "Guichet d'inscription", href: "/app/fees/registration", permission: "enrollment.create", section: "Finances", icon: I.clipboard },
   // Journal personnel : filtrage strict sur receivedById côté serveur.
   { label: "Mes encaissements", href: "/app/fees/my-payments", permission: "finance.receipts.read", section: "Finances", icon: I.file },
+  // Brique documentaire transversale (G2-A).
+  { label: "Documents", href: "/app/documents", permission: "documents.read", section: "Administration", icon: I.file },
 
   { label: "Utilisateurs", href: "/app/users", permission: "user.read", section: "Administration", icon: I.users },
   { label: "Mon abonnement", href: "/app/subscription", permission: "school.read", section: "Administration", icon: I.card },
