@@ -222,6 +222,10 @@ model School {
   expenseCategories   ExpenseCategory[]
   expenses            Expense[]
   documents           Document[]
+  admissionCampaigns  AdmissionCampaign[]
+  admissionApplications AdmissionApplication[]
+  admissionEvents     AdmissionEvent[]
+  admissionMessages   AdmissionMessage[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -686,6 +690,7 @@ model AcademicYear {
   feeDiscounts        FeeDiscount[]
   payments            Payment[]
   expenses            Expense[]
+  admissionCampaigns  AdmissionCampaign[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -739,6 +744,7 @@ model Level {
   gradingPolicies     GradingPolicy[]
   reportCardTemplates ReportCardTemplate[]
   feeTariffs          FeeTariff[]
+  admissionApplications AdmissionApplication[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -859,6 +865,7 @@ model Classroom {
   resultValidations ResultValidation[]
   reportCards       ReportCard[]
   feeTariffs        FeeTariff[]
+  admissionApplications AdmissionApplication[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -906,6 +913,7 @@ model Student {
   feeDiscounts      FeeDiscount[]
   payments          Payment[]
   feeReminders      FeeReminder[]
+  admissionApplications AdmissionApplication[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -933,6 +941,7 @@ model Guardian {
   updatedAt DateTime @updatedAt
 
   students StudentGuardian[]
+  admissionApplications AdmissionApplication[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -984,6 +993,8 @@ model Enrollment {
 
   // Unicité partielle ajoutée manuellement dans la migration :
   // un seul ENROLLED par (studentId, academicYearId).
+
+  admissionApplications AdmissionApplication[]
 
   @@index([schoolId])
   @@index([studentId])
@@ -2275,6 +2286,26 @@ enum DocumentStatus {
   PURGED
 }
 
+enum AdmissionCampaignStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+enum AdmissionApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFO_REQUIRED
+  WAITLISTED
+  ACCEPTED
+  CONDITIONALLY_ACCEPTED
+  REJECTED
+  CONVERTED
+  WITHDRAWN
+}
+
 /**
  * Brique documentaire transversale (G2-A) : fichier privé associé à un
  * objet métier générique. `ownerType`/`ownerId` restent des chaînes sans
@@ -2326,4 +2357,169 @@ model Document {
   @@index([schoolId, status])
   @@index([schoolId, ownerType, ownerId])
   @@index([sha256])
+}
+
+/**
+ * G2-B — Campagne d'admission d'un établissement.
+ * Une campagne publiée (OPEN) et dans sa fenêtre [opensAt, closesAt]
+ * accepte les candidatures publiques sans compte.
+ */
+model AdmissionCampaign {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  name         String
+  description  String?
+  instructions String?
+
+  opensAt DateTime
+  closesAt DateTime
+  status  AdmissionCampaignStatus @default(DRAFT)
+
+  /** Level.id ciblés (Json string[]) — null/vide = tous les niveaux actifs. */
+  targetLevelIds Json?
+  /** Libellés de formations/filières libres (instituts, université). */
+  trainingOptions Json?
+  /** Pièces exigées : [{ key, label, category, required? }] — clés stables. */
+  requiredDocs Json @default("[]")
+
+  /** Capacité indicative (affichage back-office, pas de blocage). */
+  capacity       Int?
+  /** Frais de candidature indicatifs en FCFA — réglés au guichet (pas de paiement en ligne à ce stade). */
+  applicationFee Int?
+
+  createdById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  applications AdmissionApplication[]
+
+  @@index([schoolId, status])
+  @@index([academicYearId])
+}
+
+/**
+ * Dossier de candidature déposé sur le portail public.
+ * `trackingHash` = SHA-256 du code de suivi remis au déposant — le code
+ * en clair n'est jamais stocké ni journalisé.
+ * `submissionGroupId` regroupe les dossiers déposés dans la même
+ * soumission (multi-enfants) : un seul code de suivi pour la fratrie.
+ * Les liens studentId/guardianId/enrollmentId sont remplis à la
+ * conversion (G2-D) — jamais avant.
+ */
+model AdmissionApplication {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  campaignId String
+  campaign   AdmissionCampaign @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+
+  fileNumber        String @unique
+  trackingHash      String
+  submissionGroupId String
+  /** Empreinte normalisée anti double-soumission (même contenu = idempotent). */
+  fingerprint       String?
+  /** Dossier probablement en double — signalé à l'instruction, non bloquant. */
+  duplicateOfId     String?
+
+  status AdmissionApplicationStatus @default(SUBMITTED)
+
+  candidateFirstName String
+  candidateLastName  String
+  birthDate          DateTime?
+  birthPlace         String?
+  sex                Gender?
+  previousSchool     String?
+  /** Candidat majeur déposant pour lui-même — les champs responsable restent facultatifs. */
+  selfApplicant      Boolean @default(false)
+
+  targetLevelId      String?
+  targetLevel        Level?      @relation(fields: [targetLevelId], references: [id], onDelete: SetNull)
+  targetClassroomId  String?
+  targetClassroom    Classroom?  @relation(fields: [targetClassroomId], references: [id], onDelete: SetNull)
+  targetTraining     String?
+  /** Réponses aux champs complémentaires configurés (libre, validé JSON). */
+  extraInfo          Json?
+
+  guardianFirstName String?
+  guardianLastName  String?
+  guardianRelation  String?
+  guardianPhone     String
+  guardianEmail     String?
+  guardianAddress   String?
+  secondaryContact  String?
+
+  submittedAt DateTime @default(now())
+  submittedIp String?
+
+  /** Complément demandé — visible sur la page de suivi (G2-C complet). */
+  infoRequestNote String?
+  decisionReason  String?
+  decidedById     String?
+  decidedAt       DateTime?
+
+  studentId    String?
+  student      Student?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  guardianId   String?
+  guardian     Guardian?   @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  enrollmentId String?
+  enrollment   Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  events   AdmissionEvent[]
+  messages AdmissionMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, campaignId, status])
+  @@index([schoolId, status])
+  @@index([submissionGroupId])
+  @@index([trackingHash])
+}
+
+/** Journal des transitions d'un dossier — traçabilité publique + back-office. */
+model AdmissionEvent {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  applicationId String
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  fromStatus AdmissionApplicationStatus?
+  toStatus   AdmissionApplicationStatus
+  actorId    String?
+  /** "portail" pour les actions du déposant, sinon nom de l'agent. */
+  actorLabel String
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([applicationId])
+  @@index([schoolId])
+}
+
+/** Message lié à un dossier (demande de complément, note interne). */
+model AdmissionMessage {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  applicationId String
+  application   AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  kind              String  @default("INFO_REQUEST")
+  body              String
+  createdById       String?
+  visibleToApplicant Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([applicationId])
+  @@index([schoolId])
 }

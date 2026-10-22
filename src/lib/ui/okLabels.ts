@@ -79,6 +79,10 @@ const OK_LABELS: Record<string, string> = {
   expense_paid: "Dépense marquée payée.",
   expense_cancelled: "Dépense annulée.",
 
+  // Admissions (G2-B)
+  campaign: "Campagne enregistrée.",
+  secret_rotated: "Code de suivi régénéré.",
+
   // Documents (G2-A)
   uploaded: "Document déposé.",
   replaced: "Document remplacé.",

@@ -69,6 +69,7 @@ export const appNav: NavItem[] = [
   { label: "Élèves", href: "/app/students", permission: "student.read", section: "Pédagogie", icon: I.gradcap },
   { label: "Parents", href: "/app/guardians", permission: "guardian.read", section: "Pédagogie", icon: I.users },
   { label: "Inscriptions scolaires", href: "/app/enrollments", permission: "enrollment.read", section: "Pédagogie", icon: I.clipboard },
+  { label: "Admissions", href: "/app/admissions", permission: "admissions.read", section: "Pédagogie", icon: I.door },
   { label: "Notes", href: "/app/grades", permission: "assessments.read", section: "Pédagogie", icon: I.pen },
   { label: "Moyennes", href: "/app/averages", permission: "results.read", section: "Pédagogie", icon: I.chart },
   { label: "Bulletins", href: "/app/report-cards", permission: "reportcards.read", section: "Pédagogie", icon: I.file },

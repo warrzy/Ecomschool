@@ -113,17 +113,26 @@ async function hasPerm(ctx: SchoolCtx, key: string) {
  */
 async function isOwnerReadable(ctx: SchoolCtx, doc: Document) {
   if (doc.uploadedById === ctx.userId) return true;
-  // G2-B+ : ownerType ADMISSION/STUDENT/… — règles de liaison métier.
+  // Futurs ownerType (STUDENT, EXPENSE…) : règles de liaison métier.
   return false;
 }
 
 export async function canReadDocument(ctx: SchoolCtx, doc: Document) {
+  // Pièces de candidature : habilitation dédiée `admissions.review`.
+  // `documents.manage` seul ne suffit PAS — données sensibles de mineurs.
+  if (doc.ownerType === "ADMISSION") {
+    return hasPerm(ctx, "admissions.review");
+  }
   if (await hasPerm(ctx, "documents.manage")) return true;
   if (!(await hasPerm(ctx, "documents.read"))) return false;
   return isOwnerReadable(ctx, doc);
 }
 
 async function canMutateDocument(ctx: SchoolCtx, doc: Document) {
+  // Pièces de candidature : aucune mutation par un agent (même
+  // `documents.manage`) — le déposant gère ses pièces via le suivi
+  // sécurisé ; la purge reste un traitement administratif dédié.
+  if (doc.ownerType === "ADMISSION") return false;
   if (await hasPerm(ctx, "documents.manage")) return true;
   if (!(await hasPerm(ctx, "documents.upload"))) return false;
   // Le déposant peut remplacer/supprimer sa propre pièce tant qu'elle est
@@ -172,8 +181,14 @@ export type UploadInput = {
   description?: string;
 };
 
+/**
+ * Enregistre un document. La fonction ne vérifie AUCUNE permission :
+ * l'appelant garantit l'autorisation. `ctx.userId` est null pour un dépôt
+ * sans session (portail candidature — l'autorisation métier dédiée est
+ * alors faite par le service admissions, jamais par un faux utilisateur).
+ */
 export async function uploadDocument(
-  ctx: SchoolCtx,
+  ctx: { userId: string | null; schoolId: string },
   input: UploadInput,
   ip?: string,
 ): Promise<DocumentsResult<{ id: string; sha256: string }>> {
@@ -312,7 +327,21 @@ export async function replaceDocument(
   });
   if (!old || old.status !== "ACTIVE") return { ok: false, error: "NOT_FOUND" };
   if (!(await canMutateDocument(ctx, old))) return { ok: false, error: "FORBIDDEN" };
+  return replaceDocumentVersion(old, input, { userId: ctx.userId, ip });
+}
 
+/**
+ * Cœur du remplacement, sans vérification de session — l'appelant garantit
+ * l'autorisation (RBAC `canMutateDocument`, ou suivi candidature
+ * authentifié par code de suivi). Mêmes garanties que `replaceDocument` :
+ * validation signature, quota, nouvelle version, ancien → REPLACED.
+ */
+export async function replaceDocumentVersion(
+  old: Document,
+  input: UploadInput,
+  uploader: { userId: string | null; ip?: string },
+): Promise<DocumentsResult<{ id: string; sha256: string }>> {
+  const ctx = { schoolId: old.schoolId, userId: uploader.userId };
   const category = input.category ? cleanCategory(input.category) : old.category;
   if (!category || !input.originalName?.trim()) {
     return { ok: false, error: "INVALID_INPUT" };
@@ -360,7 +389,7 @@ export async function replaceDocument(
           storagePath,
           version: old.version + 1,
           uploadedById: ctx.userId,
-          uploadedByIp: ip ?? null,
+          uploadedByIp: uploader.ip ?? null,
           accessToken: randomBytes(24).toString("base64url"),
         },
         select: { id: true },
@@ -384,6 +413,26 @@ export async function replaceDocument(
     await getStorage().remove(storagePath).catch(() => {});
     return { ok: false, error: "STORAGE_FAILED" };
   }
+}
+
+/**
+ * Lecture du contenu d'un document après autorisation par l'appelant.
+ * Revérifie l'intégrité SHA-256 ; l'appelant journalise le contexte
+ * (téléchargement agent ou suivi candidat).
+ */
+export async function readDocumentBuffer(
+  doc: Document,
+): Promise<
+  | { ok: true; buffer: Buffer }
+  | { ok: false; error: "NOT_FOUND" | "INTEGRITY_ERROR" }
+> {
+  const buffer = await getStorage().get(doc.storagePath);
+  if (!buffer) return { ok: false, error: "NOT_FOUND" };
+  const digest = createHash("sha256").update(buffer).digest("hex");
+  if (digest !== doc.sha256 || buffer.length !== doc.sizeBytes) {
+    return { ok: false, error: "INTEGRITY_ERROR" };
+  }
+  return { ok: true, buffer };
 }
 
 /** Suppression logique motivée — le fichier reste jusqu'à la purge. */

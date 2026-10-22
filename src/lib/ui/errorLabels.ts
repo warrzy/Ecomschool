@@ -75,6 +75,13 @@ const ERROR_LABELS: Record<string, string> = {
   TRANSACTIONAL_REQUIRED: "Le canal transactionnel doit être activé pour cet envoi.",
   ENQUEUE_FAILED: "L'envoi n'a pas pu être planifié. Réessayez.",
 
+  // Admissions (G2-B)
+  CAMPAIGN_CLOSED: "Cette campagne n'accepte plus de candidature.",
+  MISSING_DOCS: "Une pièce justificative obligatoire est manquante.",
+  TOO_MANY_DOCS: "Trop de pièces jointes pour ce dossier.",
+  RATE_LIMITED: "Trop de tentatives — réessayez dans quelques instants.",
+  CONFIG_ERROR: "Configuration indisponible — contactez l'administrateur.",
+
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",
   UNSUPPORTED_TYPE: "Ce type de fichier n'est pas accepté (PDF, JPEG ou PNG uniquement).",
