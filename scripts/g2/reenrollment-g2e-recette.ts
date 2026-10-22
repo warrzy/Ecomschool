@@ -595,6 +595,11 @@ async function main() {
     if (process.env.G2E_CLEANUP === "1") {
       await cleanup(schoolId);
       await cleanup(schoolB.id);
+      // Comptes fixture créés sans schoolId → orphelins à supprimer par email.
+      const users = await prisma.user.findMany({ where: { email: { in: EMAILS } }, select: { id: true } });
+      await prisma.accountInvite.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+      await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
       fs.rmSync(TEST_ROOT, { recursive: true, force: true });
       console.log("  fixtures supprimées");
     } else {

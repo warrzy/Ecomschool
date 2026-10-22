@@ -444,12 +444,11 @@ async function submit(campaignId: string, levelId: string, phone?: string) {
   console.log(`\n=== Recette G2-C : ${pass} PASS / ${fail} FAIL ===`);
   if (process.env.G2C_CLEANUP === "1") {
     await cleanup(school.id);
-    await prisma.schoolMembership.deleteMany({
-      where: { userId: { in: [admin.id, reviewer.id, reader.id, decider.id] } },
-    });
-    await prisma.user.deleteMany({
-      where: { id: { in: [admin.id, reviewer.id, reader.id, decider.id] } },
-    });
+    // Comptes fixture créés sans schoolId → orphelins à supprimer par email.
+    const users = await prisma.user.findMany({ where: { email: { in: EMAILS } }, select: { id: true } });
+    await prisma.accountInvite.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+    await prisma.schoolMembership.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+    await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
     console.log("fixtures supprimées");
   }
   await prisma.$disconnect();

@@ -595,6 +595,17 @@ const baseGuardian = {
   }
 
   // ---------- Résumé ----------
+  if (process.env.G2B_CLEANUP === "1") {
+    await cleanupSchool(school.id);
+    // Comptes fixture créés sans schoolId → orphelins à supprimer par email.
+    const users = await prisma.user.findMany({ where: { email: { in: EMAILS } }, select: { id: true } });
+    await prisma.accountInvite.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+    await prisma.schoolMembership.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+    await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
+    console.log("  fixtures supprimées");
+  } else {
+    console.log(`  (fixtures conservées — école ${school.id}; G2B_CLEANUP=1 pour nettoyer)`);
+  }
   console.log(`\n=== Recette G2-B : ${pass} PASS / ${fail} FAIL ===`);
   await prisma.$disconnect();
   process.exit(fail ? 1 : 0);

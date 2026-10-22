@@ -49,6 +49,7 @@ const PDF = Buffer.concat([
 ]);
 
 const FX = "G2X-FX";
+const EMAILS = ["g2x-admin@test.local", "g2x-parent@test.local", "g2x-other@test.local"];
 
 async function cleanup(schoolId: string) {
   const docs = await prisma.document.findMany({ where: { schoolId }, select: { storagePath: true } });
@@ -119,7 +120,7 @@ async function main() {
   const old = await prisma.school.findFirst({ where: { name: FX }, select: { id: true } });
   if (old) await cleanup(old.id);
   const stale = await prisma.user.findMany({
-    where: { email: { in: ["g2x-admin@test.local", "g2x-parent@test.local", "g2x-other@test.local"] } },
+    where: { email: { in: EMAILS } },
     select: { id: true },
   });
   if (stale.length) {
@@ -354,6 +355,11 @@ async function main() {
   } finally {
     if (process.env.G2X_CLEANUP === "1") {
       await cleanup(schoolId);
+      // Comptes fixture créés sans schoolId → orphelins à supprimer par email.
+      const users = await prisma.user.findMany({ where: { email: { in: EMAILS } }, select: { id: true } });
+      await prisma.accountInvite.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+      await prisma.schoolMembership.deleteMany({ where: { userId: { in: users.map((u) => u.id) } } });
+      await prisma.user.deleteMany({ where: { id: { in: users.map((u) => u.id) } } });
       fs.rmSync(TEST_ROOT, { recursive: true, force: true });
       console.log("  fixtures supprimées");
     } else {
