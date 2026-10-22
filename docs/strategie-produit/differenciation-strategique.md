@@ -34,15 +34,18 @@ Ne pas jouer la course au nombre de modules (Galactis : 100+ pays, EduX : 40+ mo
 - Tarifs publics et honnêtes (Galactis affiche 5 €/élève/an — repère marché). Notre `/tarifs` doit chiffrer.
 - Mise en service rapide (« prêt en X jours ») + support WhatsApp (canal natif du marché) — déjà notre stack.
 
-## Ce qu'on NE fera PAS (arbitrages assumés)
+## Arbitrages de séquencement (vision ERP 360° conservée)
 
-| Refusé | Raison |
-|---|---|
-| Comptabilité générale complète OHADA | Énorme ; mieux : export vers compta existante |
-| Université/LMD dans le même produit | Produit distinct — `PERIS UNIV` a fait ce choix aussi |
-| App native iOS/Android | PWA suffit ; natif = coût de maintenance disproportionné |
-| Biométrie/badges NFC | Hardware, maintenance terrain — hors modèle SaaS pur |
-| E-learning complet | Galactis domine ; notre marché = gestion, pas cours en ligne |
+Rien n'est exclu de la vision cible — ces modules sont **planifiés progressivement** (voir `roadmap-priorisee.md` H8–H15) :
+
+| Module | Approche cible | Horizon |
+|---|---|---|
+| Comptabilité générale OHADA | Étape 1 : export d'écritures SYSCOHADA ; étape 2 : journaux/grand livre intégrés | P2 |
+| Enseignement supérieur (LMD) | Produit dérivé sur le même socle multi-tenant (comme PERIS UNIV pour PERIS SCHOOL) | P2/P3 |
+| RH & paie | Contrats/vacations d'abord, paie ensuite | P2 |
+| App native iOS/Android | PWA d'abord ; natif réévalué à l'échelle | H2 → ultérieur |
+| Biométrie/badges NFC | Hors modèle SaaS pur — partenariat éventuel | non planifié |
+| E-learning complet | Galactis domine ; non prioritaire pour notre cible | non planifié |
 
 ## Arguments de vente vérifiables (démo scriptée)
 

@@ -41,13 +41,13 @@
 - **Upload de documents** : première brique de stockage fichier — décision architecture requise avant G2.
 - **Tarification** : `/tarifs` doit devenir chiffré et compétitif vs le repère Galactis (5 €/élève/an).
 
-## Top 10 priorités
+## Top 10 priorités (révisé)
 
 | # | Priorité | Lot | Pourquoi |
 |---|---|---|---|
-| 1 | Notifications SMS/WhatsApp réelles | **G1** | Promesse « parents informés » — bloquant de vente |
+| 1 | Portail de candidature + conversion | **G2** | Porte d'entrée de la rentrée, 0 service payant, fondations documents |
 | 2 | Mobile Money en caisse (réf. externe) | **G3** | Attente culturelle BF — petit chantier, grand signal |
-| 3 | Portail de candidature | **G2** | Porte d'entrée de la rentrée — PERIS/Major l'ont |
+| 3 | Notifications SMS/WhatsApp réelles | **G1** | Promesse « parents informés » — dès signature provider |
 | 4 | Reçus par messagerie | G1 | Différenciation démontrable |
 | 5 | Attestations/certificats/cartes | **G4** | Quotidien visible des écoles — effort faible |
 | 6 | Portail parent interactif | H1 | Seul levier de fidélisation famille |
@@ -56,19 +56,21 @@
 | 9 | Messagerie bidirectionnelle | H3 | PERIS vend le chat intégré |
 | 10 | Export comptable OHADA | H12 | Cible = écoles structurées |
 
-## Prochain lot recommandé : **G1 — Notifications externes réelles**
+## Prochain lot recommandé : **G2 — Admissions et inscriptions en ligne**
 
-- **Portée** : reçu par WhatsApp/SMS après encaissement ; alerte absence/retard externe ; relances impayés par SMS/WhatsApp ; statut de livraison réel par canal ; `WHATSAPP_DRY_RUN` conservé par défaut.
-- **Critères d'acceptation** : envoi réel configuré par provider, consentement respecté (jamais de WhatsApp sans opt-in tuteur documenté), livraison traçée en base avec erreur, coûts visibles (`costUnits`), pas de fuite de données.
-- **Décision externe requise** : choix et contrat du provider SMS (et validation WhatsApp Business) — à fournir avant le GO.
-- **Tests** : recettes existantes `comm/` étendues + recette d'envoi réel (compte test).
+- **Portée** (détail dans `preparation-g2.md`) : campagne par école → formulaire public sans compte (multi-enfants, pièces, code de suivi) → instruction (compléments, tests facultatifs, liste d'attente, décision motivée) → **conversion atomique** en `Student`+`Guardian`+`Enrollment`+`StudentFeeCharge` via les services existants → réinscription annuelle en ligne validée en masse.
+- **Stockage documentaire** : fichiers privés hors racine web, servis par routes autorisées, magic bytes, quotas, versionnage — aucun service payant, migrable vers object storage.
+- **Intégration progressive** : notifications internes + page de suivi aujourd'hui ; SMS/WhatsApp via `comm/` dès G1 ; frais de candidature réglés au guichet (jamais présentés comme du MoMo automatisé).
+- **Critères d'acceptation** : conversion idempotente en une transaction, aucun doublon élève, isolation stricte dossiers/fichiers, recettes service+UI+volume, non-régressions F2/F3.
+- **Sous-lots** : G2-A documents · G2-B candidature publique · G2-C instruction · G2-D conversion · G2-E réinscription.
+- **Arbitrage final** : G2 → G3 → G1 → G4 (voir `roadmap-priorisee.md`).
 
 ## Arbitrages assumés
 
-- Pas de compta générale complète (export OHADA seul), pas de natif mobile (PWA), pas d'université dans ce produit, pas de biométrie, pas d'e-learning.
-- « MyPreySchool » et « KORTEX » non confirmés comme produits scolaires — à clarifier avec l'utilisateur si ces noms recouvrent d'autres solutions.
+- Vision ERP 360° conservée : compta OHADA, RH/paie, supérieur, cantine/transport, multisite **planifiés en P2** — aucune exclusion définitive.
+- « MyPreySchool » et « KORTEX » non confirmés comme produits scolaires — à clarifier si ces noms recouvrent d'autres solutions.
 
 ## Statut
 
-- Documents produits : `inventaire-fonctionnel.md`, `matrice-concurrentielle-detaillee.md`, `parcours-utilisateurs.md`, `analyse-ecarts-concurrentiels.md`, `differenciation-strategique.md`, `roadmap-priorisee.md`, `synthese-direction.md`.
+- Documents produits : `inventaire-fonctionnel.md`, `matrice-concurrentielle-detaillee.md`, `parcours-utilisateurs.md`, `analyse-ecarts-concurrentiels.md`, `differenciation-strategique.md`, `roadmap-priorisee.md`, `preparation-g2.md`, `synthese-direction.md`.
 - **Aucun code applicatif, Prisma, abonnement ou déploiement modifié.**
