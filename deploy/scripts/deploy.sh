@@ -45,7 +45,10 @@ cd "$RELEASE"
 ln -sfn "$APP_SHARED/.env" .env
 
 echo "== 2/8 Dépendances =="
-npm ci
+# Le build a besoin des devDependencies (@tailwindcss/turbopack, typescript…).
+# Un NODE_ENV=production hérité du shell les omettrait — on le neutralise
+# pour cette étape uniquement ; le runtime reste en production via PM2.
+env -u NODE_ENV npm ci
 
 echo "== 3/8 Prisma generate =="
 npx prisma generate
