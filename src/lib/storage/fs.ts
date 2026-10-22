@@ -22,7 +22,7 @@ export function fsStorage(root: string): StorageAdapter {
   return {
     async put(key, buffer) {
       const full = safePath(key);
-      await fs.mkdir(path.dirname(full), { recursive: true });
+      await fs.mkdir(path.dirname(full), { recursive: true, mode: 0o750 });
       // Refus d'écrasement : les noms sont générés (UUID) et uniques.
       try {
         await fs.lstat(full);
@@ -33,8 +33,10 @@ export function fsStorage(root: string): StorageAdapter {
       // Écriture atomique : fichier temporaire puis rename (même volume).
       const tmp = `${full}.tmp-${process.pid}-${Date.now()}`;
       try {
-        await fs.writeFile(tmp, buffer, { flag: "wx" });
+        await fs.writeFile(tmp, buffer, { flag: "wx", mode: 0o640 });
         await fs.rename(tmp, full);
+        // Renforcer les droits du répertoire école si créé avec l'umask.
+        await fs.chmod(path.dirname(full), 0o750).catch(() => {});
       } finally {
         await fs.rm(tmp, { force: true });
       }
