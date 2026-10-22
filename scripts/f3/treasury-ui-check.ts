@@ -46,7 +46,7 @@ async function main() {
     await fm.waitForTimeout(1500);
     check("accès /app/treasury", !fm.url().includes("/forbidden"));
     const body = await fm.locator("body").innerText();
-    check("titre + disclaimer", /Trésorerie/.test(body) && /solde bancaire certifié/.test(body));
+    check("titre + disclaimer", /Trésorerie/.test(body) && /solde (bancaire|de caisse) certifié/.test(body));
     check("KPI encaissé/décaissé/solde", /encaissé/i.test(body) && /décaissé/i.test(body) && /solde net des flux/i.test(body));
     check("filtres (période, année, mode)",
       (await fm.locator('select[name="preset"]').count()) === 1 &&

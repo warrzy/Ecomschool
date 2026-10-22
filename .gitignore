@@ -32,8 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+*.env.local
+*-env.local
 !.env.example
 !.env.*.example
+
+# fichiers de travail locaux (logs de serveur, diagnostics)
+/*.log
+/.*-server.log
+/.*-dev.log
+/.next-start*.log
 
 # vercel
 .vercel

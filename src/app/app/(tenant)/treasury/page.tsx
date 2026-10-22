@@ -94,8 +94,8 @@ export default async function TreasuryPage(props: {
           Trésorerie
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          {periodLabel} — solde net des flux enregistrés, ne constitue pas un
-          solde bancaire certifié.
+          {periodLabel} — solde net des flux enregistrés : indicateur calculé à
+          partir des opérations retenues, pas un solde de caisse certifié.
         </p>
         <form method="GET" className="mt-4 flex flex-wrap items-end gap-3">
           <label className="block text-sm">
@@ -155,23 +155,23 @@ export default async function TreasuryPage(props: {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Encaissé"
+          label="Encaissements validés"
           value={fmt(dash.collectedTotal)}
-          hint={`${dash.collectedCount} encaissement${dash.collectedCount > 1 ? "s" : ""} validé${dash.collectedCount > 1 ? "s" : ""}`}
+          hint={`${dash.collectedCount} encaissement${dash.collectedCount > 1 ? "s" : ""} validé${dash.collectedCount > 1 ? "s" : ""} sur la période`}
           icon={ICONS.wallet}
           tone="leaf"
         />
         <KpiCard
-          label="Décaissé"
+          label="Dépenses décaissées"
           value={fmt(dash.disbursedTotal)}
-          hint={`${dash.disbursedCount} dépense${dash.disbursedCount > 1 ? "s" : ""} payée${dash.disbursedCount > 1 ? "s" : ""}`}
+          hint={`${dash.disbursedCount} décaissement${dash.disbursedCount > 1 ? "s" : ""} réel${dash.disbursedCount > 1 ? "s" : ""}`}
           icon={ICONS.card}
           tone="coral"
         />
         <KpiCard
           label="Solde net des flux"
           value={fmt(dash.net)}
-          hint="Encaissé − décaissé sur la période"
+          hint="Validés − décaissés — indicateur calculé, pas un solde de caisse"
           icon={ICONS.chart}
           tone={dash.net >= 0 ? "brand" : "sun"}
         />
@@ -180,13 +180,22 @@ export default async function TreasuryPage(props: {
           value={`${dash.cancelledPaymentsCount}`}
           hint={
             dash.cancelledPaymentsCount > 0
-              ? `${fmt(dash.cancelledPaymentsTotal)} exclus des entrées (correction, pas remboursement)`
+              ? `${fmt(dash.cancelledPaymentsTotal)} exclus des entrées`
               : "Aucun sur la période"
           }
           icon={ICONS.ops}
           tone="mist"
         />
       </div>
+
+      <p className="text-xs text-zinc-500">
+        Un paiement annulé est une correction administrative motivée (erreur de
+        saisie, doublon…) : il n&apos;est pas compté dans les encaissements et
+        ne correspond pas nécessairement à un remboursement réel — aucune
+        écriture de remboursement n&apos;est enregistrée dans le système. Une
+        dépense annulée après paiement reste comptée en sortie : l&apos;argent
+        décaissé l&apos;a effectivement été.
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-5">
         <DashCard

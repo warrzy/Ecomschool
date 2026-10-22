@@ -94,6 +94,10 @@ export async function getTreasuryDashboard(
   const from = filters.from ?? new Date(Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), 1));
   const rangeWhere = { gte: from, lt: to };
 
+  // Pas de `take` : les lignes alimentent les totaux, les buckets
+  // mensuels et les répartitions — une fenêtre limitée tronquerait
+  // silencieusement les montants. Le volume est borné par établissement
+  // et par période (index paidAt).
   const [payments, cancelledAgg, expenses, unlinkedAgg] = await Promise.all([
     prisma.payment.findMany({
       where: {
@@ -112,7 +116,6 @@ export async function getTreasuryDashboard(
         student: { select: { firstName: true, lastName: true } },
       },
       orderBy: { paidAt: "desc" },
-      take: 20000,
     }),
     prisma.payment.groupBy({
       by: ["status"],
@@ -144,7 +147,6 @@ export async function getTreasuryDashboard(
         category: { select: { label: true } },
       },
       orderBy: { paidAt: "desc" },
-      take: 20000,
     }),
     // Exclusion explicite : dépenses décaissées sans rattachement,
     // comptées à part quand un filtre année scolaire est actif.
