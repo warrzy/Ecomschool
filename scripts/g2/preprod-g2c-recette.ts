@@ -67,6 +67,14 @@ async function serverFixtures() {
     },
   });
   // Compte restreint : admissions.read seul.
+  const oldRole = await prisma.role.findFirst({
+    where: { schoolId: school.id, name: "G2C_READER_PP" }, select: { id: true },
+  });
+  if (oldRole) {
+    await prisma.schoolMembership.deleteMany({ where: { roleId: oldRole.id } });
+    await prisma.rolePermission.deleteMany({ where: { roleId: oldRole.id } });
+    await prisma.role.delete({ where: { id: oldRole.id } });
+  }
   const role = await prisma.role.create({
     data: { schoolId: school.id, name: "G2C_READER_PP", scope: "SCHOOL" },
   });
@@ -226,7 +234,8 @@ async function main() {
       const dash = await adm.locator("body").innerText();
       check("tableau de bord : indicateurs + filtres",
         /En instruction/.test(dash) && /Liste d'attente/.test(dash) &&
-        /Entretiens à venir/.test(dash) && /Filtrer par statut/.test(dash));
+        /Entretiens à venir/.test(dash) &&
+        (await adm.getByLabel("Filtrer par statut").count()) === 1);
 
       await adm.goto(`${BASE}/app/admissions?q=${encodeURIComponent(fileNumber)}`, { waitUntil: "domcontentloaded" });
       await adm.waitForTimeout(2000);
