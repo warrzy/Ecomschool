@@ -82,6 +82,7 @@ const OK_LABELS: Record<string, string> = {
   // Admissions (G2-B)
   campaign: "Campagne enregistrée.",
   secret_rotated: "Code de suivi régénéré.",
+  privacy: "Politique de confidentialité enregistrée.",
 
   // Documents (G2-A)
   uploaded: "Document déposé.",

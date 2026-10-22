@@ -16,21 +16,26 @@ const TEST_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "g2b-docs-"));
 process.env.DOCUMENTS_ROOT = TEST_ROOT;
 process.env.ADMISSIONS_TICKET_SECRET = "g2b-recette-secret";
 
+import { createHmac } from "node:crypto";
 import { prisma } from "../../src/lib/db/prisma";
 import {
   applicantReplaceDocument,
   applicantUploadDocument,
   createCampaign,
   getApplicationDetail,
+  getPrivacyText,
   getPublicCampaignForm,
   getTrackingView,
   listApplications,
   listPublicCampaigns,
+  makeDocTicket,
   readApplicantDocumentByTicket,
   rotateTrackingSecret,
   setCampaignStatus,
+  setPrivacyText,
   submitApplication,
   transitionApplication,
+  verifyDocTicket,
   withdrawApplication,
 } from "../../src/lib/services/admissions";
 import { canReadDocument, readDocument } from "../../src/lib/services/documents";
@@ -493,6 +498,98 @@ const baseGuardian = {
   );
   const numbers = new Set(subs.filter((s) => s.ok).flatMap((s) => s.ok ? s.result.fileNumbers : []));
   check("5 soumissions concurrentes → numéros distincts", subs.every((s) => s.ok) && numbers.size === 5);
+
+  // ---------- Durcissements préproduction ----------
+  console.log("\n== Durcissements ==");
+
+  // Plafond de volume cumulé : 6 × 5 Mo > 25 Mo → refusé avant tout dépôt.
+  {
+    const big = Buffer.alloc(5 * 1024 * 1024);
+    PDF.copy(big, 0);
+    const bigFiles = Array.from({ length: 6 }, (_, i) => ({
+      childIndex: 0,
+      docKey: i === 0 ? "naissance" : "AUTRE",
+      category: "JUSTIFICATIF" as const,
+      buffer: big,
+      originalName: `big${i}.pdf`,
+    }));
+    const subBig = await submitApplication({
+      campaignId, selfApplicant: false, ...baseGuardian,
+      guardianPhone: "+22670000030",
+      children: [{ ...baseChild(30), lastName: "TropGros" }],
+      files: bigFiles,
+    });
+    check("volume cumulé > plafond → FILE_TOO_LARGE",
+      !subBig.ok && subBig.error === "FILE_TOO_LARGE");
+    const orphans = await prisma.document.count({
+      where: { schoolId: school.id, ownerType: "ADMISSION", originalName: { startsWith: "big" } },
+    });
+    check("aucun fichier déposé malgré le refus", orphans === 0);
+  }
+
+  // Ticket expiré : HMAC valide mais échéance passée → refus.
+  {
+    const doc = await prisma.document.findFirst({
+      where: { schoolId: school.id, ownerType: "ADMISSION", status: "ACTIVE" },
+      select: { id: true, ownerId: true },
+    });
+    check("fixture pièce active présente", !!doc);
+    if (doc) {
+      const exp = Date.now() - 1000;
+      const sig = createHmac("sha256", process.env.ADMISSIONS_TICKET_SECRET!)
+        .update(`${doc.ownerId}.${doc.id}.${exp}`)
+        .digest("base64url");
+      const expired = `${doc.ownerId}.${doc.id}.${exp}.${sig}`;
+      check("ticket expiré → refusé", verifyDocTicket(expired) === null);
+      const rd = await readApplicantDocumentByTicket(expired);
+      check("lecture via ticket expiré → NOT_FOUND", !rd.ok && rd.error === "NOT_FOUND");
+
+      // Signature correcte mais ticket tronqué → refus.
+      check("ticket tronqué → refusé",
+        verifyDocTicket(expired.split(".").slice(0, 3).join(".")) === null);
+      // Ticket valide d'un autre document du même dossier : portée stricte.
+      const otherDoc = await prisma.document.findFirst({
+        where: {
+          schoolId: school.id, ownerType: "ADMISSION", status: "ACTIVE",
+          ownerId: doc.ownerId, id: { not: doc.id },
+        },
+        select: { id: true },
+      });
+      if (otherDoc) {
+        const tOther = makeDocTicket(doc.ownerId!, otherDoc.id)!;
+        const rdOther = await readApplicantDocumentByTicket(tOther);
+        check("ticket de l'autre pièce ne lit que l'autre pièce",
+          rdOther.ok && rdOther.doc.id === otherDoc.id);
+      }
+    }
+  }
+
+  // Confidentialité : lecture défaut, écriture réservée, repli.
+  {
+    const def = await getPrivacyText(school.id);
+    check("texte confidentialité par défaut non vide", def.length > 40);
+    const noPerm = await setPrivacyText({ userId: reader.id, schoolId: school.id }, "X".repeat(80));
+    check("écriture sans admissions.manage → FORBIDDEN", !noPerm.ok && noPerm.error === "FORBIDDEN");
+    const setOk = await setPrivacyText(ctxA, "Politique personnalisée école A — données de recette.");
+    check("écriture avec admissions.manage → OK", setOk.ok);
+    const custom = await getPrivacyText(school.id);
+    check("texte personnalisé lu", custom.includes("personnalisée école A"));
+    await setPrivacyText(ctxA, "");
+    const back = await getPrivacyText(school.id);
+    check("retour au texte par défaut si vide", back === def);
+  }
+
+  // Aucun secret de suivi dans les événements d'audit.
+  {
+    const logs = await prisma.auditLog.findMany({
+      where: { schoolId: school.id, action: { startsWith: "admissions." } },
+      select: { metadata: true, action: true },
+    });
+    const serialized = JSON.stringify(logs.map((l) => l.metadata));
+    check("aucun code de suivi dans les métadonnées d'audit",
+      !!secret3 && !serialized.includes(secret3) &&
+      !(sub.ok && serialized.includes(sub.result.trackingSecret ?? "∅")));
+  }
 
   // ---------- Résumé ----------
   console.log(`\n=== Recette G2-B : ${pass} PASS / ${fail} FAIL ===`);

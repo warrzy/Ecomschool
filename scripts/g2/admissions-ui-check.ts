@@ -131,6 +131,12 @@ async function main() {
       if (await sel.count()) await sel.selectOption({ index: 1 });
     }
     await pub.locator('input[name="file_0_naissance"]').setInputFiles(pdf);
+    // La case de validation explicite est requise (native + serveur).
+    check("case déclaration présente et requise",
+      (await pub.locator('input[name="confirmAccuracy"][required]').count()) === 1);
+    check("lien politique de confidentialité présent",
+      (await pub.getByRole("link", { name: /politique de confidentialité/i }).count()) === 1);
+    await pub.locator('input[name="confirmAccuracy"]').check();
     await pub.getByRole("button", { name: /Soumettre la candidature/ }).click();
     await pub.waitForTimeout(8000);
     const doneBody = await pub.locator("body").innerText();
@@ -169,6 +175,12 @@ async function main() {
     // Route pièce sans ticket → 404
     const noTicket = await suivi.context().request.get(`${BASE}/candidature/piece/faux-token`, { maxRedirects: 0 });
     check("route pièce sans ticket valide → refusée", noTicket.status() === 404);
+
+    // Page confidentialité publique
+    const conf = await suivi.context().request.get(
+      `${BASE}/candidature/${school.slug}/confidentialite`);
+    check("page confidentialité accessible", conf.status() === 200 &&
+      /confidentialité/i.test(await conf.text()));
 
     // mobile
     await suivi.setViewportSize({ width: 390, height: 844 });

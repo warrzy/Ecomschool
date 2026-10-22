@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db/prisma";
 import {
   campaignLevelIds,
   campaignTrainingOptions,
+  getPrivacyText,
   listCampaigns,
   requiredDocsOf,
 } from "@/lib/services/admissions";
@@ -13,6 +14,7 @@ import {
   createCampaignAction,
   setCampaignStatusAction,
   updateCampaignAction,
+  updatePrivacyTextAction,
 } from "@/app/app/(tenant)/admissions/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
@@ -47,7 +49,7 @@ export default async function AdmissionsCampaignsPage(props: {
   const error = str("error");
   const editId = str("edit");
 
-  const [campaigns, years, levels] = await Promise.all([
+  const [campaigns, years, levels, privacyText] = await Promise.all([
     listCampaigns({ userId: tenant.userId, schoolId: tenant.schoolId }),
     prisma.academicYear.findMany({
       where: { schoolId: tenant.schoolId },
@@ -59,6 +61,7 @@ export default async function AdmissionsCampaignsPage(props: {
       orderBy: { order: "asc" },
       select: { id: true, name: true },
     }),
+    getPrivacyText(tenant.schoolId),
   ]);
   const editing = editId ? campaigns.find((c) => c.id === editId) : undefined;
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
@@ -295,6 +298,37 @@ export default async function AdmissionsCampaignsPage(props: {
                   Annuler
                 </Link>
               ) : null}
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {canManage ? (
+        <div className={card}>
+          <div className="mb-1 text-sm font-medium text-zinc-900">
+            Politique de confidentialité des admissions
+          </div>
+          <p className="mb-3 text-xs text-zinc-500">
+            Texte publié sur{" "}
+            <span className="font-mono">
+              /candidature/&lt;slug&gt;/confidentialite
+            </span>{" "}
+            et rappelé dans le formulaire de dépôt. Laisser vide pour
+            revenir au texte par défaut.
+          </p>
+          <form action={updatePrivacyTextAction} className="grid gap-3">
+            <textarea
+              aria-label="Politique de confidentialité"
+              name="privacyText"
+              rows={5}
+              defaultValue={privacyText}
+              maxLength={12000}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+            />
+            <div>
+              <SubmitButton className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                Enregistrer le texte
+              </SubmitButton>
             </div>
           </form>
         </div>

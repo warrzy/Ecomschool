@@ -62,6 +62,10 @@ export const MAX_APPLICATION_CHILDREN = 5;
 export const MAX_APPLICATION_DOCS = Number(
   process.env.ADMISSIONS_MAX_DOCS ?? 10,
 );
+/** Volume cumulé maximal des pièces d'une soumission (hors plafond/fichier). */
+export const MAX_TOTAL_UPLOAD_BYTES = Number(
+  process.env.ADMISSIONS_MAX_TOTAL_UPLOAD_BYTES ?? 25 * 1024 * 1024,
+);
 /** Durée de vie d'un ticket de lecture de pièce (suivi candidat). */
 export const DOC_TICKET_TTL_MS = 15 * 60 * 1000;
 
@@ -571,6 +575,13 @@ export async function submitApplication(
       return { ok: false, error: "INVALID_INPUT" };
     }
   }
+  // Volume cumulé : refuse les soumissions dont les pièces dépassent
+  // le plafond total (le plafond par fichier est vérifié en amont).
+  const totalBytes = input.files.reduce((s, f) => s + f.buffer.length, 0);
+  if (totalBytes > MAX_TOTAL_UPLOAD_BYTES) {
+    return { ok: false, error: "FILE_TOO_LARGE" };
+  }
+
   // Pièces exigées : chaque clé obligatoire doit avoir un fichier non vide.
   const required = requiredDocsOf(campaign).filter((d) => d.required !== false);
   const maxDocKeys = requiredDocsOf(campaign).map((d) => d.key);
@@ -1323,4 +1334,59 @@ export async function rotateTrackingSecret(
     entityId: app.id,
   });
   return { ok: true, result: { secret } };
+}
+
+// ---------- Politique de confidentialité (publique, par établissement) ----------
+
+export const DEFAULT_PRIVACY_TEXT = [
+  "Les informations collectées dans ce formulaire sont destinées exclusivement",
+  "au traitement de votre demande d'admission par l'établissement.",
+  "Elles ne sont ni cédées ni utilisées à d'autres fins.",
+  "Les dossiers refusés ou retirés sont conservés pour une durée limitée,",
+  "puis supprimés selon la politique de l'établissement.",
+  "Pour toute question ou demande d'accès, de rectification ou de suppression,",
+  "contactez directement l'établissement.",
+].join(" ");
+
+/** Texte de confidentialité affiché publiquement (configurable par école). */
+export async function getPrivacyText(schoolId: string): Promise<string> {
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { settings: true },
+  });
+  const custom = (
+    school?.settings as { admissionsPrivacyText?: string } | null
+  )?.admissionsPrivacyText;
+  return custom?.trim() ? custom : DEFAULT_PRIVACY_TEXT;
+}
+
+/** Met à jour le texte de confidentialité — `admissions.manage` requis. */
+export async function setPrivacyText(
+  ctx: SchoolCtx,
+  text: string,
+): Promise<AdmissionsResult> {
+  if (!(await hasPerm(ctx, "admissions.manage"))) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+  const clean = text.trim().slice(0, 12000);
+  const school = await prisma.school.findUnique({
+    where: { id: ctx.schoolId },
+    select: { settings: true },
+  });
+  const settings = {
+    ...((school?.settings as Record<string, unknown> | null) ?? {}),
+    admissionsPrivacyText: clean || undefined,
+  };
+  await prisma.school.update({
+    where: { id: ctx.schoolId },
+    data: { settings },
+  });
+  await logAudit({
+    actorId: ctx.userId,
+    schoolId: ctx.schoolId,
+    action: "admissions.privacy.update",
+    entity: "School",
+    entityId: ctx.schoolId,
+  });
+  return { ok: true, result: undefined };
 }

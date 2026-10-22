@@ -23,7 +23,9 @@ export default async function SuiviPage(props: {
           </h1>
           <p className="mt-3 text-sm leading-relaxed text-zinc-600">
             Saisissez le numéro de dossier et le code de suivi reçus lors du
-            dépôt. Le numéro seul ne suffit pas.
+            dépôt. Le numéro seul ne suffit pas. Attention : le code donne
+            accès à tous les dossiers déposés ensemble (fratrie) — ne le
+            partagez pas.
           </p>
         </div>
         <TrackingForm schoolSlug={school.slug} />

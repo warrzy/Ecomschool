@@ -7,6 +7,7 @@ import {
   createCampaign,
   rotateTrackingSecret,
   setCampaignStatus,
+  setPrivacyText,
   transitionApplication,
   updateCampaign,
   type CampaignInput,
@@ -162,6 +163,16 @@ export async function transitionApplicationAction(formData: FormData) {
     res.ok
       ? `/app/admissions?id=${id}&ok=status`
       : `/app/admissions?id=${id}&error=${res.error}`,
+  );
+}
+
+export async function updatePrivacyTextAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.manage");
+  const res = await setPrivacyText(ctx(tenant), String(formData.get("privacyText") ?? ""));
+  back(
+    res.ok
+      ? "/app/admissions/campaigns?ok=privacy"
+      : `/app/admissions/campaigns?error=${res.error}`,
   );
 }
 

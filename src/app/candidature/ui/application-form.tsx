@@ -108,7 +108,9 @@ export default function ApplicationForm(props: {
     f.set("guardianEmail", guardian.email);
     f.set("guardianAddress", guardian.address);
     f.set("secondaryContact", guardian.secondary);
-    f.set("website", String(new FormData(form).get("website") ?? ""));
+    const raw = new FormData(form);
+    f.set("website", String(raw.get("website") ?? ""));
+    f.set("confirmAccuracy", String(raw.get("confirmAccuracy") ?? ""));
     if (groupLoaded) {
       f.set("groupFileNumber", groupRef.fileNumber);
       f.set("groupSecret", groupRef.secret);
@@ -552,6 +554,36 @@ export default function ApplicationForm(props: {
           + Ajouter un autre enfant (mêmes coordonnées)
         </button>
       ) : null}
+
+      {/* Données personnelles — information (pas un consentement
+          marketing) : la base du traitement est la demande d'admission. */}
+      <div className="rounded-xl border border-zinc-200 bg-mist/50 p-4 text-xs leading-relaxed text-zinc-600">
+        <p>
+          Les informations saisies sont utilisées uniquement pour instruire
+          votre demande d&apos;admission auprès de l&apos;établissement.
+          Elles ne sont ni cédées ni utilisées à d&apos;autres fins.{" "}
+          <Link
+            href={`/candidature/${props.schoolSlug}/confidentialite`}
+            target="_blank"
+            className="font-medium text-brand-700 underline"
+          >
+            Consulter la politique de confidentialité
+          </Link>
+          .
+        </p>
+        <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm font-medium text-zinc-800">
+          <input
+            type="checkbox"
+            name="confirmAccuracy"
+            value="1"
+            required
+            className="mt-0.5 h-4 w-4 accent-brand-600"
+          />
+          Je déclare que les informations fournies sont exactes et j&apos;ai
+          pris connaissance des informations sur le traitement des données
+          personnelles. *
+        </label>
+      </div>
 
       <button
         type="submit"

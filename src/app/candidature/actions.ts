@@ -76,6 +76,10 @@ export async function submitApplicationAction(
   const ip = await clientIp();
   if (!throttleKey(`adm:submit:${ip}`)) return RATE_LIMITED;
 
+  // Validation explicite obligatoire : déclaration d'exactitude +
+  // prise de connaissance de la notice de traitement des données.
+  if (formData.get("confirmAccuracy") !== "1") return fail("INVALID_INPUT");
+
   let children: ApplicationChildInput[] = [];
   try {
     const raw = String(formData.get("children") ?? "[]");
