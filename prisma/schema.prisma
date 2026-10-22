@@ -227,6 +227,9 @@ model School {
   admissionEvents     AdmissionEvent[]
   admissionMessages   AdmissionMessage[]
   admissionInterviews AdmissionInterview[]
+  reenrollmentCampaigns ReenrollmentCampaign[]
+  reenrollmentRequests  ReenrollmentRequest[]
+  reenrollmentMessages  ReenrollmentMessage[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -286,6 +289,11 @@ model User {
   decidedAdmissions  AdmissionApplication[] @relation("AdmissionDecider")
   admissionConditionsLifts AdmissionApplication[] @relation("AdmissionConditionsLifter")
   admissionConversions     AdmissionApplication[] @relation("AdmissionConverter")
+  reenrollmentCampaigns    ReenrollmentCampaign[]  @relation("ReenrollCampaignCreator")
+  reenrollmentSubmissions  ReenrollmentRequest[]   @relation("ReenrollSubmitter")
+  reenrollmentDecisions    ReenrollmentRequest[]   @relation("ReenrollDecider")
+  reenrollmentCompletions  ReenrollmentRequest[]   @relation("ReenrollCompleter")
+  reenrollmentMessages     ReenrollmentMessage[]   @relation("ReenrollMsgAuthor")
 
   @@index([schoolId])
   @@index([email])
@@ -696,6 +704,9 @@ model AcademicYear {
   payments            Payment[]
   expenses            Expense[]
   admissionCampaigns  AdmissionCampaign[]
+  reenrollmentCampaignsSource ReenrollmentCampaign[] @relation("ReenrollSourceYear")
+  reenrollmentCampaignsTarget ReenrollmentCampaign[] @relation("ReenrollTargetYear")
+  reenrollmentRequestsTarget  ReenrollmentRequest[]  @relation("ReenrollReqTargetYear")
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -750,6 +761,7 @@ model Level {
   reportCardTemplates ReportCardTemplate[]
   feeTariffs          FeeTariff[]
   admissionApplications AdmissionApplication[]
+  reenrollmentRequestsDesired ReenrollmentRequest[] @relation("ReenrollDesiredLevel")
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -871,6 +883,8 @@ model Classroom {
   reportCards       ReportCard[]
   feeTariffs        FeeTariff[]
   admissionApplications AdmissionApplication[]
+  reenrollmentRequestsDesired ReenrollmentRequest[] @relation("ReenrollDesiredClassroom")
+  reenrollmentRequestsTarget  ReenrollmentRequest[] @relation("ReenrollTargetClassroom")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -919,6 +933,7 @@ model Student {
   payments          Payment[]
   feeReminders      FeeReminder[]
   admissionApplications AdmissionApplication[]
+  reenrollmentRequests  ReenrollmentRequest[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -947,6 +962,7 @@ model Guardian {
 
   students StudentGuardian[]
   admissionApplications AdmissionApplication[]
+  reenrollmentRequests  ReenrollmentRequest[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -1000,6 +1016,8 @@ model Enrollment {
   // un seul ENROLLED par (studentId, academicYearId).
 
   admissionApplications AdmissionApplication[]
+  reenrollmentRequestsSource ReenrollmentRequest[] @relation("ReenrollSource")
+  reenrollmentRequestsNew    ReenrollmentRequest[] @relation("ReenrollNew")
 
   @@index([schoolId])
   @@index([studentId])
@@ -2606,5 +2624,183 @@ model AdmissionMessage {
   createdAt DateTime @default(now())
 
   @@index([applicationId])
+  @@index([schoolId])
+}
+
+// ---------- G2-E : réinscriptions annuelles ----------
+
+enum ReenrollmentCampaignStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  ARCHIVED
+}
+
+/**
+ * NOT_STARTED n'est pas persisté : il désigne un élève éligible sans
+ * demande (état calculé du tableau de bord).
+ */
+enum ReenrollmentRequestStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFO_REQUIRED
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ReenrollmentKind {
+  REENROLL
+  DEPARTURE
+}
+
+/** Nature de la progression décidée pour l'année cible. */
+enum ReenrollmentProgression {
+  PROMOTION
+  REPETITION
+  SAME_LEVEL
+  CLASS_CHANGE
+  CYCLE_CHANGE
+  RETURN
+}
+
+/**
+ * Campagne de réinscription d'une année source vers une année cible.
+ * Isolée par établissement ; une seule campagne non archivée par année
+ * cible est garantie côté service.
+ */
+model ReenrollmentCampaign {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  sourceYearId String
+  sourceYear   AcademicYear @relation("ReenrollSourceYear", fields: [sourceYearId], references: [id], onDelete: Restrict)
+  targetYearId String
+  targetYear   AcademicYear @relation("ReenrollTargetYear", fields: [targetYearId], references: [id], onDelete: Restrict)
+
+  name         String
+  description  String?
+  instructions String?
+  familyMessage String?
+
+  opensAt DateTime
+  closesAt DateTime
+  status  ReenrollmentCampaignStatus @default(DRAFT)
+
+  /** Level.id source concernés (Json string[]) — vide = tous. */
+  targetLevelIds Json?
+  /** Surcharges de progression {sourceLevelId: targetLevelId}. */
+  progressionOverrides Json?
+  /** Pièces exigées : [{ key, label, category, required? }]. */
+  requiredDocs Json @default("[]")
+  /**
+   * Règle configurable : si true, un élève avec un solde impayé sur
+   * l'année source ne peut pas être finalisé (blocage métier affiché).
+   */
+  blockOnUnpaid Boolean @default(false)
+
+  createdById String?
+  createdBy   User?   @relation("ReenrollCampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requests ReenrollmentRequest[]
+
+  @@index([schoolId, status])
+  @@index([schoolId, targetYearId])
+}
+
+/**
+ * Demande de réinscription d'un élève existant pour l'année cible.
+ * L'unicité (studentId, targetYearId) interdit toute seconde demande
+ * pour la même année — y compris entre campagnes.
+ */
+model ReenrollmentRequest {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  campaignId String
+  campaign   ReenrollmentCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  /** Dénormalisé depuis la campagne — sert à l'unicité par année cible. */
+  targetYearId String
+  targetYear   AcademicYear @relation("ReenrollReqTargetYear", fields: [targetYearId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  /** Inscription de l'année source (nulle pour un retour après interruption). */
+  sourceEnrollmentId String?
+  sourceEnrollment   Enrollment? @relation("ReenrollSource", fields: [sourceEnrollmentId], references: [id], onDelete: SetNull)
+
+  /** Responsable déposant (nul si dépôt administratif). */
+  guardianId String?
+  guardian   Guardian? @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  submittedById String?
+  submittedBy   User?   @relation("ReenrollSubmitter", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  kind   ReenrollmentKind           @default(REENROLL)
+  status ReenrollmentRequestStatus  @default(SUBMITTED)
+
+  /** Souhait exprimé par la famille (changement de niveau/classe). */
+  desiredLevelId     String?
+  desiredLevel       Level?     @relation("ReenrollDesiredLevel", fields: [desiredLevelId], references: [id], onDelete: SetNull)
+  desiredClassroomId String?
+  desiredClassroom   Classroom? @relation("ReenrollDesiredClassroom", fields: [desiredClassroomId], references: [id], onDelete: SetNull)
+
+  /** Progression et classe cible décidées par l'administration. */
+  progression       ReenrollmentProgression?
+  targetClassroomId String?
+  targetClassroom   Classroom? @relation("ReenrollTargetClassroom", fields: [targetClassroomId], references: [id], onDelete: SetNull)
+
+  /** Coordonnées actualisées par la famille — appliquées à la finalisation. */
+  contactUpdate Json?
+  parentNote    String?
+  adminNote     String?
+
+  decisionReason String?
+  decidedById    String?
+  decidedBy      User?     @relation("ReenrollDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt      DateTime?
+
+  newEnrollmentId String?
+  newEnrollment   Enrollment? @relation("ReenrollNew", fields: [newEnrollmentId], references: [id], onDelete: SetNull)
+  completedById   String?
+  completedBy     User?       @relation("ReenrollCompleter", fields: [completedById], references: [id], onDelete: SetNull)
+  completedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ReenrollmentMessage[]
+
+  @@unique([studentId, targetYearId])
+  @@index([schoolId, status])
+  @@index([schoolId, campaignId])
+  @@index([campaignId, status])
+}
+
+/** Fil de discussion d'une demande (compléments, notes internes, décisions). */
+model ReenrollmentMessage {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  requestId String
+  request   ReenrollmentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  kind             String  @default("INFO_REQUEST")
+  body             String
+  createdById      String?
+  createdBy        User?   @relation("ReenrollMsgAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  visibleToParent  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([requestId])
   @@index([schoolId])
 }

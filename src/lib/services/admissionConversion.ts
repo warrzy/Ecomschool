@@ -487,14 +487,6 @@ export async function convertApplication(
     if (!input.matricule?.trim()) {
       return { ok: false, error: "INVALID_INPUT" };
     }
-    const dups = await findPotentialDuplicates(ctx, {
-      lastName: app.candidateLastName,
-      firstName: app.candidateFirstName,
-      birthDate: app.birthDate?.toISOString(),
-    });
-    if (dups.length && !input.acknowledgeDuplicates) {
-      return { ok: false, error: "DUPLICATE_AMBIGUOUS" };
-    }
   }
 
   if (createGuardianNeeded || input.guardianId) {
@@ -503,17 +495,6 @@ export async function convertApplication(
     }
   }
   if (!app.selfApplicant && !input.guardianId && !input.createGuardian) {
-    const candidates = await prisma.guardian.count({
-      where: {
-        schoolId: ctx.schoolId,
-        status: "ACTIVE",
-        OR: [
-          { phone: app.guardianPhone },
-          ...(app.guardianEmail ? [{ email: app.guardianEmail.toLowerCase() }] : []),
-        ],
-      },
-    });
-    if (candidates > 0) return { ok: false, error: "GUARDIAN_AMBIGUOUS" };
     if (!app.guardianLastName?.trim()) {
       return { ok: false, error: "INVALID_INPUT" };
     }
@@ -576,6 +557,33 @@ export async function convertApplication(
         !app.conditionsLiftedAt
       ) {
         throw new ConversionAbort("CONDITIONS_PENDING");
+      }
+
+      // Contrôles d'ambiguïté sous le verrou : une conversion concurrente
+      // ne peut plus fausser la lecture (le rejeu ci-dessus l'a déjà
+      // interceptée), et tout doublon réel reste bloquant.
+      if (!input.studentId) {
+        const dups = await findPotentialDuplicates(ctx, {
+          lastName: app.candidateLastName,
+          firstName: app.candidateFirstName,
+          birthDate: app.birthDate?.toISOString(),
+        });
+        if (dups.length && !input.acknowledgeDuplicates) {
+          throw new ConversionAbort("DUPLICATE_AMBIGUOUS");
+        }
+      }
+      if (!app.selfApplicant && !input.guardianId && !input.createGuardian) {
+        const candidates = await tx.guardian.count({
+          where: {
+            schoolId: ctx.schoolId,
+            status: "ACTIVE",
+            OR: [
+              { phone: app.guardianPhone },
+              ...(app.guardianEmail ? [{ email: app.guardianEmail.toLowerCase() }] : []),
+            ],
+          },
+        });
+        if (candidates > 0) throw new ConversionAbort("GUARDIAN_AMBIGUOUS");
       }
 
       const classroom = await tx.classroom.findFirst({

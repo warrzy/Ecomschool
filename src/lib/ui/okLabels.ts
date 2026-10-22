@@ -96,6 +96,15 @@ const OK_LABELS: Record<string, string> = {
     "Dossier converti, mais la génération des créances a échoué. Relancez-la depuis le dossier financier de l'élève.",
   already_converted: "Dossier déjà converti — l'inscription existante a été vérifiée.",
 
+  // Réinscriptions (G2-E)
+  submitted: "Demande de réinscription enregistrée.",
+  review: "Demande passée en instruction.",
+  info: "Demande de complément envoyée à la famille.",
+  finalized: "Réinscription finalisée : inscription et créances créées.",
+  batch: "Traitement en masse terminé — rapport ci-dessous.",
+  departure: "Départ de l'élève acté.",
+  reply: "Réponse transmise à l'établissement.",
+
   // Documents (G2-A)
   uploaded: "Document déposé.",
   replaced: "Document remplacé.",

@@ -89,6 +89,13 @@ const ERROR_LABELS: Record<string, string> = {
   GUARDIAN_AMBIGUOUS: "Un responsable existant partage le téléphone ou l'email déclaré : choisissez le rattachement ou la création.",
   CONCURRENT: "Une autre conversion est en cours sur ce dossier. Rechargez la page.",
 
+  // Réinscriptions (G2-E)
+  CAMPAIGN_OUT_OF_WINDOW: "La campagne de réinscription n'est pas dans sa période d'ouverture.",
+  NOT_ELIGIBLE: "Cet élève n'est pas éligible à cette campagne de réinscription.",
+  ALREADY_SUBMITTED: "Une demande de réinscription existe déjà pour cet élève et cette année.",
+  UNPAID_BLOCKED: "Réinscription bloquée : des impayés subsistent sur l'année en cours (règle de la campagne).",
+  CHARGES_FAILED: "L'inscription est créée mais la génération des créances a échoué — relancez la finalisation.",
+
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",
   UNSUPPORTED_TYPE: "Ce type de fichier n'est pas accepté (PDF, JPEG ou PNG uniquement).",

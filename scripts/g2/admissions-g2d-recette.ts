@@ -461,6 +461,7 @@ async function submit(
     }),
   ]);
   const wins = [ca, cb].filter((r) => r.ok);
+  if (!(wins.length === 2)) console.log("   ", JSON.stringify({ ca, cb }));
   check("deux conversions simultanées → 1 seule inscription",
     wins.length === 2
     && wins.filter((w) => !w.result.alreadyConverted).length === 1

@@ -1,5 +1,17 @@
 import Link from "next/link";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { errorMessage } from "@/lib/ui/errorLabels";
+import { okMessage } from "@/lib/ui/okLabels";
+import { SubmitButton } from "@/components/ui/SubmitButton";
+import {
+  listParentReenrollmentDocs,
+  parentReenrollmentView,
+} from "@/lib/services/reenrollment";
+import {
+  replyReenrollAction,
+  submitReenrollAction,
+  uploadReenrollDocAction,
+} from "./actions";
 import {
   getChildAttendance,
   getChildGrades,
@@ -34,8 +46,19 @@ const TABS = [
   ["bulletins", "Bulletins"],
   ["absences", "Absences"],
   ["finances", "Finances"],
+  ["reinscription", "Réinscription"],
   ["annonces", "Annonces"],
 ] as const;
+
+const REENROLL_STATUS: Record<string, string> = {
+  SUBMITTED: "Demande déposée",
+  UNDER_REVIEW: "En cours d'instruction",
+  ADDITIONAL_INFO_REQUIRED: "Complément demandé",
+  APPROVED: "Approuvée — finalisation en cours",
+  REJECTED: "Refusée",
+  COMPLETED: "Inscription finalisée",
+  CANCELLED: "Annulée",
+};
 
 const GRADE_STATUS: Record<string, string> = {
   ENTERED: "",
@@ -81,9 +104,21 @@ export default async function ParentPage(props: {
   const allowed = await verifyChildAccess(ctx, childId);
   const tab = str("tab") ?? "apercu";
 
+  const errCode = str("error");
+  const okCode = str("ok");
   return (
     <div className="space-y-4">
       <h1 className="sr-only">Espace parent — suivi scolaire</h1>
+      {errCode ? (
+        <div role="alert" className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-800">
+          {errorMessage(errCode)}
+        </div>
+      ) : null}
+      {okCode ? (
+        <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
+          {okMessage(okCode)}
+        </div>
+      ) : null}
       {/* Sélecteur d'enfant */}
       <div className="flex gap-2 overflow-x-auto pb-1">
         {children.map((c) => (
@@ -379,6 +414,10 @@ async function ParentTab({
     );
   }
 
+  if (tab === "reinscription") {
+    return <ReenrollTab ctx={ctx} studentId={studentId} />;
+  }
+
   const announcements = await listPublishedAnnouncements(schoolId, "PARENTS");
   return (
     <div className="space-y-3">
@@ -395,5 +434,203 @@ async function ParentTab({
         <Card><p className="text-sm text-zinc-600">Aucune annonce.</p></Card>
       )}
     </div>
+  );
+}
+
+/** Onglet réinscription — limité à l'enfant sélectionné. */
+async function ReenrollTab({
+  ctx,
+  studentId,
+}: {
+  ctx: { userId: string; schoolId: string };
+  studentId: string;
+}) {
+  const view = await parentReenrollmentView(ctx);
+  if (!view.campaigns.length) {
+    return (
+      <Card title="Réinscription">
+        <p className="text-sm text-zinc-600">
+          Aucune campagne de réinscription n&apos;est ouverte actuellement.
+        </p>
+      </Card>
+    );
+  }
+
+  const items = [];
+  for (const c of view.campaigns) {
+    const mine = c.children.find((ch) => ch.student.id === studentId);
+    if (mine) items.push({ campaign: c, mine });
+  }
+  if (!items.length) {
+    return (
+      <Card title="Réinscription">
+        <p className="text-sm text-zinc-600">
+          Aucune campagne de réinscription ne concerne cet enfant.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.map(({ campaign: c, mine }) => (
+        <Card key={c.id} title={`${c.name} — clôture le ${c.closesAt.toISOString().slice(0, 10)}`}>
+          {c.familyMessage ? (
+            <p className="mb-2 text-sm italic text-zinc-600">{c.familyMessage}</p>
+          ) : null}
+          {mine.request ? (
+            <div className="space-y-3">
+              <p className="text-sm">
+                Statut : <strong>{REENROLL_STATUS[mine.request.status] ?? mine.request.status}</strong>
+                {mine.request.kind === "DEPARTURE" ? " (départ signalé)" : ""}
+              </p>
+              {mine.request.decisionReason ? (
+                <p className="text-sm text-zinc-600">Motif : {mine.request.decisionReason}</p>
+              ) : null}
+              {mine.request.messages.length ? (
+                <ul className="space-y-1 border-l-2 border-zinc-200 pl-3 text-xs text-zinc-600">
+                  {mine.request.messages.map((m, i) => (
+                    <li key={i}>
+                      <span className="text-zinc-400">
+                        {m.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+                      </span>
+                      {" — "}
+                      {m.body}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {["SUBMITTED", "UNDER_REVIEW", "ADDITIONAL_INFO_REQUIRED"].includes(
+                mine.request.status,
+              ) ? (
+                <>
+                  <form action={replyReenrollAction} className="flex items-end gap-2">
+                    <input type="hidden" name="requestId" value={mine.request.id} />
+                    <label className="flex-1 text-xs font-medium text-zinc-600">
+                      Votre réponse à l&apos;établissement
+                      <input
+                        aria-label="Réponse"
+                        name="reply"
+                        required
+                        className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+                      />
+                    </label>
+                    <SubmitButton className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-mist">
+                      Envoyer
+                    </SubmitButton>
+                  </form>
+                  {c.requiredDocs.length ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-zinc-500">Pièces demandées</p>
+                      <ParentDocs requestId={mine.request.id} ctx={ctx} />
+                      {c.requiredDocs.map((d) => (
+                        <form key={d.key} action={uploadReenrollDocAction} className="mt-2 flex items-end gap-2">
+                          <input type="hidden" name="requestId" value={mine.request!.id} />
+                          <input type="hidden" name="docKey" value={d.key} />
+                          <label className="text-xs font-medium text-zinc-600">
+                            {d.label}
+                            <input
+                              aria-label={`Pièce ${d.label}`}
+                              name="file"
+                              type="file"
+                              required
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              className="mt-1 block text-sm"
+                            />
+                          </label>
+                          <SubmitButton className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                            Déposer
+                          </SubmitButton>
+                        </form>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          ) : mine.eligible ? (
+            <form action={submitReenrollAction} className="space-y-2">
+              <input type="hidden" name="campaignId" value={c.id} />
+              <input type="hidden" name="studentId" value={mine.student.id} />
+              {mine.sourceClassroom ? (
+                <p className="text-xs text-zinc-500">Classe actuelle : {mine.sourceClassroom}</p>
+              ) : null}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="text-xs font-medium text-zinc-600">
+                  Choix
+                  <select
+                    aria-label="Choix de réinscription"
+                    name="kind"
+                    className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+                  >
+                    <option value="REENROLL">Réinscrire pour l&apos;année prochaine</option>
+                    <option value="DEPARTURE">Signaler un départ</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-zinc-600">
+                  Niveau souhaité (optionnel)
+                  <select
+                    aria-label="Niveau souhaité"
+                    name="desiredLevelId"
+                    className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+                  >
+                    <option value="">— Sans changement —</option>
+                    {c.levels.map((l) => (
+                      <option key={l.id} value={l.id}>{l.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <label className="text-xs font-medium text-zinc-600">
+                  Téléphone (si changé)
+                  <input aria-label="Téléphone" name="phone" className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm" />
+                </label>
+                <label className="text-xs font-medium text-zinc-600">
+                  Email (si changé)
+                  <input aria-label="Email" name="email" type="email" className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm" />
+                </label>
+                <label className="text-xs font-medium text-zinc-600">
+                  Adresse (si changée)
+                  <input aria-label="Adresse" name="address" className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm" />
+                </label>
+              </div>
+              <label className="block text-xs font-medium text-zinc-600">
+                Message à l&apos;établissement (optionnel)
+                <input aria-label="Message" name="note" className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm" />
+              </label>
+              <SubmitButton className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                Envoyer la demande
+              </SubmitButton>
+            </form>
+          ) : (
+            <p className="text-sm text-zinc-600">
+              Cet enfant n&apos;est pas éligible à cette campagne.
+            </p>
+          )}
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/** Pièces déjà déposées par le parent sur sa demande. */
+async function ParentDocs({
+  ctx,
+  requestId,
+}: {
+  ctx: { userId: string; schoolId: string };
+  requestId: string;
+}) {
+  const docs = await listParentReenrollmentDocs(ctx, requestId);
+  if (!docs.length) return null;
+  return (
+    <ul className="mt-1 space-y-1 text-xs text-zinc-600">
+      {docs.map((d) => (
+        <li key={d.id}>
+          {d.label} — {d.originalName} ({Math.ceil(d.sizeBytes / 1024)} Ko)
+        </li>
+      ))}
+    </ul>
   );
 }

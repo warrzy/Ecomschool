@@ -63,6 +63,7 @@ export const ALLOWED_MIME_TYPES = MAGIC.map((m) => m.mime);
 export const DOCUMENT_OWNER_TYPES = [
   "STANDALONE",
   "ADMISSION",
+  "REENROLLMENT",
   "STUDENT",
   "GUARDIAN",
   "ENROLLMENT",
@@ -123,6 +124,14 @@ export async function canReadDocument(ctx: SchoolCtx, doc: Document) {
   if (doc.ownerType === "ADMISSION") {
     return hasPerm(ctx, "admissions.review");
   }
+  // Pièces de réinscription : agents habilités `reenrollments.review` ;
+  // le parent déposant relit ses propres pièces via son compte.
+  if (doc.ownerType === "REENROLLMENT") {
+    return (
+      doc.uploadedById === ctx.userId ||
+      (await hasPerm(ctx, "reenrollments.review"))
+    );
+  }
   if (await hasPerm(ctx, "documents.manage")) return true;
   if (!(await hasPerm(ctx, "documents.read"))) return false;
   return isOwnerReadable(ctx, doc);
@@ -133,6 +142,11 @@ async function canMutateDocument(ctx: SchoolCtx, doc: Document) {
   // `documents.manage`) — le déposant gère ses pièces via le suivi
   // sécurisé ; la purge reste un traitement administratif dédié.
   if (doc.ownerType === "ADMISSION") return false;
+  // Pièces de réinscription : comme les candidatures, aucune mutation
+  // par un agent — le parent déposant remplace via le portail.
+  if (doc.ownerType === "REENROLLMENT") {
+    return doc.uploadedById === ctx.userId;
+  }
   if (await hasPerm(ctx, "documents.manage")) return true;
   if (!(await hasPerm(ctx, "documents.upload"))) return false;
   // Le déposant peut remplacer/supprimer sa propre pièce tant qu'elle est
