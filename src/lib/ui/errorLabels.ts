@@ -71,6 +71,7 @@ const ERROR_LABELS: Record<string, string> = {
   PROVIDER_TIMEOUT: "Le prestataire n'a pas répondu dans le délai imparti.",
   INITIATE_FAILED: "L'initiation du paiement a échoué.",
   NOT_SANDBOX: "Action réservée au fournisseur simulateur.",
+  POSTING_SANDBOX_FORBIDDEN: "Une intention simulée ne peut pas devenir un encaissement réel.",
 
   // Abonnement / limites commerciales
   LIMIT_REACHED: "La limite de votre abonnement est atteinte. Contactez ECOM-TOUCH.",

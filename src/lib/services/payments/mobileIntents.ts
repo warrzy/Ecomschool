@@ -39,6 +39,21 @@ const ACTIVE_STATUSES = ["CREATED", "PENDING", "CONFIRMED_PENDING_POSTING"] as c
 const MIN_INTENT_TTL_MIN = 15;
 const DEFAULT_INTENT_TTL_MIN = 24 * 60;
 
+/**
+ * Marqueur serveur « simulé » — déterminé côté serveur uniquement,
+ * jamais par un paramètre client. Une intention est simulée si son
+ * fournisseur est SANDBOX, si son adaptateur est le simulateur, ou si
+ * le script sandbox a été figé à la création. Aucune bascule de mode
+ * ou de configuration ne peut la transformer rétroactivement en
+ * intention LIVE.
+ */
+function isSimulated(i: {
+  sandboxScript: unknown;
+  provider: { mode: string; code: string };
+}): boolean {
+  return i.provider.mode === "SANDBOX" || i.provider.code === "SANDBOX" || i.sandboxScript != null;
+}
+
 // ─── Fournisseurs ───────────────────────────────────────────────────
 
 export async function createPaymentProvider(
@@ -208,17 +223,22 @@ export async function createPaymentIntent(
   const ttlMin = Math.max(input.sandboxOutcome === "LATE" ? MIN_INTENT_TTL_MIN : DEFAULT_INTENT_TTL_MIN, MIN_INTENT_TTL_MIN);
   const expiresAt = new Date(Date.now() + ttlMin * 60_000);
 
-  // Une seule intention active par élève/année — sérialisé par verrou
-  // consultatif, puis vérifié dans la transaction (protection concurrence).
+  // Une seule intention active PAR OPÉRATION MÉTIER — (élève, année,
+  // échéance cible). Les opérations indépendantes (autre échéance,
+  // paiement partiel après confirmation, nouvelle tentative après
+  // échec/expiration/annulation) restent autorisées ; l'index partiel
+  // `payment_intent_one_active_per_op` fait foi en base.
+  const opKey = `${student.id}:${year.id}:${input.feeInstallmentId ?? ""}`;
   let intentId = "";
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"mm-intent:" + student.id + ":" + year.id}))`;
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"mm-intent:" + opKey}))`;
       const activeCount = await tx.paymentIntent.count({
         where: {
           schoolId: ctx.schoolId,
           studentId: student.id,
           academicYearId: year.id,
+          feeInstallmentId: input.feeInstallmentId ?? null,
           status: { in: [...ACTIVE_STATUSES] },
         },
       });
@@ -248,7 +268,7 @@ export async function createPaymentIntent(
         action: "payment_intent.created", entity: "PaymentIntent", entityId: intent.id,
         metadata: {
           amount: input.amount, currency: input.currency, provider: provider.code,
-          channel, simulated: provider.mode === "SANDBOX",
+          channel, simulated: provider.mode === "SANDBOX" || provider.code === "SANDBOX",
         },
         tx,
       });
@@ -264,6 +284,18 @@ export async function createPaymentIntent(
       return { ok: true, data: { intentId: again.id, providerRef: again.providerRef ?? "", replayed: true, active: true } };
     }
     if (again) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
+    // Conflit sur l'index partiel (même opération déjà active) — la
+    // contrainte de base fait foi face à une course résiduelle.
+    const active = await prisma.paymentIntent.count({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId: student.id,
+        academicYearId: year.id,
+        feeInstallmentId: input.feeInstallmentId ?? null,
+        status: { in: [...ACTIVE_STATUSES] },
+      },
+    });
+    if (active > 0) return { ok: false, error: "ACTIVE_INTENT_EXISTS" };
     return { ok: false, error: "CREATE_FAILED" };
   }
 
@@ -408,13 +440,15 @@ export async function pollPaymentIntent(
  * Confirme une intention — appelé uniquement après vérification fiable
  * (statut prestataire consulté ou, en G3-B, webhook signé vérifié).
  * Sérialisé par verrou : confirmations répétées/simultanées → no-op
- * idempotent. `postToLedger` déclenche `recordPayment` (moteur F3) ;
- * en G3-A il est réservé aux tests d'intégration isolés.
+ * idempotent. `postToLedger` déclenche `recordPayment` (moteur F3) —
+ * refusé pour toute intention simulée sauf `__allowSandboxPosting`,
+ * indicateur INTERNE réservé aux recettes sur fixtures isolées et
+ * jamais positionné par les actions serveur exposées.
  */
 export async function confirmIntent(
   ctx: Ctx,
   intentId: string,
-  opts: { providerTxId?: string; postToLedger?: boolean } = {},
+  opts: { providerTxId?: string; postToLedger?: boolean; __allowSandboxPosting?: boolean } = {},
 ): Promise<Res<{ status: string; paymentId?: string; already?: boolean }>> {
   // Phase 1 — verrou + transition d'état.
   const first = await prisma.$transaction(async (tx) => {
@@ -426,6 +460,10 @@ export async function confirmIntent(
     if (!intent) throw new Error("NOT_FOUND");
     if (intent.status === "CONFIRMED") {
       return { intent, already: true as const };
+    }
+    const simulated = isSimulated(intent);
+    if (opts.postToLedger && simulated && !opts.__allowSandboxPosting) {
+      throw new Error("POSTING_SANDBOX_FORBIDDEN");
     }
     if (intent.status !== "PENDING" && intent.status !== "CONFIRMED_PENDING_POSTING") {
       throw new Error("INVALID_STATE");
@@ -452,7 +490,7 @@ export async function confirmIntent(
         providerTxId: opts.providerTxId ?? intent.providerTxId ?? intent.providerRef,
         payload: {
           status: target,
-          simulated: intent.provider.mode === "SANDBOX",
+          simulated,
           postToLedger: opts.postToLedger === true,
         },
       },
@@ -463,7 +501,7 @@ export async function confirmIntent(
       metadata: {
         amount: intent.amount,
         providerTxId: opts.providerTxId ?? null,
-        simulated: intent.provider.mode === "SANDBOX",
+        simulated,
         postToLedger: opts.postToLedger === true,
       },
       tx,
@@ -482,7 +520,9 @@ export async function confirmIntent(
 
   // Phase 2 — comptabilisation via le moteur existant (hors transaction).
   if (opts.postToLedger && !intent.paymentId) {
-    return postConfirmedIntent(ctx, intent.id);
+    return postConfirmedIntent(ctx, intent.id, {
+      __allowSandboxPosting: opts.__allowSandboxPosting,
+    });
   }
 
   // Confirmation simulée ou sans comptabilisation : notification.
@@ -504,10 +544,13 @@ export async function confirmIntent(
  * l'encaissement existant.
  */
 export async function postConfirmedIntent(
-  ctx: Ctx, intentId: string,
+  ctx: Ctx,
+  intentId: string,
+  opts: { __allowSandboxPosting?: boolean } = {},
 ): Promise<Res<{ status: string; paymentId?: string; already?: boolean }>> {
   const intent = await prisma.paymentIntent.findFirst({
     where: { id: intentId, schoolId: ctx.schoolId },
+    include: { provider: { select: { mode: true, code: true } } },
   });
   if (!intent) return { ok: false, error: "NOT_FOUND" };
   if (intent.status === "CONFIRMED" && intent.paymentId) {
@@ -515,6 +558,11 @@ export async function postConfirmedIntent(
   }
   if (intent.status !== "CONFIRMED_PENDING_POSTING") {
     return { ok: false, error: "INVALID_STATE" };
+  }
+  // Barrière serveur : une intention simulée ne devient jamais un
+  // encaissement opérationnel (sauf recette interne explicitée).
+  if (isSimulated(intent) && !opts.__allowSandboxPosting) {
+    return { ok: false, error: "POSTING_SANDBOX_FORBIDDEN" };
   }
 
   const pay = await recordPayment(

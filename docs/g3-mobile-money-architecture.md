@@ -251,3 +251,52 @@ schéma additif, abstraction, sandbox, guichet — sans contact
 prestataire. G3-B/C/D enchaînables sans dépendance externe. Le premier
 contact commercial (agrégateur ou opérateur) n'est nécessaire qu'en
 G3-E.
+
+## 11. Durcissement G3-A — garanties d'atomicité et barrière sandbox
+
+Durcissement appliqué avant déploiement préproduction (commit post-8e60720).
+
+### Barrière SANDBOX / LIVE
+
+- Une intention est « simulée » d'après un **marqueur serveur** :
+  `provider.mode === "SANDBOX"`, `provider.code === "SANDBOX"`
+  (l'adaptateur résolu reste le simulateur) ou `sandboxScript` figé à
+  la création. Aucun paramètre client ni bascule rétroactive de mode
+  ne peut requalifier une intention en LIVE.
+- `confirmIntent` et `postConfirmedIntent` refusent toute
+  comptabilisation d'une intention simulée
+  (`POSTING_SANDBOX_FORBIDDEN`) sauf `__allowSandboxPosting` —
+  indicateur **interne** jamais positionné par les actions serveur
+  exposées, réservé aux recettes sur fixtures isolées et nettoyées.
+- Un fournisseur LIVE sans adaptateur enregistré ni configuration
+  sécurisée est refusé à la création (`PROVIDER_UNAVAILABLE`).
+
+### Granularité des intentions
+
+- L'unicité d'intention active porte sur l'**opération métier**
+  `(schoolId, studentId, academicYearId, COALESCE(feeInstallmentId,''))`
+  — index partiel `payment_intent_one_active_per_op` en base.
+- Conséquences autorisées : échéances distinctes en parallèle,
+  versements partiels successifs, nouvelle tentative après
+  `FAILED`/`EXPIRED`/`CANCELLED`, opérations indépendantes.
+- Protection conservée : doublon de la même opération (même cible,
+  état actif) rejeté applicativement **et** par la contrainte.
+
+### Garanties de reprise après incident
+
+| Scénario | Garantie |
+|---|---|
+| 2 confirmations simultanées | Verrou `mm-confirm:{id}` — une seule passe, l'autre `already` |
+| Timeout pendant la confirmation | Intention inchangée ou `PENDING_POSTING` — aucun encaissement perdu |
+| Crash après confirmation prestataire, avant `recordPayment` | `CONFIRMED_PENDING_POSTING` persiste → `postConfirmedIntent` reprend |
+| Crash après `recordPayment`, avant maj intention | Clé `mm:{intentId}` idempotente → le repost rattache le paiement existant, aucun doublon |
+| Rejeu après redémarrage | Même clé + même contenu → même intention ; posting replays → `already` |
+| Journée clôturée (`CLOSED_DAY`) | `CONFIRMED_PENDING_POSTING`, aucun `Payment` — repost après réouverture |
+| Réouverture + repost | `recordPayment` rejoue la clé → rattachement, échéance soldée une fois |
+
+### Dépendant de G3-B (non encore garanti)
+
+- Fiabilité de la source de confirmation : aujourd'hui `pollPaymentIntent`
+  (pull). En G3-B, webhooks signés + `WebhookEvent` dédupliqué.
+- Repost automatique des `CONFIRMED_PENDING_POSTING` (job cron dédié).
+- Notification famille/caisse après encaissement réel.

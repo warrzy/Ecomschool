@@ -406,7 +406,8 @@ export default async function PaiementsMobilePage(props: {
                 </SubmitButton>
               </form>
             )}
-            {canManage && detail.status === "CONFIRMED_PENDING_POSTING" && (
+            {canManage && detail.status === "CONFIRMED_PENDING_POSTING" &&
+              detail.provider.mode !== "SANDBOX" && (
               <form action={postIntentAction}>
                 <input type="hidden" name="intentId" value={detail.id} />
                 <SubmitButton className={btnPrimary} pendingLabel="Comptabilisation…">

@@ -10,7 +10,9 @@
  */
 import "dotenv/config";
 import { prisma } from "../../src/lib/db/prisma";
+import { PaymentMethod } from "@prisma/client";
 import { userHasSchoolPermission } from "../../src/lib/permissions/rbac";
+import { recordPayment } from "../../src/lib/services/finance/payments";
 import {
   cancelPaymentIntent,
   confirmIntent,
@@ -335,6 +337,86 @@ async function main() {
     check("annulation tracée (CANCEL)", detC?.transactions.some((t) => t.kind === "CANCEL") === true);
   }
 
+  // ---------- Granularité par opération métier ----------
+  console.log("\n— Granularité —");
+  const sG = await mkStudent("G3A-GR1", school.id);
+  const chG1 = await prisma.studentFeeCharge.create({
+    data: { schoolId: school.id, studentId: sG.id, academicYearId: year.id, categoryId: cat.id, amount: 40000 },
+  });
+  const cat2 = await prisma.feeCategory.create({ data: { schoolId: school.id, code: "INSC", label: "Inscription" } });
+  const chG2 = await prisma.studentFeeCharge.create({
+    data: { schoolId: school.id, studentId: sG.id, academicYearId: year.id, categoryId: cat2.id, amount: 20000 },
+  });
+  const instG1 = await prisma.feeInstallment.create({
+    data: { schoolId: school.id, chargeId: chG1.id, studentId: sG.id, academicYearId: year.id, dueDate: new Date("2026-11-01"), amount: 40000 },
+  });
+  const instG2 = await prisma.feeInstallment.create({
+    data: { schoolId: school.id, chargeId: chG2.id, studentId: sG.id, academicYearId: year.id, dueDate: new Date("2027-01-01"), amount: 20000 },
+  });
+  const gA = await createPaymentIntent(ctxA, {
+    studentId: sG.id, academicYearId: year.id, amount: 40000, currency: "XOF",
+    providerId, feeInstallmentId: instG1.id, sandboxOutcome: "PENDING",
+  });
+  const gB = await createPaymentIntent(ctxA, {
+    studentId: sG.id, academicYearId: year.id, amount: 20000, currency: "XOF",
+    providerId, feeInstallmentId: instG2.id, sandboxOutcome: "PENDING",
+  });
+  check("deux échéances distinctes → 2 intentions actives", gA.ok && gB.ok);
+  const gDup = await createPaymentIntent(ctxA, {
+    studentId: sG.id, academicYearId: year.id, amount: 5000, currency: "XOF",
+    providerId, feeInstallmentId: instG1.id,
+  });
+  check("doublon sur la même échéance → ACTIVE_INTENT_EXISTS", !gDup.ok && gDup.error === "ACTIVE_INTENT_EXISTS");
+  // Paiement partiel séquentiel : confirmer gB partiellement... le montant est
+  // figé, donc nouveau versement = nouvelle intention après confirmation.
+  await pollPaymentIntent(ctxA, gB.ok ? gB.data.intentId : "");
+  // gB reste PENDING (script PENDING) → confirmer explicitement.
+  await confirmIntent(ctxA, gB.ok ? gB.data.intentId : "");
+  const gPartial2 = await createPaymentIntent(ctxA, {
+    studentId: sG.id, academicYearId: year.id, amount: 8000, currency: "XOF",
+    providerId, feeInstallmentId: instG2.id, sandboxOutcome: "PENDING",
+  });
+  check("versement partiel après confirmation → nouvelle intention ok", gPartial2.ok);
+  // Nouvelle tentative après échec (s3 FAILED) et après expiration (s8).
+  const retryFail = await createPaymentIntent(ctxA, {
+    studentId: s3.id, academicYearId: year.id, amount: 8000, currency: "XOF", providerId,
+  });
+  check("nouvelle tentative après FAILED", retryFail.ok);
+  const retryExp = await createPaymentIntent(ctxA, {
+    studentId: s8.id, academicYearId: year.id, amount: 7000, currency: "XOF", providerId,
+  });
+  check("nouvelle tentative après EXPIRED", retryExp.ok);
+  if (retryFail.ok) await cancelPaymentIntent(ctxA, retryFail.data.intentId, "TEST");
+  if (retryExp.ok) await cancelPaymentIntent(ctxA, retryExp.data.intentId, "TEST");
+
+  // ---------- Séparation SANDBOX / comptabilisation ----------
+  console.log("\n— Barrière SANDBOX —");
+  const sb1 = await createPaymentIntent(ctxA, {
+    studentId: sG.id, academicYearId: year.id, amount: 3000, currency: "XOF",
+    providerId, sandboxOutcome: "PENDING",
+  });
+  const sb1Id = sb1.ok ? sb1.data.intentId : "";
+  const postDenied = await confirmIntent(ctxA, sb1Id, { postToLedger: true });
+  check("confirm sandbox + postToLedger sans drapeau interne → refusé",
+    !postDenied.ok && postDenied.error === "POSTING_SANDBOX_FORBIDDEN");
+  check("intention sandbox inchangée après refus",
+    (await getPaymentIntent(ctxA, sb1Id))?.status === "PENDING");
+  // Forcer l'état PENDING_POSTING puis appeler postConfirmedIntent sans drapeau.
+  await prisma.paymentIntent.update({ where: { id: sb1Id }, data: { status: "CONFIRMED_PENDING_POSTING" } });
+  const postDenied2 = await postConfirmedIntent(ctxA, sb1Id);
+  check("postConfirmedIntent sandbox sans drapeau → refusé",
+    !postDenied2.ok && postDenied2.error === "POSTING_SANDBOX_FORBIDDEN");
+  // Bascule rétroactive du mode fournisseur : le marqueur serveur tient.
+  await prisma.paymentProvider.update({ where: { id: providerId }, data: { mode: "LIVE" } });
+  const postDenied3 = await postConfirmedIntent(ctxA, sb1Id);
+  check("bascule mode LIVE rétroactive → toujours refusée",
+    !postDenied3.ok && postDenied3.error === "POSTING_SANDBOX_FORBIDDEN");
+  await prisma.paymentProvider.update({ where: { id: providerId }, data: { mode: "SANDBOX" } });
+  await prisma.paymentIntent.update({ where: { id: sb1Id }, data: { status: "PENDING" } });
+  check("aucun paiement créé par ces tentatives",
+    (await prisma.payment.count({ where: { studentId: sG.id } })) === 0);
+  await cancelPaymentIntent(ctxA, sb1Id, "TEST");
+
   // ---------- Concurrence de création ----------
   console.log("\n— Concurrence —");
   const s9 = await mkStudent("G3A-009", school.id);
@@ -409,7 +491,8 @@ async function main() {
   });
   check("intention ciblée sur une échéance", ip1.ok);
   const idp1 = ip1.ok ? ip1.data.intentId : "";
-  const confPost = await confirmIntent(ctxA, idp1, { providerTxId: "SBTX-POST-1", postToLedger: true });
+  const TEST_POST = { __allowSandboxPosting: true }; // fixture isolée uniquement
+  const confPost = await confirmIntent(ctxA, idp1, { providerTxId: "SBTX-POST-1", postToLedger: true, ...TEST_POST });
   check("confirmation + comptabilisation → CONFIRMED + paymentId",
     confPost.ok && confPost.data.status === "CONFIRMED" && !!confPost.data.paymentId);
   const detP1 = await getPaymentIntent(ctxA, idp1);
@@ -418,10 +501,40 @@ async function main() {
     where: { installmentId: inst.id },
   });
   check("échéance soldée par l'encaissement", alloc?.amount === 25000);
-  const repost = await postConfirmedIntent(ctxA, idp1);
+  const repost = await postConfirmedIntent(ctxA, idp1, TEST_POST);
   check("repost idempotent → déjà comptabilisé", repost.ok && repost.data.already === true);
   check("aucun double encaissement",
     (await prisma.payment.count({ where: { schoolId: school.id } })) === 1);
+
+  // Crash après `recordPayment` mais avant mise à jour de l'intention :
+  // le paiement existe déjà sous la clé `mm:{id}` — le repost rattache
+  // l'existant sans doublon.
+  const sC = await mkStudent("G3A-CR1", school.id);
+  const chC = await prisma.studentFeeCharge.create({
+    data: { schoolId: school.id, studentId: sC.id, academicYearId: year.id, categoryId: cat.id, amount: 6000 },
+  });
+  await prisma.feeInstallment.create({
+    data: { schoolId: school.id, chargeId: chC.id, studentId: sC.id, academicYearId: year.id, dueDate: new Date("2026-12-01"), amount: 6000 },
+  });
+  const ipC = await createPaymentIntent(ctxA, {
+    studentId: sC.id, academicYearId: year.id, amount: 6000, currency: "XOF",
+    providerId, sandboxOutcome: "PENDING",
+  });
+  const idC = ipC.ok ? ipC.data.intentId : "";
+  // Simulation du crash : paiement créé, intention restée PENDING_POSTING.
+  await recordPayment(ctxA, {
+    studentId: sC.id, academicYearId: year.id, amount: 6000,
+    method: PaymentMethod.MOBILE_MONEY, reference: "SBTX-CRASH",
+    idempotencyKey: `mm:${idC}`,
+  });
+  await prisma.paymentIntent.update({ where: { id: idC }, data: { status: "CONFIRMED_PENDING_POSTING" } });
+  const countBefore = await prisma.payment.count({ where: { studentId: sC.id } });
+  const repostC = await postConfirmedIntent(ctxA, idC, TEST_POST);
+  const detC2 = await getPaymentIntent(ctxA, idC);
+  check("crash post-recordPayment → repost rattache l'existant",
+    repostC.ok && repostC.data.status === "CONFIRMED" && detC2?.status === "CONFIRMED");
+  check("crash : aucun doublon d'encaissement",
+    (await prisma.payment.count({ where: { studentId: sC.id } })) === countBefore);
 
   // CLOSED_DAY : confirmation puis jour clôturé → CONFIRMED_PENDING_POSTING.
   const s10 = await mkStudent("G3A-010", school.id);
@@ -443,17 +556,17 @@ async function main() {
   const closure = await prisma.cashClosure.create({
     data: { schoolId: school.id, date: today, totalAmount: 0, paymentsCount: 0, closedById: admin.id },
   });
-  const confClosed = await confirmIntent(ctxA, idp2, { postToLedger: true });
+  const confClosed = await confirmIntent(ctxA, idp2, { postToLedger: true, ...TEST_POST });
   check("jour clôturé → CONFIRMED_PENDING_POSTING (rien perdu)",
     confClosed.ok && confClosed.data.status === "CONFIRMED_PENDING_POSTING");
   check("jour clôturé : aucun paiement créé",
     (await prisma.payment.count({ where: { studentId: s10.id } })) === 0);
   await prisma.cashClosure.delete({ where: { id: closure.id } });
-  const repost2 = await postConfirmedIntent(ctxA, idp2);
+  const repost2 = await postConfirmedIntent(ctxA, idp2, TEST_POST);
   check("repost après réouverture → CONFIRMED + encaissement",
     repost2.ok && repost2.data.status === "CONFIRMED" && !!repost2.data.paymentId);
-  check("2 paiements réels au total (uniquement ceux comptabilisés)",
-    (await prisma.payment.count({ where: { schoolId: school.id } })) === 2);
+  check("3 paiements réels au total (uniquement ceux comptabilisés)",
+    (await prisma.payment.count({ where: { schoolId: school.id } })) === 3);
 
   // ---------- Nettoyage ----------
   const doCleanup = process.env.G3A_CLEANUP === "1";
