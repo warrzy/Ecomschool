@@ -129,6 +129,62 @@ export function Donut(props: { items: ChartPoint[]; centerLabel?: string }) {
   );
 }
 
+export type FlowPoint = { label: string; collected: number; disbursed: number };
+
+/** Colonnes jumelées entrées/sorties (trésorerie) : leaf = encaissé, coral = décaissé. */
+export function FlowBars(props: { items: FlowPoint[]; format?: (n: number) => string }) {
+  const max = Math.max(0, ...props.items.flatMap((i) => [i.collected, i.disbursed]));
+  const fmt = props.format ?? ((n: number) => n.toLocaleString("fr-FR"));
+  if (props.items.length === 0) return null;
+  const h = (v: number) => (max > 0 && v > 0 ? `${Math.max(4, (v / max) * 100)}%` : "3%");
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-4 text-xs text-zinc-600">
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-leaf-500" />
+          Encaissé
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-coral-400" />
+          Décaissé
+        </span>
+      </div>
+      <div
+        role="img"
+        aria-label={props.items
+          .map((i) => `${i.label} : encaissé ${fmt(i.collected)}, décaissé ${fmt(i.disbursed)}`)
+          .join(", ")}
+      >
+        <div className="flex h-36 items-end gap-2">
+          {props.items.map((item) => (
+            <div key={item.label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+              <div className="flex h-24 w-full items-end justify-center gap-1">
+                <div
+                  className={`w-full max-w-4 rounded-t-lg motion-safe:transition-[height] motion-safe:duration-500 ${
+                    item.collected > 0 ? "bg-leaf-500" : "bg-zinc-100"
+                  }`}
+                  style={{ height: h(item.collected) }}
+                  title={`${item.label} — encaissé : ${fmt(item.collected)}`}
+                />
+                <div
+                  className={`w-full max-w-4 rounded-t-lg motion-safe:transition-[height] motion-safe:duration-500 ${
+                    item.disbursed > 0 ? "bg-coral-400" : "bg-zinc-100"
+                  }`}
+                  style={{ height: h(item.disbursed) }}
+                  title={`${item.label} — décaissé : ${fmt(item.disbursed)}`}
+                />
+              </div>
+              <span className="w-full truncate text-center text-[0.65rem] text-zinc-500">
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Colonnes mensuelles : évolution (inscriptions, encaissements). */
 export function TrendBars(props: {
   items: ChartPoint[];
