@@ -88,6 +88,13 @@ const OK_LABELS: Record<string, string> = {
   note: "Note interne ajoutée.",
   complement: "Demande de complément envoyée au candidat.",
   interview: "Entretien enregistré.",
+  conditions_lifted: "Conditions de l'admission levées — conversion possible.",
+  converted: "Dossier converti : élève, responsable, inscription et créances créés.",
+  converted_no_tariffs:
+    "Dossier converti et inscription créée. Aucun tarif n'est configuré : les créances seront à générer depuis le dossier financier.",
+  converted_charges_failed:
+    "Dossier converti, mais la génération des créances a échoué. Relancez-la depuis le dossier financier de l'élève.",
+  already_converted: "Dossier déjà converti — l'inscription existante a été vérifiée.",
 
   // Documents (G2-A)
   uploaded: "Document déposé.",

@@ -1200,6 +1200,17 @@ export async function getApplicationDetail(ctx: SchoolCtx, id: string) {
       targetClassroom: { select: { name: true } },
       assignedTo: { select: { id: true, firstName: true, lastName: true, email: true } },
       decidedBy: { select: { firstName: true, lastName: true } },
+      convertedBy: { select: { firstName: true, lastName: true } },
+      conditionsLiftedBy: { select: { firstName: true, lastName: true } },
+      student: { select: { id: true, matricule: true, firstName: true, lastName: true } },
+      guardian: { select: { id: true, firstName: true, lastName: true } },
+      enrollment: {
+        select: {
+          id: true,
+          status: true,
+          classroom: { select: { name: true } },
+        },
+      },
       events: { orderBy: { createdAt: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
       interviews: { orderBy: { scheduledAt: "desc" } },

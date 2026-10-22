@@ -82,6 +82,12 @@ const ERROR_LABELS: Record<string, string> = {
   RATE_LIMITED: "Trop de tentatives — réessayez dans quelques instants.",
   CONFIG_ERROR: "Configuration indisponible — contactez l'administrateur.",
   CAPACITY_FULL: "La capacité de la campagne est atteinte : placez le dossier en liste d'attente ou augmentez le plafond.",
+  // Conversion (G2-D)
+  CONDITIONS_PENDING: "Les conditions de l'admission conditionnelle doivent d'abord être levées.",
+  CLASSROOM_FULL: "La classe cible est complète : choisissez une autre classe ou augmentez sa capacité.",
+  DUPLICATE_AMBIGUOUS: "Un ou plusieurs élèves existants correspondent au candidat : choisissez un rattachement ou confirmez la création.",
+  GUARDIAN_AMBIGUOUS: "Un responsable existant partage le téléphone ou l'email déclaré : choisissez le rattachement ou la création.",
+  CONCURRENT: "Une autre conversion est en cours sur ce dossier. Rechargez la page.",
 
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",

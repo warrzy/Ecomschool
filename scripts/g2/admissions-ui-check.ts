@@ -255,6 +255,32 @@ async function main() {
       await adm.waitForTimeout(3000);
       check("réexamen → admis",
         /Admis/.test(await adm.locator("body").innerText()));
+
+      // ---------- G2-D : conversion en inscription ----------
+      console.log("== G2-D : conversion ==");
+      const convBody = await adm.locator("body").innerText();
+      check("panneau de conversion visible",
+        /conversion en inscription définitive/i.test(convBody));
+      const clsSel = adm.getByLabel("Classe cible");
+      if (await clsSel.count()) {
+        const opts = await clsSel.locator("option:not([disabled])").all();
+        if (opts.length > 1) await clsSel.selectOption({ index: 1 });
+      }
+      await adm.getByLabel("Matricule du nouvel élève").fill("G2D-UI-01");
+      const gSel = adm.getByLabel("Responsable à rattacher");
+      if (await gSel.count()) await gSel.selectOption({ value: "create" });
+      const ack = adm.locator('input[name="acknowledgeDuplicates"]');
+      if (await ack.count()) await ack.check();
+      await adm.locator('input[name="confirm"]').check();
+      await adm.getByRole("button", { name: "Convertir en inscription" }).click();
+      await adm.waitForTimeout(5000);
+      const afterConv = await adm.locator("body").innerText();
+      check("dossier converti : inscription + liens élève/créances",
+        /inscription définitive/i.test(afterConv) && /G2D-UI-01/.test(afterConv));
+      check("bouton d'invitation portail présent",
+        /Préparer l'accès portail/.test(afterConv));
+      check("décision verrouillée après conversion",
+        /verrouillée/.test(afterConv));
       await adm.context().close();
     }
 
@@ -303,6 +329,32 @@ async function main() {
     await prisma.admissionMessage.deleteMany({ where: { applicationId: { in: ids } } });
     await prisma.admissionApplication.deleteMany({ where: { id: { in: ids } } });
     await prisma.admissionCampaign.deleteMany({ where: { id: { in: [campaign.id, closedCampaign.id] } } });
+    // Entités créées par la conversion G2-D (élève, lien, inscription,
+    // créances, responsable) — supprimées avec leurs dépendances.
+    const convStudent = await prisma.student.findFirst({
+      where: { schoolId: school.id, matricule: "G2D-UI-01" },
+      select: { id: true },
+    });
+    if (convStudent) {
+      await prisma.feeInstallment.deleteMany({ where: { studentId: convStudent.id } });
+      await prisma.studentFeeCharge.deleteMany({ where: { studentId: convStudent.id } });
+      await prisma.studentGuardian.deleteMany({ where: { studentId: convStudent.id } });
+      await prisma.enrollment.deleteMany({ where: { studentId: convStudent.id } });
+      await prisma.student.delete({ where: { id: convStudent.id } });
+    }
+    const convGuardian = await prisma.guardian.findFirst({
+      where: {
+        schoolId: school.id,
+        phone: "+22670123456",
+        lastName: "Démo",
+        firstName: "Parent",
+        students: { none: {} },
+      },
+      select: { id: true },
+    });
+    if (convGuardian) {
+      await prisma.guardian.delete({ where: { id: convGuardian.id } });
+    }
     await prisma.schoolMembership.deleteMany({ where: { userId: uiAdmin.id } });
     await prisma.user.delete({ where: { id: uiAdmin.id } });
     fs.rmSync(dir, { recursive: true, force: true });

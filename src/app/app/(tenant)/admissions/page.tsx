@@ -23,6 +23,9 @@ import {
   transitionApplicationAction,
 } from "@/app/app/(tenant)/admissions/actions";
 import { RotateSecretButton } from "@/app/app/(tenant)/admissions/ui/rotate-secret";
+import { ConversionPanel } from "@/app/app/(tenant)/admissions/ui/conversion-panel";
+import { InvitePortalButton } from "@/app/app/(tenant)/admissions/ui/invite-portal";
+import { previewConversion } from "@/lib/services/admissionConversion";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -110,7 +113,7 @@ export default async function AdmissionsPage(props: {
     q: str("q") || undefined,
   };
 
-  const [canReview, canManage, canDecide] = await Promise.all([
+  const [canReview, canManage, canDecide, canConvert] = await Promise.all([
     userHasSchoolPermission({
       userId: tenant.userId,
       schoolId: tenant.schoolId,
@@ -125,6 +128,11 @@ export default async function AdmissionsPage(props: {
       userId: tenant.userId,
       schoolId: tenant.schoolId,
       permissionKey: "admissions.decide",
+    }),
+    userHasSchoolPermission({
+      userId: tenant.userId,
+      schoolId: tenant.schoolId,
+      permissionKey: "admissions.convert",
     }),
   ]);
 
@@ -144,6 +152,10 @@ export default async function AdmissionsPage(props: {
     ? await campaignCapacityStats(ctx, detail.application.campaignId)
     : null;
   const assignees = canReview ? await listAssignableMembers(ctx) : [];
+  const conversion =
+    detail && canConvert
+      ? await previewConversion(ctx, detail.application.id, str("cls"))
+      : null;
   const fmt = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "—");
   const fmtDT = (d: Date | null) =>
     d ? d.toISOString().slice(0, 16).replace("T", " ") : "—";
@@ -994,6 +1006,76 @@ export default async function AdmissionsPage(props: {
               </div>
             ) : null}
           </div>
+
+          {/* Conversion G2-D */}
+          {detail.application.status === "CONVERTED" ? (
+            <div
+              aria-label="Résultat de conversion"
+              className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 text-sm"
+            >
+              <div className="text-xs font-semibold uppercase text-zinc-500">
+                Inscription définitive
+              </div>
+              <p className="mt-1 text-xs text-zinc-600">
+                Converti le {fmtDT(detail.application.convertedAt)}
+                {detail.application.convertedBy
+                  ? ` par ${detail.application.convertedBy.firstName} ${detail.application.convertedBy.lastName}`
+                  : ""}
+                .
+              </p>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                {detail.application.student ? (
+                  <Link
+                    href={`/app/students/${detail.application.student.id}`}
+                    className="text-brand-700 underline"
+                  >
+                    Élève : {detail.application.student.matricule} —{" "}
+                    {detail.application.student.lastName}{" "}
+                    {detail.application.student.firstName}
+                  </Link>
+                ) : null}
+                {detail.application.enrollment ? (
+                  <span>
+                    Inscription :{" "}
+                    {detail.application.enrollment.classroom.name}
+                  </span>
+                ) : null}
+                {detail.application.guardian ? (
+                  <Link
+                    href={`/app/guardians/${detail.application.guardian.id}`}
+                    className="text-brand-700 underline"
+                  >
+                    Responsable : {detail.application.guardian.lastName}{" "}
+                    {detail.application.guardian.firstName}
+                  </Link>
+                ) : null}
+                {detail.application.student ? (
+                  <Link
+                    href={`/app/fees/accounts/${detail.application.student.id}`}
+                    className="text-brand-700 underline"
+                  >
+                    Créances
+                  </Link>
+                ) : null}
+              </div>
+              {canConvert && detail.application.student ? (
+                <div className="mt-3">
+                  <InvitePortalButton
+                    applicationId={detail.application.id}
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : conversion &&
+            ["ACCEPTED", "CONDITIONALLY_ACCEPTED"].includes(
+              detail.application.status,
+            ) ? (
+            <ConversionPanel
+              applicationId={detail.application.id}
+              preview={conversion}
+              canDecide={canDecide}
+            />
+          ) : null}
         </div>
       ) : null}
 

@@ -9,6 +9,10 @@
  *   admissions.decide  décisions d'admission (G2-C)
  *   admissions.manage  créer/configurer/ouvrir/fermer les campagnes,
  *                      régénérer un code de suivi compromis
+ *   admissions.convert convertir une candidature admise en inscription
+ *                      définitive (G2-D) — compose avec enrollment.create,
+ *                      student.create et guardian.manage ; n'accorde
+ *                      aucun droit financier en dehors de ce parcours
  *
  * Attribution : ADMIN_SCHOOL uniquement (les écoles créent leurs propres
  * rôles d'instruction si besoin — un « secrétaire admissions » type aurait
@@ -28,6 +32,7 @@ const NEW_KEYS = [
   "admissions.review",
   "admissions.decide",
   "admissions.manage",
+  "admissions.convert",
 ] as const;
 
 const ROLE_KEYS: Record<string, readonly string[]> = {

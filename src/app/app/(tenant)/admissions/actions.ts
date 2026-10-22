@@ -22,6 +22,11 @@ import {
   type ComplementKind,
 } from "@/lib/services/admissions";
 import {
+  convertApplication,
+  inviteConvertedAccount,
+  liftConditions,
+} from "@/lib/services/admissionConversion";
+import {
   intNonNegative,
   requiredText,
   dateField,
@@ -342,4 +347,76 @@ export async function rotateSecretAction(applicationId: string) {
   const res = await rotateTrackingSecret(ctx(tenant), applicationId);
   if (!res.ok) return { ok: false as const, error: res.error };
   return { ok: true as const, secret: res.result.secret };
+}
+
+// ---------- G2-D : levée de conditions et conversion ----------
+
+export async function liftConditionsAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.decide");
+  const id = String(formData.get("id") ?? "");
+  if (!id) return back("/app/admissions?error=INVALID_INPUT");
+  const res = await liftConditions(
+    ctx(tenant),
+    id,
+    String(formData.get("note") ?? "") || undefined,
+  );
+  backTo(id, res.ok ? "ok=conditions_lifted" : `error=${res.error}`);
+}
+
+const convertSchema = z.object({
+  id: requiredText,
+  classroomId: requiredText,
+  studentId: z.string().optional(),
+  matricule: z.string().max(40).optional(),
+  guardianId: z.string().optional(),
+});
+
+export async function convertApplicationAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("admissions.convert");
+  const parsed = convertSchema.safeParse({
+    id: formData.get("id"),
+    classroomId: formData.get("classroomId"),
+    studentId: formData.get("studentId") || undefined,
+    matricule: formData.get("matricule") || undefined,
+    guardianId: formData.get("guardianId") || undefined,
+  });
+  if (!parsed.success) return back("/app/admissions?error=INVALID_INPUT");
+  const { id, classroomId, studentId, matricule } = parsed.data;
+  const guardianChoice = String(formData.get("guardianChoice") ?? "");
+  const res = await convertApplication(ctx(tenant), {
+    applicationId: id,
+    classroomId,
+    studentId,
+    matricule,
+    acknowledgeDuplicates: formData.get("acknowledgeDuplicates") === "on",
+    guardianId: guardianChoice.startsWith("reuse:")
+      ? guardianChoice.slice(6)
+      : undefined,
+    createGuardian: guardianChoice === "create",
+  });
+  if (!res.ok) return backTo(id, `error=${res.error}`);
+  const r = res.result;
+  backTo(
+    id,
+    r.alreadyConverted
+      ? "ok=already_converted"
+      : r.chargesError
+        ? "ok=converted_charges_failed"
+        : r.noTariffs
+          ? "ok=converted_no_tariffs"
+          : "ok=converted",
+  );
+}
+
+/**
+ * Prépare l'invitation portail (parent ou candidat majeur) après
+ * conversion. Le jeton est renvoyé au composant client et affiché UNE
+ * fois — jamais dans l'URL ni les logs, aucun envoi externe.
+ */
+export async function invitePortalAccountAction(applicationId: string) {
+  const tenant = await requireSchoolPermission("admissions.convert");
+  if (!applicationId) return { ok: false as const, error: "INVALID_INPUT" };
+  const res = await inviteConvertedAccount(ctx(tenant), applicationId);
+  if (!res.ok) return { ok: false as const, error: res.error };
+  return { ok: true as const, token: res.token };
 }

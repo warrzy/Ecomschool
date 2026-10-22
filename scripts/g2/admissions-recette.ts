@@ -73,9 +73,11 @@ async function cleanupSchool(schoolId: string) {
     try { fs.rmSync(path.join(TEST_ROOT, d.storagePath), { force: true }); } catch { /* ok */ }
   }
   await prisma.document.deleteMany({ where: { schoolId } });
+  await prisma.admissionInterview.deleteMany({ where: { schoolId } });
   await prisma.admissionEvent.deleteMany({ where: { schoolId } });
   await prisma.admissionMessage.deleteMany({ where: { schoolId } });
   await prisma.admissionApplication.deleteMany({ where: { schoolId } });
+  await prisma.notification.deleteMany({ where: { schoolId } });
   await prisma.admissionCampaign.deleteMany({ where: { schoolId } });
   await prisma.academicYear.deleteMany({ where: { schoolId } });
   await prisma.level.deleteMany({ where: { schoolId } });

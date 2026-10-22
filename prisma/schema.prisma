@@ -284,6 +284,8 @@ model User {
   supportAuthorizedSessions SupportSession[] @relation("SupportAuthorizedBy")
   assignedAdmissions AdmissionApplication[] @relation("AdmissionAssignedTo")
   decidedAdmissions  AdmissionApplication[] @relation("AdmissionDecider")
+  admissionConditionsLifts AdmissionApplication[] @relation("AdmissionConditionsLifter")
+  admissionConversions     AdmissionApplication[] @relation("AdmissionConverter")
 
   @@index([schoolId])
   @@index([email])
@@ -2480,6 +2482,16 @@ model AdmissionApplication {
   /** Agent instructeur affecté au dossier (membre de l'établissement). */
   assignedToId    String?
   assignedTo      User?    @relation("AdmissionAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  /** Conditions d'une admission conditionnelle formellement levées (G2-D). */
+  conditionsLiftedAt   DateTime?
+  conditionsLiftedById String?
+  conditionsLiftedBy   User?     @relation("AdmissionConditionsLifter", fields: [conditionsLiftedById], references: [id], onDelete: SetNull)
+
+  /** Conversion en inscription définitive (G2-D) — irréversible. */
+  convertedAt   DateTime?
+  convertedById String?
+  convertedBy   User?     @relation("AdmissionConverter", fields: [convertedById], references: [id], onDelete: SetNull)
 
   studentId    String?
   student      Student?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
