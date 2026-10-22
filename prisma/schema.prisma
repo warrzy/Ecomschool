@@ -230,6 +230,9 @@ model School {
   reenrollmentCampaigns ReenrollmentCampaign[]
   reenrollmentRequests  ReenrollmentRequest[]
   reenrollmentMessages  ReenrollmentMessage[]
+  paymentProviders    PaymentProvider[]
+  paymentIntents      PaymentIntent[]
+  paymentTransactions PaymentTransaction[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -294,6 +297,7 @@ model User {
   reenrollmentDecisions    ReenrollmentRequest[]   @relation("ReenrollDecider")
   reenrollmentCompletions  ReenrollmentRequest[]   @relation("ReenrollCompleter")
   reenrollmentMessages     ReenrollmentMessage[]   @relation("ReenrollMsgAuthor")
+  paymentIntents           PaymentIntent[]         @relation("PaymentIntentInitiator")
 
   @@index([schoolId])
   @@index([email])
@@ -479,6 +483,7 @@ model FeeInstallment {
   updatedAt DateTime @updatedAt
 
   allocations PaymentAllocation[]
+  paymentIntents PaymentIntent[]
 
   @@index([schoolId])
   @@index([studentId])
@@ -545,6 +550,7 @@ model Payment {
   updatedAt DateTime @updatedAt
 
   allocations PaymentAllocation[]
+  intent      PaymentIntent?
 
   @@unique([schoolId, receiptNumber])
   @@unique([schoolId, idempotencyKey])
@@ -707,6 +713,7 @@ model AcademicYear {
   reenrollmentCampaignsSource ReenrollmentCampaign[] @relation("ReenrollSourceYear")
   reenrollmentCampaignsTarget ReenrollmentCampaign[] @relation("ReenrollTargetYear")
   reenrollmentRequestsTarget  ReenrollmentRequest[]  @relation("ReenrollReqTargetYear")
+  paymentIntents            PaymentIntent[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -934,6 +941,7 @@ model Student {
   feeReminders      FeeReminder[]
   admissionApplications AdmissionApplication[]
   reenrollmentRequests  ReenrollmentRequest[]
+  paymentIntents      PaymentIntent[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -2802,5 +2810,148 @@ model ReenrollmentMessage {
   createdAt DateTime @default(now())
 
   @@index([requestId])
+  @@index([schoolId])
+}
+
+// ---------- G3-A : intentions de paiement Mobile Money ----------
+
+enum PaymentIntentStatus {
+  CREATED
+  PENDING
+  CONFIRMED
+  FAILED
+  EXPIRED
+  CANCELLED
+  CONFIRMED_PENDING_POSTING
+}
+
+enum PaymentIntentChannel {
+  PARENT_PORTAL
+  CASHIER_DESK
+  ADMIN_TEST
+}
+
+enum PaymentProviderMode {
+  SANDBOX
+  LIVE
+}
+
+enum PaymentTxKind {
+  INITIATE
+  STATUS_CHECK
+  CONFIRM
+  FAIL
+  EXPIRE
+  CANCEL
+  POSTING
+  WEBHOOK
+  REFUND
+}
+
+/** Configuration d'un canal de paiement par établissement. Secrets par référence d'env, jamais en clair. */
+model PaymentProvider {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  code   String // ORANGE_MONEY | MOOV_MONEY | AGGREGATOR | SANDBOX
+  label  String
+  mode   PaymentProviderMode @default(SANDBOX)
+  status RecordStatus @default(ACTIVE)
+
+  minAmount Int  @default(100)
+  maxAmount Int? // null = pas de plafond
+
+  credentialsRef   String? // nom de la variable d'env contenant les identifiants
+  webhookSecretRef String? // nom de la variable d'env du secret webhook
+  merchantRef      String? // code marchand / msisdn de référence
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intents PaymentIntent[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+/**
+ * Intention de paiement Mobile Money. Une intention n'est JAMAIS un
+ * encaissement : `paymentId` n'est renseigné qu'après confirmation
+ * fiable du prestataire et passage par `recordPayment`.
+ * Montant/devise figés à la création, jamais modifiables ensuite.
+ */
+model PaymentIntent {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  providerId String
+  provider   PaymentProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  feeInstallmentId String?
+  feeInstallment   FeeInstallment? @relation(fields: [feeInstallmentId], references: [id], onDelete: SetNull)
+
+  amount   Int
+  currency String @default("XOF")
+  payerPhone String?
+
+  status  PaymentIntentStatus @default(CREATED)
+  channel PaymentIntentChannel
+
+  idempotencyKey String
+  providerRef    String? // référence de session côté prestataire
+  providerTxId   String? // identifiant de transaction prestataire (preuve)
+  paymentId      String? @unique
+  payment        Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  allocations Json?   // [{installmentId, amount}] — imputation explicite optionnelle
+  sandboxScript Json? // scénario du simulateur (mode SANDBOX uniquement)
+  failureReason String?
+
+  initiatedById String?
+  initiatedBy   User? @relation("PaymentIntentInitiator", fields: [initiatedById], references: [id], onDelete: SetNull)
+
+  expiresAt   DateTime
+  confirmedAt DateTime?
+  failedAt    DateTime?
+  expiredAt   DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions PaymentTransaction[]
+
+  @@unique([schoolId, idempotencyKey])
+  @@unique([schoolId, providerId, providerRef])
+  @@index([schoolId, status])
+  @@index([studentId])
+  @@index([academicYearId])
+}
+
+/** Trace d'un échange avec le prestataire (payloads sanitisés, sans secrets). */
+model PaymentTransaction {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  intentId String
+  intent   PaymentIntent @relation(fields: [intentId], references: [id], onDelete: Cascade)
+
+  kind         PaymentTxKind
+  providerTxId String?
+  rawStatus    String?
+  payload      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([intentId])
   @@index([schoolId])
 }

@@ -81,6 +81,8 @@ export const appNav: NavItem[] = [
   { label: "Dépenses", href: "/app/expenses", permission: "expenses.read", section: "Finances", icon: I.card },
   { label: "Trésorerie", href: "/app/treasury", permission: "treasury.read", section: "Finances", icon: I.wallet },
   { label: "Rapports", href: "/app/fees/reports", permission: "finance.reports.read", section: "Finances", icon: I.file },
+  // G3-A : intentions Mobile Money — simulateur sandbox uniquement.
+  { label: "Mobile Money", href: "/app/paiements-mobile", permission: "mobilepayments.read", section: "Finances", icon: I.card },
   // Guichet d'inscription : permissions fines créées en F2-D2.
   { label: "Guichet d'inscription", href: "/app/fees/registration", permission: "enrollment.create", section: "Finances", icon: I.clipboard },
   // Journal personnel : filtrage strict sur receivedById côté serveur.

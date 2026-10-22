@@ -61,6 +61,17 @@ const ERROR_LABELS: Record<string, string> = {
   ALREADY_PAID: "Cet élément est déjà payé.",
   IDEMPOTENCY_CONFLICT: "Cette opération a déjà été enregistrée avec un contenu différent.",
 
+  // Paiements Mobile Money (G3-A)
+  INVALID_AMOUNT: "Montant invalide ou hors des bornes du fournisseur.",
+  INVALID_CURRENCY: "Devise non prise en charge — XOF uniquement.",
+  UNKNOWN_PROVIDER: "Fournisseur de paiement inconnu ou non configuré.",
+  PROVIDER_INACTIVE: "Ce fournisseur de paiement est désactivé.",
+  PROVIDER_UNAVAILABLE: "Aucun adaptateur disponible pour ce fournisseur.",
+  ACTIVE_INTENT_EXISTS: "Une intention de paiement est déjà en cours pour cet élève et cette année.",
+  PROVIDER_TIMEOUT: "Le prestataire n'a pas répondu dans le délai imparti.",
+  INITIATE_FAILED: "L'initiation du paiement a échoué.",
+  NOT_SANDBOX: "Action réservée au fournisseur simulateur.",
+
   // Abonnement / limites commerciales
   LIMIT_REACHED: "La limite de votre abonnement est atteinte. Contactez ECOM-TOUCH.",
   LIMIT_STUDENTS: "Le nombre maximal d'élèves de votre abonnement est atteint.",

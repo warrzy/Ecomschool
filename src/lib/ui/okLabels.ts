@@ -110,6 +110,14 @@ const OK_LABELS: Record<string, string> = {
   replaced: "Document remplacé.",
   deleted: "Document supprimé.",
 
+  // Paiements Mobile Money (G3-A)
+  provider: "Fournisseur enregistré.",
+  intent: "Intention de paiement créée.",
+  replayed: "Intention existante renvoyée (idempotence).",
+  polled: "Statut prestataire consulté.",
+  script: "Scénario de simulation programmé.",
+  posted: "Encaissement comptabilisé.",
+
   // Communication / plateforme
   sent: "Envoi lancé.",
   request: "Demande envoyée.",
