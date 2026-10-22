@@ -195,6 +195,9 @@ async function submit(campaignId: string, levelId: string, phone?: string) {
   const viewNote = await getTrackingView({ fileNumber: s1!.fileNumber, secret: s1!.secret });
   check("note interne invisible dans le suivi public",
     !!viewNote && !JSON.stringify(viewNote).includes("vérifier la fratrie"));
+  const detRead = await getApplicationDetail(ctxRead, app1.id);
+  check("note interne invisible pour admissions.read seul",
+    !!detRead && !detRead.application.messages.some((m) => m.kind === "INTERNAL_NOTE"));
 
   const compDeny = await requestComplement(ctxRead, app1.id, "DOC_MISSING", "x");
   check("complément sans review → FORBIDDEN", !compDeny.ok && compDeny.error === "FORBIDDEN");
@@ -439,6 +442,16 @@ async function submit(campaignId: string, levelId: string, phone?: string) {
   await prisma.school.delete({ where: { id: schoolB.id } });
 
   console.log(`\n=== Recette G2-C : ${pass} PASS / ${fail} FAIL ===`);
+  if (process.env.G2C_CLEANUP === "1") {
+    await cleanup(school.id);
+    await prisma.schoolMembership.deleteMany({
+      where: { userId: { in: [admin.id, reviewer.id, reader.id, decider.id] } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [admin.id, reviewer.id, reader.id, decider.id] } },
+    });
+    console.log("fixtures supprimées");
+  }
   await prisma.$disconnect();
   process.exit(fail ? 1 : 0);
 })().catch((e) => {

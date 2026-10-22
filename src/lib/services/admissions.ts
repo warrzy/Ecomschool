@@ -1219,7 +1219,20 @@ export async function getApplicationDetail(ctx: SchoolCtx, id: string) {
         select: { fileNumber: true },
       })
     : null;
-  return { application: app, documents, canReview, duplicateOf };
+  // Sans admissions.review : notes internes et appréciations d'entretien
+  // masquées — la lecture seule n'expose que le fil candidat/décisions.
+  const sanitized = canReview
+    ? app
+    : {
+        ...app,
+        messages: app.messages.filter((m) => m.kind !== "INTERNAL_NOTE"),
+        interviews: app.interviews.map((iv) => ({
+          ...iv,
+          result: null,
+          internalNote: null,
+        })),
+      };
+  return { application: sanitized, documents, canReview, duplicateOf };
 }
 
 /**
