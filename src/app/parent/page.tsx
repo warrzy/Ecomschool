@@ -23,6 +23,19 @@ import {
   listChildren,
   verifyChildAccess,
 } from "@/lib/services/portal/parent";
+import {
+  getParentIntent,
+  getPayableInstallment,
+  listParentIntents,
+  listParentProviders,
+  parentFinancesOverview,
+} from "@/lib/services/portal/parentPayments";
+import { prisma } from "@/lib/db/prisma";
+import {
+  cancelParentIntentAction,
+  payInstallmentAction,
+  refreshParentIntentAction,
+} from "./actions";
 import { listPublishedAnnouncements } from "@/lib/services/announcements";
 
 export const instant = false;
@@ -49,6 +62,25 @@ const TABS = [
   ["reinscription", "Réinscription"],
   ["annonces", "Annonces"],
 ] as const;
+
+const INTENT_STATUS_LABELS: Record<string, string> = {
+  CREATED: "Demande créée",
+  PENDING: "En attente de confirmation",
+  CONFIRMED: "Paiement confirmé",
+  FAILED: "Paiement échoué",
+  EXPIRED: "Demande expirée",
+  CANCELLED: "Demande annulée",
+  CONFIRMED_PENDING_POSTING: "Paiement confirmé — comptabilisation en attente",
+};
+const INTENT_STATUS_TONES: Record<string, string> = {
+  CREATED: "bg-zinc-100 text-zinc-700",
+  PENDING: "bg-amber-50 text-amber-800",
+  CONFIRMED: "bg-emerald-50 text-emerald-800",
+  FAILED: "bg-red-50 text-red-800",
+  EXPIRED: "bg-zinc-100 text-zinc-600",
+  CANCELLED: "bg-zinc-100 text-zinc-600",
+  CONFIRMED_PENDING_POSTING: "bg-blue-50 text-blue-800",
+};
 
 const REENROLL_STATUS: Record<string, string> = {
   SUBMITTED: "Demande déposée",
@@ -155,7 +187,14 @@ export default async function ParentPage(props: {
               </Link>
             ))}
           </div>
-          <ParentTab ctx={ctx} studentId={childId} tab={tab} schoolId={tenant.schoolId} />
+          <ParentTab
+            ctx={ctx}
+            studentId={childId}
+            tab={tab}
+            schoolId={tenant.schoolId}
+            pay={str("pay")}
+            intentId={str("intent")}
+          />
         </>
       )}
     </div>
@@ -167,11 +206,15 @@ async function ParentTab({
   studentId,
   tab,
   schoolId,
+  pay,
+  intentId,
 }: {
   ctx: { userId: string; schoolId: string };
   studentId: string;
   tab: string;
   schoolId: string;
+  pay?: string;
+  intentId?: string;
 }) {
   if (tab === "apercu") {
     const o = await getChildOverview(ctx, studentId);
@@ -339,78 +382,13 @@ async function ParentTab({
   }
 
   if (tab === "finances") {
-    const f = await getChildFinances(ctx, studentId);
-    if (!f) return <Card><p className="text-sm text-red-700">Accès non autorisé.</p></Card>;
-    if (!f.year) {
-      return <Card><p className="text-sm text-zinc-600">Aucune inscription active.</p></Card>;
-    }
-    const fmtN = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
-    const stLabel: Record<string, string> = {
-      UPCOMING: "À venir",
-      PARTIAL: "Partiel",
-      PAID: "Payé",
-      LATE: "En retard",
-    };
     return (
-      <div className="space-y-3">
-        <Card title={`Situation financière — ${f.year}`}>
-          <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
-            <div><div className="text-xs text-zinc-500">Frais</div><div className="font-medium">{fmtN(f.charges)}</div></div>
-            <div><div className="text-xs text-zinc-500">Réductions</div><div className="font-medium">{fmtN(f.discounts)}</div></div>
-            <div><div className="text-xs text-zinc-500">Payé</div><div className="font-medium text-emerald-700">{fmtN(f.paid)}</div></div>
-            <div><div className="text-xs text-zinc-500">Solde</div><div className="font-medium text-red-700">{fmtN(f.balance)}</div></div>
-          </div>
-        </Card>
-        <Card title="Échéances">
-          {f.installments.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {f.installments.map((i) => (
-                <li key={i.id} className="flex flex-wrap items-center justify-between">
-                  <span>
-                    {i.category}{i.label ? ` · ${i.label}` : ""}
-                    <span className="ml-2 text-xs text-zinc-500">
-                      échéance {i.dueDate.toLocaleDateString("fr-FR")}
-                    </span>
-                  </span>
-                  <span className="text-right">
-                    <span className="font-medium">{fmtN(i.remaining)}</span>
-                    <span className={`ml-2 text-xs ${i.status === "LATE" ? "text-red-700" : i.status === "PAID" ? "text-emerald-700" : "text-zinc-500"}`}>
-                      {stLabel[i.status]}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-zinc-600">Aucune échéance.</p>
-          )}
-        </Card>
-        <Card title="Paiements & reçus">
-          {f.payments.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {f.payments.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center justify-between">
-                  <span>
-                    {p.paidAt.toLocaleDateString("fr-FR")} — <span className="font-medium">{fmtN(p.amount)}</span>
-                    <span className="ml-2 font-mono text-xs text-zinc-500">{p.receiptNumber}</span>
-                  </span>
-                  {p.receiptNumber ? (
-                    <a
-                      href={`/parent/receipts/${p.id}/pdf`}
-                      target="_blank"
-                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
-                    >
-                      Reçu PDF
-                    </a>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-zinc-600">Aucun paiement enregistré.</p>
-          )}
-        </Card>
-      </div>
+      <FinancesTab
+        ctx={ctx}
+        studentId={studentId}
+        pay={pay}
+        intentId={intentId}
+      />
     );
   }
 
@@ -610,6 +588,300 @@ async function ReenrollTab({
           )}
         </Card>
       ))}
+    </div>
+  );
+}
+
+/** Onglet finances — tableau de bord, parcours de paiement Mobile
+ *  Money, suivi des demandes, historique et reçus (G3-C). */
+async function FinancesTab({
+  ctx,
+  studentId,
+  pay,
+  intentId,
+}: {
+  ctx: { userId: string; schoolId: string };
+  studentId: string;
+  pay?: string;
+  intentId?: string;
+}) {
+  const fmtN = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+  const stLabel: Record<string, string> = {
+    UPCOMING: "À venir",
+    PARTIAL: "Partiel",
+    PAID: "Payé",
+    LATE: "En retard",
+  };
+
+  const f = await getChildFinances(ctx, studentId);
+  if (!f) return <Card><p className="text-sm text-red-700">Accès non autorisé.</p></Card>;
+
+  const [overview, providers, intents, tracking, payTarget] = await Promise.all([
+    parentFinancesOverview(ctx),
+    listParentProviders(ctx),
+    listParentIntents(ctx, studentId),
+    intentId ? getParentIntent(ctx, intentId) : Promise.resolve(null),
+    pay ? getPayableInstallment(ctx, studentId, pay) : Promise.resolve(null),
+  ]);
+  const anomalyCount = tracking
+    ? await prisma.webhookEvent.count({ where: { intentId: tracking.id, status: "ANOMALY" } })
+    : 0;
+  const multi = overview.length > 1;
+  const fmtD = (d: Date) => d.toLocaleDateString("fr-FR");
+
+  return (
+    <div className="space-y-3">
+      {/* Vue consolidée famille */}
+      {multi && (
+        <Card title="Situation de la famille">
+          <ul className="space-y-1 text-sm">
+            {overview.map((r) => (
+              <li key={r.student.id} className="flex flex-wrap items-center justify-between">
+                <span>
+                  {r.student.firstName} {r.student.lastName}
+                  <span className="ml-2 text-xs text-zinc-500">{r.year ?? "—"}</span>
+                </span>
+                <span className="text-right text-xs sm:text-sm">
+                  payé <span className="font-medium text-emerald-700">{fmtN(r.paid)}</span>
+                  {" · "}solde <span className={`font-medium ${r.balance > 0 ? "text-red-700" : "text-emerald-700"}`}>{fmtN(r.balance)}</span>
+                  {r.lateInstallments > 0 && (
+                    <span className="ml-1 text-red-700">· {r.lateInstallments} en retard</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Suivi d'une demande en cours */}
+      {tracking && (
+        <Card title="Suivi de votre demande de paiement">
+          <div className="space-y-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between">
+              <span className="font-medium">{fmtN(tracking.amount)}</span>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${INTENT_STATUS_TONES[tracking.status]}`}>
+                {INTENT_STATUS_LABELS[tracking.status]}
+              </span>
+            </div>
+            <p className="text-xs text-zinc-500">
+              {tracking.feeInstallment
+                ? `${tracking.feeInstallment.charge.category.label}${tracking.feeInstallment.label ? ` · ${tracking.feeInstallment.label}` : ""}`
+                : "Paiement libre"}
+              {" — "}{tracking.provider.label}
+              {tracking.provider.mode === "SANDBOX" && " (simulation)"}
+            </p>
+            {tracking.payment?.receiptNumber && (
+              <p className="text-xs">
+                Reçu : <span className="font-mono">{tracking.payment.receiptNumber}</span>
+                {" — "}
+                <a href={`/parent/receipts/${tracking.payment.id}/pdf`} target="_blank" className="text-brand-700 hover:underline">
+                  télécharger
+                </a>
+              </p>
+            )}
+            {anomalyCount > 0 && (
+              <p className="rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                Anomalie détectée — l&apos;établissement vérifie votre paiement. Aucune action n&apos;est requise de votre part.
+              </p>
+            )}
+            {(tracking.status === "CREATED" || tracking.status === "PENDING") && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                <form action={refreshParentIntentAction}>
+                  <input type="hidden" name="intentId" value={tracking.id} />
+                  <input type="hidden" name="studentId" value={studentId} />
+                  <SubmitButton
+                    className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                    pendingLabel="Actualisation…"
+                  >
+                    Actualiser le statut
+                  </SubmitButton>
+                </form>
+                <form action={cancelParentIntentAction}>
+                  <input type="hidden" name="intentId" value={tracking.id} />
+                  <input type="hidden" name="studentId" value={studentId} />
+                  <SubmitButton
+                    className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 hover:bg-red-100"
+                    pendingLabel="Annulation…"
+                  >
+                    Annuler la demande
+                  </SubmitButton>
+                </form>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Parcours de paiement */}
+      {pay && (
+        <Card title="Payer une échéance">
+          {payTarget && providers.length > 0 ? (
+            <form action={payInstallmentAction} className="space-y-3">
+              <input type="hidden" name="studentId" value={studentId} />
+              <input type="hidden" name="feeInstallmentId" value={payTarget.id} />
+              <input type="hidden" name="idempotencyKey" value={`mmi-p-${crypto.randomUUID()}`} />
+              <ol className="list-decimal space-y-2 pl-5 text-sm">
+                <li>
+                  Échéance : <strong>{payTarget.category}{payTarget.label ? ` · ${payTarget.label}` : ""}</strong>
+                  <span className="ml-1 text-xs text-zinc-500">(échéance {fmtD(payTarget.dueDate)})</span>
+                </li>
+                <li>
+                  Solde exigible : <strong>{fmtN(payTarget.remaining)}</strong>
+                  {payTarget.inFlight > 0 && (
+                    <span className="ml-1 text-xs text-amber-700">({fmtN(payTarget.inFlight)} déjà en cours de paiement)</span>
+                  )}
+                </li>
+                <li>
+                  <label className="block text-xs font-medium text-zinc-600">
+                    Montant à payer (FCFA)
+                    <input
+                      name="amount" type="number" min={1} max={payTarget.remaining}
+                      defaultValue={payTarget.remaining} required
+                      className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+                    />
+                  </label>
+                  <span className="text-xs text-zinc-500">Paiement partiel possible, jusqu&apos;à {fmtN(payTarget.remaining)}.</span>
+                </li>
+                <li>
+                  <label className="block text-xs font-medium text-zinc-600">
+                    Opérateur
+                    <select name="providerId" required className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm">
+                      {providers.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}{p.mode === "SANDBOX" ? " (simulation)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </li>
+                <li>
+                  <label className="block text-xs font-medium text-zinc-600">
+                    Numéro Mobile Money du payeur
+                    <input name="payerPhone" placeholder="+226 XX XX XX XX" className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm" />
+                  </label>
+                </li>
+              </ol>
+              <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-3">
+                <SubmitButton
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  pendingLabel="Envoi de la demande…"
+                >
+                  Confirmer la demande de paiement
+                </SubmitButton>
+                <a href={`/parent?child=${studentId}&tab=finances`} className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
+                  Annuler
+                </a>
+              </div>
+            </form>
+          ) : (
+            <p className="text-sm text-zinc-600">
+              {!payTarget
+                ? "Cette échéance n'est pas payable (inexistante, soldée ou déjà couverte par une demande en cours)."
+                : "Aucun moyen de paiement Mobile Money n'est disponible pour le moment."}
+            </p>
+          )}
+        </Card>
+      )}
+
+      {!f.year ? (
+        <Card><p className="text-sm text-zinc-600">Aucune inscription active.</p></Card>
+      ) : (
+        <>
+          <Card title={`Situation financière — ${f.year}`}>
+            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+              <div><div className="text-xs text-zinc-500">Frais</div><div className="font-medium">{fmtN(f.charges)}</div></div>
+              <div><div className="text-xs text-zinc-500">Réductions</div><div className="font-medium">{fmtN(f.discounts)}</div></div>
+              <div><div className="text-xs text-zinc-500">Payé</div><div className="font-medium text-emerald-700">{fmtN(f.paid)}</div></div>
+              <div><div className="text-xs text-zinc-500">Solde</div><div className="font-medium text-red-700">{fmtN(f.balance)}</div></div>
+            </div>
+          </Card>
+
+          <Card title="Échéances">
+            {f.installments.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {f.installments.map((i) => (
+                  <li key={i.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {i.category}{i.label ? ` · ${i.label}` : ""}
+                      <span className="ml-2 text-xs text-zinc-500">échéance {fmtD(i.dueDate)}</span>
+                    </span>
+                    <span className="flex items-center gap-2 text-right">
+                      <span className="font-medium">{fmtN(i.remaining)}</span>
+                      <span className={`text-xs ${i.status === "LATE" ? "text-red-700" : i.status === "PAID" ? "text-emerald-700" : "text-zinc-500"}`}>
+                        {stLabel[i.status]}
+                      </span>
+                      {i.remaining > 0 && providers.length > 0 && (
+                        <Link
+                          href={`/parent?child=${studentId}&tab=finances&pay=${i.id}`}
+                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                        >
+                          Payer
+                        </Link>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-zinc-600">Aucune échéance.</p>
+            )}
+          </Card>
+
+          <Card title="Mes demandes de paiement">
+            {intents.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {intents.map((i) => (
+                  <li key={i.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      {i.createdAt.toLocaleDateString("fr-FR")} — <span className="font-medium">{fmtN(i.amount)}</span>
+                      <span className="ml-2 text-xs text-zinc-500">
+                        {i.feeInstallment ? i.feeInstallment.charge.category.label : "Paiement libre"} · {i.provider.label}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${INTENT_STATUS_TONES[i.status]}`}>
+                        {INTENT_STATUS_LABELS[i.status]}
+                      </span>
+                      <a href={`/parent?child=${studentId}&tab=finances&intent=${i.id}`} className="text-xs text-brand-700 hover:underline">
+                        Suivre
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-zinc-600">Aucune demande de paiement.</p>
+            )}
+          </Card>
+
+          <Card title="Paiements & reçus">
+            {f.payments.length > 0 ? (
+              <ul className="space-y-2 text-sm">
+                {f.payments.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center justify-between">
+                    <span>
+                      {p.paidAt.toLocaleDateString("fr-FR")} — <span className="font-medium">{fmtN(p.amount)}</span>
+                      <span className="ml-2 font-mono text-xs text-zinc-500">{p.receiptNumber}</span>
+                    </span>
+                    {p.receiptNumber ? (
+                      <a
+                        href={`/parent/receipts/${p.id}/pdf`}
+                        target="_blank"
+                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+                      >
+                        Reçu PDF
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-zinc-600">Aucun paiement enregistré.</p>
+            )}
+          </Card>
+        </>
+      )}
     </div>
   );
 }

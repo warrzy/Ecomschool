@@ -1,12 +1,19 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import {
   replyParentReenrollment,
   submitParentReenrollment,
   uploadParentReenrollmentDoc,
 } from "@/lib/services/reenrollment";
+import {
+  cancelParentIntent,
+  createParentPaymentIntent,
+  getParentIntent,
+} from "@/lib/services/portal/parentPayments";
+import { pollPaymentIntent } from "@/lib/services/payments/mobileIntents";
 
 const back = (path: string): never => redirect(path as never);
 
@@ -69,5 +76,68 @@ export async function uploadReenrollDocAction(formData: FormData) {
     res.ok
       ? "/parent?tab=reinscription&ok=uploaded"
       : `/parent?tab=reinscription&error=${res.error}`,
+  );
+}
+
+// ─── G3-C : paiement Mobile Money depuis le portail ────────────────
+
+const paySchema = z.object({
+  studentId: z.string().min(1),
+  feeInstallmentId: z.string().min(1),
+  providerId: z.string().min(1),
+  amount: z.coerce.number().int().positive(),
+  payerPhone: z.string().max(30).optional(),
+  idempotencyKey: z.string().max(120).optional(),
+});
+
+const finUrl = (studentId: string, extra: string) =>
+  `/parent?child=${studentId}&tab=finances&${extra}`;
+
+export async function payInstallmentAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const p = paySchema.safeParse(Object.fromEntries(formData));
+  const studentId = String(formData.get("studentId") ?? "");
+  if (!p.success) return back(finUrl(studentId, "error=INVALID_INPUT"));
+  const res = await createParentPaymentIntent(ctx, {
+    studentId: p.data.studentId,
+    feeInstallmentId: p.data.feeInstallmentId,
+    amount: p.data.amount,
+    providerId: p.data.providerId,
+    payerPhone: p.data.payerPhone || null,
+    idempotencyKey: p.data.idempotencyKey,
+  });
+  return back(
+    res.ok
+      ? finUrl(p.data.studentId, `intent=${res.data.intentId}&ok=intent`)
+      : finUrl(p.data.studentId, `error=${res.error}`),
+  );
+}
+
+/** Rafraîchissement contrôlé : consultation ponctuelle du statut
+ *  prestataire (même mécanisme central que les webhooks). */
+export async function refreshParentIntentAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const intentId = String(formData.get("intentId") ?? "");
+  const studentId = String(formData.get("studentId") ?? "");
+  if (!intentId) return back(finUrl(studentId, "error=INVALID_INPUT"));
+  const intent = await getParentIntent(ctx, intentId);
+  if (!intent) return back(finUrl(studentId, "error=NOT_FOUND"));
+  const res = await pollPaymentIntent(ctx, intentId);
+  return back(
+    finUrl(studentId, res.ok ? `intent=${intentId}&ok=refreshed` : `intent=${intentId}&error=${res.error}`),
+  );
+}
+
+export async function cancelParentIntentAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const intentId = String(formData.get("intentId") ?? "");
+  const studentId = String(formData.get("studentId") ?? "");
+  if (!intentId) return back(finUrl(studentId, "error=INVALID_INPUT"));
+  const res = await cancelParentIntent(ctx, intentId, "CANCELLED_BY_PARENT");
+  return back(
+    finUrl(studentId, res.ok ? "ok=cancelled" : `intent=${intentId}&error=${res.error}`),
   );
 }
