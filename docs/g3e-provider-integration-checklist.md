@@ -142,8 +142,21 @@ ou un format « de mémoire ».
 - Activation contrôlée : `mode = LIVE` **et** `liveEnabled = true`
   requis — `liveEnabled` ne se pose que par l'action dédiée
   (`mobilepayments.manage` + saisie « LIVE ») et est audité.
+- **Verrou global serveur** : `MOBILE_MONEY_LIVE_ENABLED` doit valoir
+  explicitement `"true"` pour tout appel susceptible de contacter un
+  prestataire réel (initiation, statut, remboursement). Indépendant
+  de `liveEnabled` : vérifié dans les services (`checkLiveExecution`
+  dans `providers/live.ts`), pas seulement dans les actions admin.
+  Toute autre valeur ou absence = `LIVE_DISABLED`. Les prestataires
+  SANDBOX n'y sont jamais soumis ; les webhooks entrants ne passent
+  pas par ce verrou (preuve financière conservée — la vérification
+  de signature est locale, pas un appel externe).
+- Conditions cumulatives d'appel externe réel : verrou global +
+  prestataire ACTIVE + `mode LIVE` + `liveEnabled` + adaptateur
+  enregistré + secrets présents + capacité déclarée.
 - Désactivation d'urgence : `liveEnabled = false` (immédiat) ou
-  `status = ARCHIVED` — voir §5.
+  `status = ARCHIVED` — voir §5. Coupure totale plateforme :
+  `MOBILE_MONEY_LIVE_ENABLED=false` (redémarrage PM2).
 
 ## 4. Prérequis d'exploitation avant activation commerciale
 
@@ -167,6 +180,11 @@ ou un format « de mémoire ».
    initiation renvoie `PROVIDER_NOT_LIVE`. Les intentions déjà
    confirmées continuent leur cycle (posting, rapprochement,
    anomalies) — aucune preuve n'est perdue.
+1b. **Coupure plateforme** : `MOBILE_MONEY_LIVE_ENABLED=false` +
+   redémarrage PM2 — refuse toute opération LIVE (`LIVE_DISABLED`)
+   pour TOUS les prestataires et TOUTES les écoles, sans toucher au
+   SANDBOX. C'est le kill-switch global, indépendant des réglages
+   par école.
 2. **Blocage total** : « Archiver » (`status=ARCHIVED`) — refuse
    initiation, webhooks (`NOT_FOUND`) et simulations.
 3. **Réactivation** : inverse des étapes — la réactivation LIVE exige

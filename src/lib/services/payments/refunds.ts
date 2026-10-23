@@ -14,7 +14,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
-import { getProviderAdapter } from "./providers";
+import { getProviderAdapter, checkLiveExecution } from "./providers";
 import { ProviderBusinessError } from "./providers";
 import type { SandboxScript } from "./providers";
 import { notifyReconcileAdmins } from "./reconciliation";
@@ -284,7 +284,12 @@ export async function executeRefund(
         select: {
           id: true, providerRef: true, providerTxId: true,
           sandboxScript: true,
-          provider: { select: { code: true, refundsEnabled: true } },
+          provider: {
+            select: {
+              code: true, mode: true, status: true,
+              liveEnabled: true, refundsEnabled: true, credentialsRef: true,
+            },
+          },
         },
       },
     },
@@ -304,6 +309,19 @@ export async function executeRefund(
   // G3-E : exécution via l'adaptateur si le contrat l'autorise.
   const provider = refund.intent?.provider;
   const adapter = provider ? getProviderAdapter(provider.code) : null;
+
+  if (provider?.mode === "LIVE") {
+    // Barrières LIVE — chaque condition manquante est un refus
+    // explicite et la demande reste APPROVED (rejeu possible après
+    // correction). Jamais de repli silencieux vers SIMREF-.
+    const liveErr = checkLiveExecution(provider, adapter);
+    if (liveErr) return { ok: false, error: liveErr };
+    if (!adapter?.capabilities.refunds || !adapter.initiateRefund) {
+      return { ok: false, error: "REFUND_UNSUPPORTED" };
+    }
+    if (!provider.refundsEnabled) return { ok: false, error: "REFUND_NOT_ENABLED" };
+  }
+
   if (adapter?.capabilities.refunds && adapter.initiateRefund && provider?.refundsEnabled) {
     try {
       const res = await adapter.initiateRefund({
@@ -361,6 +379,10 @@ export async function executeRefund(
       return { ok: false, error: "PROVIDER_UNAVAILABLE" };
     }
   }
+
+  // Un prestataire LIVE ne peut jamais atteindre le chemin simulé :
+  // toutes les combinaisons ont été refusées explicitement ci-dessus.
+  if (provider?.mode === "LIVE") return { ok: false, error: "REFUND_NOT_ENABLED" };
 
   // Chemin simulé historique (aucun adaptateur de remboursement actif).
   const providerRef = `SIMREF-${id.slice(0, 12).toUpperCase()}`;

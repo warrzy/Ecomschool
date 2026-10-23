@@ -34,7 +34,7 @@ import {
   ensureReconciliation,
   notifyReconcileAdmins,
 } from "./reconciliation";
-import { getProviderAdapter, ProviderTimeoutError } from "./providers";
+import { getProviderAdapter, checkLiveExecution, ProviderTimeoutError } from "./providers";
 import type { PaymentProviderAdapter, SandboxScript } from "./providers";
 
 type Ctx = { userId: string; schoolId: string };
@@ -289,17 +289,18 @@ export async function createPaymentIntent(
   if (!student || !year) return { ok: false, error: "NOT_FOUND" };
   if (!provider) return { ok: false, error: "UNKNOWN_PROVIDER" };
   if (provider.status !== "ACTIVE") return { ok: false, error: "PROVIDER_INACTIVE" };
-  // G3-E — un prestataire LIVE n'initie que si l'activation contrôlée
-  // a été explicitement validée (dossier d'intégration vérifié).
-  if (provider.mode === "LIVE" && !provider.liveEnabled) {
-    return { ok: false, error: "PROVIDER_NOT_LIVE" };
-  }
   if (input.amount < provider.minAmount) return { ok: false, error: "INVALID_AMOUNT" };
   if (provider.maxAmount !== null && input.amount > provider.maxAmount) {
     return { ok: false, error: "INVALID_AMOUNT" };
   }
 
   const adapter = getProviderAdapter(provider.code);
+  // G3-E — prestataire LIVE : verrou global serveur + activation
+  // contrôlée + adaptateur + secrets requis avant toute initiation.
+  if (provider.mode === "LIVE") {
+    const liveErr = checkLiveExecution(provider, adapter);
+    if (liveErr) return { ok: false, error: liveErr };
+  }
   if (!adapter) return { ok: false, error: "UNKNOWN_PROVIDER" };
 
   if (input.feeInstallmentId) {
@@ -492,6 +493,13 @@ export async function pollPaymentIntent(
   if (!intent.providerRef) return { ok: false, error: "INVALID_STATE" };
 
   const adapter = getProviderAdapter(intent.provider.code);
+  // G3-E — la consultation de statut d'un prestataire LIVE est un
+  // appel externe : verrou global + activation + adaptateur + secrets.
+  // Le refus laisse l'intention PENDING — aucune preuve n'est perdue.
+  if (intent.provider.mode === "LIVE") {
+    const liveErr = checkLiveExecution(intent.provider, adapter);
+    if (liveErr) return { ok: false, error: liveErr };
+  }
   if (!adapter) return { ok: false, error: "UNKNOWN_PROVIDER" };
 
   const script = (intent.sandboxScript as SandboxScript | null) ?? null;

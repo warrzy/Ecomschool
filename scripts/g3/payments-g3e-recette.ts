@@ -20,6 +20,7 @@ import {
   createPaymentIntent,
   createPaymentProvider,
   markProviderCredentialsRotated,
+  pollPaymentIntent,
   postConfirmedIntent,
   setProviderLive,
   setProviderRefundsEnabled,
@@ -27,9 +28,11 @@ import {
 import {
   getProviderAdapter,
   listProviderAdapters,
+  registerProviderAdapter,
   resolveProviderSecret,
   ProviderConfigError,
 } from "../../src/lib/services/payments/providers";
+import type { PaymentProviderAdapter } from "../../src/lib/services/payments/providers";
 import {
   createRefundRequest,
   approveRefund,
@@ -204,16 +207,19 @@ async function main() {
   });
   check("prestataire archivé → PROVIDER_INACTIVE", !arch.ok && arch.error === "PROVIDER_INACTIVE");
 
-  // LIVE sans activation contrôlée.
+  // LIVE sans activation contrôlée (le verrou global est levé pour
+  // atteindre le contrôle d'activation par école).
   const liveP = await prisma.paymentProvider.create({
     data: { schoolId: school.id, code: "LIVETEST", label: "Live test", mode: "LIVE" },
   });
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
   const notLive = await createPaymentIntent(ctxA, {
     studentId: s1.id, academicYearId: year.id, providerId: liveP.id,
     amount: 1_000, currency: "XOF", channel: "ADMIN_TEST",
   });
   check("LIVE sans liveEnabled → PROVIDER_NOT_LIVE (avant lookup adaptateur)",
     !notLive.ok && notLive.error === "PROVIDER_NOT_LIVE");
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
 
   // Activation contrôlée : impossible sans adaptateur.
   const enFail = await setProviderLive(ctxA, liveP.id, true);
@@ -387,6 +393,190 @@ async function main() {
   check("sans refundsEnabled → SIMREF- historique conservé",
     exL.ok && exL.data.providerRef?.startsWith("SIMREF-") === true);
   await setProviderRefundsEnabled(ctxA, providerA, true);
+
+  // ══════════ 5b. VERROU GLOBAL LIVE & REMBOURSEMENTS LIVE ══════════
+  console.log("\n— Verrou global LIVE (MOBILE_MONEY_LIVE_ENABLED) —");
+  // Adaptateurs de test LIVE : comptabilisent chaque appel pour
+  // prouver qu'aucune opération externe n'a lieu sous le verrou.
+  const liveCalls: string[] = [];
+  const fakeLive: PaymentProviderAdapter = {
+    code: "TEST_LIVE",
+    capabilities: { initiate: true, pollStatus: true, webhooks: false, refunds: true, settlements: false, payerFee: false },
+    async initiate() { liveCalls.push("initiate"); return { providerRef: `TL-${crypto.randomUUID().slice(0, 8)}` }; },
+    async checkStatus() { liveCalls.push("checkStatus"); return { status: "SUCCESS", providerTxId: "TLTX-1" }; },
+    async initiateRefund() { liveCalls.push("initiateRefund"); return { providerRefundRef: "TL-RF-1", status: "EXECUTED" }; },
+  };
+  const fakeNoRef: PaymentProviderAdapter = {
+    code: "TEST_NOREF",
+    capabilities: { initiate: true, pollStatus: true, webhooks: false, refunds: false, settlements: false, payerFee: false },
+    async initiate() { liveCalls.push("initiate-noref"); return { providerRef: `TN-${crypto.randomUUID().slice(0, 8)}` }; },
+    async checkStatus() { liveCalls.push("checkStatus-noref"); return { status: "SUCCESS", providerTxId: "TNTX-1" }; },
+  };
+  registerProviderAdapter(fakeLive);
+  registerProviderAdapter({ ...fakeLive, code: "TEST_LIVE_NS" });
+  registerProviderAdapter({ ...fakeLive, code: "TEST_LIVE_AR" });
+  registerProviderAdapter(fakeNoRef);
+
+  // Prestataires LIVE de test : complet, sans secret, sans capacité
+  // de remboursement, désactivé.
+  process.env.G3E_LIVE_CREDS = "test-creds";
+  const liveBase = {
+    schoolId: school.id, mode: "LIVE" as const, status: "ACTIVE" as const,
+    liveEnabled: true, liveEnabledAt: new Date(), liveEnabledById: admin.id,
+  };
+  const liveProv = await prisma.paymentProvider.create({
+    data: { ...liveBase, code: "TEST_LIVE", label: "Live", credentialsRef: "G3E_LIVE_CREDS" },
+  });
+  const liveNoSecret = await prisma.paymentProvider.create({
+    data: { ...liveBase, code: "TEST_LIVE_NS", label: "Live sans secret" },
+  });
+  const liveNoRef = await prisma.paymentProvider.create({
+    data: { ...liveBase, code: "TEST_NOREF", label: "Live sans remb.", credentialsRef: "G3E_LIVE_CREDS" },
+  });
+  const liveArchived = await prisma.paymentProvider.create({
+    data: { ...liveBase, code: "TEST_LIVE_AR", label: "Live désactivé", status: "ARCHIVED", credentialsRef: "G3E_LIVE_CREDS" },
+  });
+
+  const s6 = await mkStudent("G3E-S6");
+  await enroll(s6.id);
+  const f6 = await chargeWith(s6.id, [7_000]);
+
+  // a) Verrou désactivé → initiation refusée, aucun appel adaptateur.
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  liveCalls.length = 0;
+  const liLocked = await createPaymentIntent(ctxA, {
+    studentId: s6.id, academicYearId: year.id, providerId: liveProv.id,
+    amount: 1_000, currency: "XOF", channel: "ADMIN_TEST",
+  });
+  check("verrou désactivé → initiation LIVE refusée (LIVE_DISABLED)",
+    !liLocked.ok && liLocked.error === "LIVE_DISABLED");
+  check("aucun appel adaptateur sous verrou", liveCalls.length === 0);
+
+  // b) SANDBOX non soumis au verrou.
+  const s7 = await mkStudent("G3E-S7");
+  await enroll(s7.id);
+  const f7 = await chargeWith(s7.id, [2_000]);
+  const sbIntent = await mkIntent(s7.id, 1_000, providerA, { feeInstallmentId: f7.installments[0].id });
+  check("SANDBOX fonctionne sans le verrou", sbIntent.ok);
+  await prisma.paymentIntent.updateMany({ where: { id: sbIntent.ok ? sbIntent.data.intentId : "" }, data: { status: "CANCELLED" } });
+
+  // c) Verrou activé → initiation LIVE appelle l'adaptateur.
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  const liOk = await createPaymentIntent(ctxA, {
+    studentId: s6.id, academicYearId: year.id, providerId: liveProv.id,
+    amount: 7_000, currency: "XOF", channel: "ADMIN_TEST",
+    feeInstallmentId: f6.installments[0].id,
+    allocations: [{ installmentId: f6.installments[0].id, amount: 7_000 }],
+  });
+  const liveIntentId = liOk.ok ? liOk.data.intentId : "";
+  check("verrou activé → initiation LIVE appelle l'adaptateur",
+    liOk.ok && liveCalls.includes("initiate"));
+
+  // d) Verrou désactivé → statut refusé, intention conservée PENDING.
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  liveCalls.length = 0;
+  const pollLocked = await pollPaymentIntent(ctxA, liveIntentId);
+  check("verrou désactivé → statut LIVE refusé sans appel adaptateur",
+    !pollLocked.ok && pollLocked.error === "LIVE_DISABLED" && liveCalls.length === 0);
+  check("intention LIVE conservée PENDING (preuve préservée)",
+    (await prisma.paymentIntent.findUnique({ where: { id: liveIntentId } }))?.status === "PENDING");
+
+  // e) Verrou activé → statut consulté → confirmé + encaissé.
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  const pollOk = await pollPaymentIntent(ctxA, liveIntentId);
+  const livePaymentId = (await prisma.paymentIntent.findUnique({ where: { id: liveIntentId } }))?.paymentId;
+  check("verrou activé → statut consulté, encaissement comptabilisé",
+    pollOk.ok && pollOk.data.status === "CONFIRMED" && !!livePaymentId && liveCalls.includes("checkStatus"));
+
+  // f) Barrières détaillées avec verrou activé.
+  const s8 = await mkStudent("G3E-S8");
+  await enroll(s8.id);
+  await chargeWith(s8.id, [1_000]);
+  const archLive = await createPaymentIntent(ctxA, {
+    studentId: s8.id, academicYearId: year.id, providerId: liveArchived.id,
+    amount: 500, currency: "XOF", channel: "ADMIN_TEST",
+  });
+  check("verrou activé + prestataire désactivé → PROVIDER_INACTIVE",
+    !archLive.ok && archLive.error === "PROVIDER_INACTIVE");
+  const noSecret = await createPaymentIntent(ctxA, {
+    studentId: s8.id, academicYearId: year.id, providerId: liveNoSecret.id,
+    amount: 500, currency: "XOF", channel: "ADMIN_TEST",
+  });
+  check("LIVE sans secrets → PROVIDER_CONFIG (aucun appel)",
+    !noSecret.ok && noSecret.error === "PROVIDER_CONFIG");
+
+  // g) Remboursement LIVE — chaîne complète de refus puis succès.
+  const rfLive = await createRefundRequest(ctxA, { paymentId: livePaymentId!, amount: 1_000, reason: "Test verrou" });
+  const rfLiveId = rfLive.ok ? rfLive.data.id : "";
+  await approveRefund(ctxA, rfLiveId);
+
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  liveCalls.length = 0;
+  const exLocked = await executeRefund(ctxA, rfLiveId);
+  const rfLockedAfter = await prisma.paymentRefund.findUnique({ where: { id: rfLiveId } });
+  check("verrou désactivé → remboursement LIVE refusé (LIVE_DISABLED)",
+    !exLocked.ok && exLocked.error === "LIVE_DISABLED" && liveCalls.length === 0);
+  check("demande conservée APPROVED, aucun SIMREF- inventé",
+    rfLockedAfter?.status === "APPROVED" && rfLockedAfter.providerRef === null);
+
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  const exNoAuth = await executeRefund(ctxA, rfLiveId);
+  check("LIVE + remboursement non autorisé → REFUND_NOT_ENABLED",
+    !exNoAuth.ok && exNoAuth.error === "REFUND_NOT_ENABLED");
+  check("toujours APPROVED sans référence",
+    (await prisma.paymentRefund.findUnique({ where: { id: rfLiveId } }))?.providerRef === null);
+
+  await setProviderRefundsEnabled(ctxA, liveProv.id, true);
+  const exOk = await executeRefund(ctxA, rfLiveId);
+  const rfExecAfter = await prisma.paymentRefund.findUnique({ where: { id: rfLiveId } });
+  check("conditions réunies → exécution via adaptateur (référence prestataire)",
+    exOk.ok && rfExecAfter?.status === "EXECUTED" && rfExecAfter.providerRef === "TL-RF-1"
+    && liveCalls.includes("initiateRefund"));
+  check("jamais de SIMREF- pour un prestataire LIVE",
+    (rfExecAfter?.providerRef ?? "").startsWith("SIMREF-") === false);
+  const exReplay = await executeRefund(ctxA, rfLiveId);
+  check("rejeu d'exécution idempotent", exReplay.ok);
+
+  // h) LIVE sans capacité de remboursement → refus explicite.
+  const s9 = await mkStudent("G3E-S9");
+  await enroll(s9.id);
+  const f9 = await chargeWith(s9.id, [4_000]);
+  const i9 = await createPaymentIntent(ctxA, {
+    studentId: s9.id, academicYearId: year.id, providerId: liveNoRef.id,
+    amount: 4_000, currency: "XOF", channel: "ADMIN_TEST",
+    feeInstallmentId: f9.installments[0].id,
+    allocations: [{ installmentId: f9.installments[0].id, amount: 4_000 }],
+  });
+  const i9Id = i9.ok ? i9.data.intentId : "";
+  await pollPaymentIntent(ctxA, i9Id);
+  const p9 = (await prisma.paymentIntent.findUnique({ where: { id: i9Id } }))?.paymentId;
+  const rfNoCap = await createRefundRequest(ctxA, { paymentId: p9!, amount: 500, reason: "Sans capacité" });
+  const rfNoCapId = rfNoCap.ok ? rfNoCap.data.id : "";
+  await approveRefund(ctxA, rfNoCapId);
+  const exNoCap = await executeRefund(ctxA, rfNoCapId);
+  const rfNoCapAfter = await prisma.paymentRefund.findUnique({ where: { id: rfNoCapId } });
+  check("LIVE sans capacité remboursement → REFUND_UNSUPPORTED",
+    !exNoCap.ok && exNoCap.error === "REFUND_UNSUPPORTED");
+  check("aucun repli simulé : APPROVED, aucune référence",
+    rfNoCapAfter?.status === "APPROVED" && rfNoCapAfter.providerRef === null);
+
+  // i) Isolation : prestataire LIVE de l'école A invisible côté B
+  //    (élève et année valides en école B pour atteindre le contrôle).
+  const yearB = await prisma.academicYear.create({
+    data: { schoolId: schoolB.id, name: "2026-2027", isCurrent: true, startDate: new Date("2026-09-01"), endDate: new Date("2027-06-30") },
+  });
+  const sB = await prisma.student.create({
+    data: { schoolId: schoolB.id, matricule: "G3E-B1", firstName: "Élève", lastName: "B", status: "ACTIVE" },
+  });
+  const isoLive = await createPaymentIntent(ctxB, {
+    studentId: sB.id, academicYearId: yearB.id, providerId: liveProv.id,
+    amount: 100, currency: "XOF", channel: "ADMIN_TEST",
+  });
+  check("prestataire LIVE d'une autre école → UNKNOWN_PROVIDER",
+    !isoLive.ok && isoLive.error === "UNKNOWN_PROVIDER");
+
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  delete process.env.G3E_LIVE_CREDS;
 
   // ══════════ 6. REVERSEMENTS SIMULÉS ══════════
   console.log("\n— Reversements simulés (fetchSettlements) —");
