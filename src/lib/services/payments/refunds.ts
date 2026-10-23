@@ -14,6 +14,9 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
+import { getProviderAdapter } from "./providers";
+import { ProviderBusinessError } from "./providers";
+import type { SandboxScript } from "./providers";
 import { notifyReconcileAdmins } from "./reconciliation";
 
 type Ctx = { userId: string; schoolId: string };
@@ -258,10 +261,15 @@ export async function cancelRefund(ctx: Ctx, id: string): Promise<Res<true>> {
 }
 
 /**
- * Exécution SIMULÉE du remboursement — aucune API prestataire réelle
- * n'existe encore ; la référence produite est explicitement marquée
- * `SIMREF-`. `__simulateFail` est un indicateur INTERNE réservé aux
- * recettes (couverture du chemin d'échec).
+ * Exécution du remboursement.
+ *
+ * Si l'adaptateur du prestataire déclare `capabilities.refunds` ET que
+ * le contrat de l'école l'active (`PaymentProvider.refundsEnabled`),
+ * l'exécution passe par `initiateRefund` — en sandbox l'adaptateur
+ * reste simulé (`SIMREF-`), aucun appel réseau réel n'existe encore.
+ * À défaut, le chemin historique de simulation produit la même
+ * référence `SIMREF-` (un remboursement n'est jamais "réel" ici).
+ * `__simulateFail` est un indicateur INTERNE réservé aux recettes.
  */
 export async function executeRefund(
   ctx: Ctx,
@@ -270,7 +278,16 @@ export async function executeRefund(
 ): Promise<Res<{ providerRef?: string }>> {
   const refund = await prisma.paymentRefund.findFirst({
     where: { id, schoolId: ctx.schoolId },
-    select: { id: true, status: true },
+    select: {
+      id: true, status: true, amount: true, reason: true,
+      intent: {
+        select: {
+          id: true, providerRef: true, providerTxId: true,
+          sandboxScript: true,
+          provider: { select: { code: true, refundsEnabled: true } },
+        },
+      },
+    },
   });
   if (!refund) return { ok: false, error: "NOT_FOUND" };
   if (refund.status === "EXECUTED") return { ok: true, data: {} };
@@ -283,6 +300,69 @@ export async function executeRefund(
     await auditRefund(ctx, id, "payment_refund.failed", { simulated: true });
     return { ok: true, data: {} };
   }
+
+  // G3-E : exécution via l'adaptateur si le contrat l'autorise.
+  const provider = refund.intent?.provider;
+  const adapter = provider ? getProviderAdapter(provider.code) : null;
+  if (adapter?.capabilities.refunds && adapter.initiateRefund && provider?.refundsEnabled) {
+    try {
+      const res = await adapter.initiateRefund({
+        intentRef: refund.intent!.providerRef ?? refund.intent!.id,
+        providerTxId: refund.intent!.providerTxId ?? "-",
+        amount: refund.amount,
+        currency: "XOF",
+        reason: refund.reason,
+        idempotencyKey: `rf:${id}`,
+        sandboxScript: refund.intent!.sandboxScript as SandboxScript | null,
+      });
+      if (res.status === "FAILED") {
+        const r = await transition(ctx, id, ["APPROVED"], {
+          status: "FAILED",
+          failureReason: res.reason ?? "PROVIDER_REFUND_FAILED",
+          providerRef: res.providerRefundRef,
+        }, "FAILED");
+        if (!r.ok) return r;
+        await auditRefund(ctx, id, "payment_refund.failed", {
+          providerRefundRef: res.providerRefundRef, reason: res.reason ?? null,
+        });
+        return { ok: true, data: {} };
+      }
+      if (res.status === "PENDING") {
+        // Remboursement accepté mais non exécuté : reste APPROVED avec
+        // la référence conservée — l'appelant peut réessayer (idempotent).
+        await prisma.paymentRefund.updateMany({
+          where: { id, status: "APPROVED" },
+          data: { providerRef: res.providerRefundRef },
+        });
+        return { ok: true, data: { providerRef: res.providerRefundRef } };
+      }
+      const r = await transition(ctx, id, ["APPROVED"], {
+        status: "EXECUTED",
+        executedAt: new Date(),
+        providerRef: res.providerRefundRef,
+      }, "EXECUTED");
+      if (!r.ok) return r;
+      await auditRefund(ctx, id, "payment_refund.executed", {
+        providerRefundRef: res.providerRefundRef,
+        simulated: provider.code === "SANDBOX",
+      });
+      return { ok: true, data: { providerRef: res.providerRefundRef } };
+    } catch (e) {
+      if (e instanceof ProviderBusinessError) {
+        const r = await transition(ctx, id, ["APPROVED"], {
+          status: "FAILED",
+          failureReason: e.reason,
+        }, "FAILED");
+        if (r.ok) await auditRefund(ctx, id, "payment_refund.failed", { reason: e.reason });
+        return r.ok ? { ok: true, data: {} } : r;
+      }
+      // Timeout/indisponibilité : le remboursement reste APPROVED —
+      // retry idempotent possible, aucun effet de bord perdu.
+      return { ok: false, error: "PROVIDER_UNAVAILABLE" };
+    }
+  }
+
+  // Chemin simulé historique (aucun adaptateur de remboursement actif).
   const providerRef = `SIMREF-${id.slice(0, 12).toUpperCase()}`;
   const r = await transition(ctx, id, ["APPROVED"], {
     status: "EXECUTED",

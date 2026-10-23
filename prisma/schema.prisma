@@ -308,6 +308,7 @@ model User {
   refundRequests           PaymentRefund[]         @relation("RefundRequestedBy")
   refundApprovals          PaymentRefund[]         @relation("RefundApprovedBy")
   discrepancyResolutions   PaymentDiscrepancy[]    @relation("DiscrepancyResolvedBy")
+  providerLiveEnabled      PaymentProvider[]       @relation("ProviderLiveEnabler")
 
   @@index([schoolId])
   @@index([email])
@@ -2894,6 +2895,28 @@ model PaymentProvider {
   feeFixed   Int        @default(0)
   feePercent Int        @default(0)
   feeBearer  FeeBearer  @default(SCHOOL)
+
+  // G3-E — activation contrôlée du mode réel. `mode = LIVE` seul ne
+  // suffit PAS : `liveEnabled` doit être activé explicitement par un
+  // administrateur habilité après vérification du dossier d'intégration
+  // (cf. docs/g3e-provider-integration-checklist.md). Un prestataire
+  // LIVE sans `liveEnabled` refuse toute initiation (PROVIDER_NOT_LIVE).
+  liveEnabled    Boolean   @default(false)
+  liveEnabledAt  DateTime?
+  liveEnabledById String?
+  liveEnabledBy  User?     @relation("ProviderLiveEnabler", fields: [liveEnabledById], references: [id], onDelete: SetNull)
+
+  // Remboursements via l'API du prestataire — activés UNIQUEMENT si le
+  // contrat le prévoit (capacité déclarée par l'adaptateur + accord).
+  refundsEnabled Boolean @default(false)
+
+  // Traçabilité de la rotation des secrets (les secrets eux-mêmes
+  // restent dans l'environnement, jamais en base).
+  credentialsRotatedAt DateTime?
+
+  // Paramètres contractuels complémentaires (timeout, endpoint sandbox
+  // du prestataire, référence contrat…) — jamais de secret ici.
+  config Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

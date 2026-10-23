@@ -11,11 +11,14 @@ import type {
   InitiateResult,
   NormalizedWebhookEvent,
   PaymentProviderAdapter,
+  ProviderRefundInput,
+  ProviderRefundResult,
+  ProviderSettlementReport,
   SandboxScript,
   StatusResult,
   WebhookVerification,
 } from "./types";
-import { ProviderTimeoutError } from "./types";
+import { ProviderTimeoutError, ProviderUnavailableError } from "./types";
 
 function txId(providerRef: string) {
   return `SBTX-${providerRef}`;
@@ -63,6 +66,16 @@ function normalize(raw: Record<string, unknown>): NormalizedWebhookEvent | null 
 
 export const sandboxAdapter: PaymentProviderAdapter = {
   code: "SANDBOX",
+  // Le simulateur déclare toutes les capacités du contrat — c'est la
+  // référence de conformité pour les futurs adaptateurs réels.
+  capabilities: {
+    initiate: true,
+    pollStatus: true,
+    webhooks: true,
+    refunds: true,
+    settlements: true,
+    payerFee: true,
+  },
 
   async initiate(input: InitiateInput): Promise<InitiateResult> {
     const script = input.sandboxScript;
@@ -88,6 +101,8 @@ export const sandboxAdapter: PaymentProviderAdapter = {
           rawStatus: "FAILED",
           reason: script?.reason ?? "Solde insuffisant (simulation)",
         };
+      case "ERROR":
+        throw new ProviderUnavailableError("Simulation : erreur prestataire");
       case "TIMEOUT":
         throw new ProviderTimeoutError("Simulation : timeout à la consultation");
       case "LATE": {
@@ -131,5 +146,50 @@ export const sandboxAdapter: PaymentProviderAdapter = {
     const event = normalize(parsed);
     if (!event) return { ok: false, error: "MALFORMED" };
     return { ok: true, event };
+  },
+
+  /**
+   * Remboursement simulé — référence `SIMREF-` explicite, jamais de
+   * confusion avec un remboursement réel. `refundOutcome` du scénario
+   * pilote EXECUTED / PENDING / FAILED.
+   */
+  async initiateRefund(input: ProviderRefundInput): Promise<ProviderRefundResult> {
+    const outcome = input.sandboxScript?.refundOutcome ?? "EXECUTED";
+    const ref = `SIMREF-${input.idempotencyKey.slice(0, 16).toUpperCase()}`;
+    if (outcome === "FAILED") {
+      return { providerRefundRef: ref, status: "FAILED", reason: "Remboursement refusé (simulation)" };
+    }
+    return { providerRefundRef: ref, status: outcome };
+  },
+
+  /**
+   * Décomptes simulés — le scénario injecte les rapports attendus ;
+   * à défaut, un décompte vide déterministe est renvoyé.
+   */
+  async fetchSettlements(input: {
+    periodStart: string;
+    periodEnd: string;
+    cursor?: string | null;
+    sandboxScript?: SandboxScript | null;
+  }): Promise<ProviderSettlementReport> {
+    const reports = input.sandboxScript?.settlements;
+    if (reports?.length) {
+      const idx = Math.min(Number(input.cursor ?? 0), reports.length - 1);
+      const report = reports[idx];
+      return {
+        ...report,
+        nextCursor: idx + 1 < reports.length ? String(idx + 1) : null,
+      };
+    }
+    return {
+      reference: `SIMSET-${input.periodStart}`,
+      periodStart: input.periodStart,
+      periodEnd: input.periodEnd,
+      grossAmount: 0,
+      feeTotal: 0,
+      netAmount: 0,
+      items: [],
+      nextCursor: null,
+    };
   },
 };

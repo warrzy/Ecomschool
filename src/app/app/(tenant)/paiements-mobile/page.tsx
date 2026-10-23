@@ -33,7 +33,10 @@ import {
   postIntentAction,
   rejectRefundAction,
   replayWebhookAction,
+  rotateProviderSecretAction,
   setProviderFeesAction,
+  setProviderLiveAction,
+  setProviderRefundsAction,
   simulateOutcomeAction,
   sweepExpiredAction,
   syncReconciliationAction,
@@ -314,20 +317,62 @@ export default async function PaiementsMobilePage(props: {
                     <span className={`rounded-full px-2 py-0.5 text-xs ${p.mode === "SANDBOX" ? "bg-violet-50 text-violet-800" : "bg-zinc-100 text-zinc-700"}`}>
                       {p.mode === "SANDBOX" ? "Simulateur" : "Réel"}
                     </span>
+                    {p.mode === "LIVE" && (
+                      <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] ${p.liveEnabled ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-700"}`}>
+                        {p.liveEnabled ? "LIVE activée" : "LIVE non activée"}
+                      </span>
+                    )}
+                    {p.refundsEnabled && (
+                      <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-700">
+                        remb. API
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 pr-4 text-xs text-zinc-500">
                     {fmt(p.minAmount)} – {p.maxAmount === null ? "∞" : fmt(p.maxAmount)}
                   </td>
-                  <td className="py-2 pr-4 text-xs">{p.status === "ACTIVE" ? "Actif" : "Archivé"}</td>
+                  <td className="py-2 pr-4 text-xs">
+                    {p.status === "ACTIVE" ? "Actif" : "Archivé"}
+                    {p.credentialsRotatedAt && (
+                      <div className="text-[10px] text-zinc-400">clés tournées le {dt(p.credentialsRotatedAt)}</div>
+                    )}
+                  </td>
                   {canManage && (
                     <td className="py-2">
-                      <form action={toggleProviderAction}>
-                        <input type="hidden" name="providerId" value={p.id} />
-                        <input type="hidden" name="status" value={p.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE"} />
-                        <SubmitButton className="text-xs text-brand-700 hover:underline" pendingLabel="…">
-                          {p.status === "ACTIVE" ? "Archiver" : "Réactiver"}
-                        </SubmitButton>
-                      </form>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <form action={toggleProviderAction}>
+                          <input type="hidden" name="providerId" value={p.id} />
+                          <input type="hidden" name="status" value={p.status === "ACTIVE" ? "ARCHIVED" : "ACTIVE"} />
+                          <SubmitButton className="text-xs text-brand-700 hover:underline" pendingLabel="…">
+                            {p.status === "ACTIVE" ? "Archiver" : "Réactiver"}
+                          </SubmitButton>
+                        </form>
+                        {p.mode === "LIVE" && (
+                          <form action={setProviderLiveAction} className="flex items-center gap-1">
+                            <input type="hidden" name="providerId" value={p.id} />
+                            <input type="hidden" name="enable" value={p.liveEnabled ? "0" : "1"} />
+                            {!p.liveEnabled && (
+                              <input name="confirm" placeholder="LIVE" className="h-7 w-14 rounded border border-zinc-300 px-1 text-xs" />
+                            )}
+                            <SubmitButton className={`text-xs hover:underline ${p.liveEnabled ? "text-red-700" : "text-emerald-700"}`} pendingLabel="…">
+                              {p.liveEnabled ? "Désactiver LIVE" : "Activer LIVE"}
+                            </SubmitButton>
+                          </form>
+                        )}
+                        <form action={setProviderRefundsAction}>
+                          <input type="hidden" name="providerId" value={p.id} />
+                          <input type="hidden" name="enable" value={p.refundsEnabled ? "0" : "1"} />
+                          <SubmitButton className="text-xs text-zinc-600 hover:underline" pendingLabel="…">
+                            {p.refundsEnabled ? "Désactiver remb. API" : "Activer remb. API"}
+                          </SubmitButton>
+                        </form>
+                        <form action={rotateProviderSecretAction}>
+                          <input type="hidden" name="providerId" value={p.id} />
+                          <SubmitButton className="text-xs text-zinc-600 hover:underline" pendingLabel="…">
+                            Marquer rotation
+                          </SubmitButton>
+                        </form>
+                      </div>
                     </td>
                   )}
                 </tr>

@@ -9,8 +9,11 @@ import {
   createPaymentIntent,
   createPaymentProvider,
   expireDuePaymentIntents,
+  markProviderCredentialsRotated,
   pollPaymentIntent,
   setPaymentProviderStatus,
+  setProviderLive,
+  setProviderRefundsEnabled,
   setSandboxOutcome,
 } from "@/lib/services/payments/mobileIntents";
 import { replayWebhookEvent } from "@/lib/services/payments/webhooks";
@@ -66,6 +69,39 @@ export async function toggleProviderAction(formData: FormData) {
   }
   const res = await setPaymentProviderStatus(ctx(t), id, status);
   return back(`${BASE}?${res.ok ? "ok=status" : `error=${res.error}`}`);
+}
+
+/**
+ * G3-E — Activation LIVE contrôlée : exige la saisie explicite de
+ * « LIVE » (confirmation anti-clic). La désactivation est immédiate.
+ */
+export async function setProviderLiveAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.manage");
+  const id = String(formData.get("providerId") ?? "");
+  const enable = formData.get("enable") === "1";
+  if (!id) return back(`${BASE}?error=INVALID_INPUT`);
+  if (enable && String(formData.get("confirm") ?? "") !== "LIVE") {
+    return back(`${BASE}?error=CONFIRM_REQUIRED`);
+  }
+  const res = await setProviderLive(ctx(t), id, enable);
+  return back(`${BASE}?${res.ok ? "ok=live" : `error=${res.error}`}`);
+}
+
+export async function setProviderRefundsAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.manage");
+  const id = String(formData.get("providerId") ?? "");
+  if (!id) return back(`${BASE}?error=INVALID_INPUT`);
+  const res = await setProviderRefundsEnabled(ctx(t), id, formData.get("enable") === "1");
+  return back(`${BASE}?${res.ok ? "ok=refunds" : `error=${res.error}`}`);
+}
+
+/** Trace une rotation de secret effectuée côté ops (valeur hors app). */
+export async function rotateProviderSecretAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.manage");
+  const id = String(formData.get("providerId") ?? "");
+  if (!id) return back(`${BASE}?error=INVALID_INPUT`);
+  const res = await markProviderCredentialsRotated(ctx(t), id);
+  return back(`${BASE}?${res.ok ? "ok=rotated" : `error=${res.error}`}`);
 }
 
 const intentSchema = z.object({

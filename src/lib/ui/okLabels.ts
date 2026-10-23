@@ -119,6 +119,9 @@ const OK_LABELS: Record<string, string> = {
   posted: "Encaissement comptabilisé.",
   webhook_replayed: "Événement webhook relancé.",
   refreshed: "Statut de la demande actualisé.",
+  live: "Activation du mode réel mise à jour.",
+  refunds: "Prise en charge des remboursements mise à jour.",
+  rotated: "Rotation des identifiants consignée — pensez à mettre à jour les variables d'environnement.",
 
   // Rapprochement / reversements / remboursements (G3-D)
   fees: "Commission du fournisseur enregistrée.",

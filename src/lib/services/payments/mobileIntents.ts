@@ -69,8 +69,11 @@ export async function createPaymentProvider(
   if (!/^[A-Z0-9_]{2,30}$/.test(code)) return { ok: false, error: "INVALID_INPUT" };
   if (!input.label.trim()) return { ok: false, error: "INVALID_INPUT" };
   if (input.mode === "LIVE") {
-    // Aucun adaptateur réel n'est enregistré en G3-A — bloqué ici aussi.
+    // Un prestataire LIVE exige un adaptateur enregistré — et restera
+    // bloqué à l'initiation tant que liveEnabled n'est pas activé.
     if (!getProviderAdapter(code)) return { ok: false, error: "PROVIDER_UNAVAILABLE" };
+    // L'adaptateur SANDBOX ne doit jamais tourner en mode LIVE.
+    if (code === "SANDBOX") return { ok: false, error: "INVALID_INPUT" };
   }
   if (input.mode === "SANDBOX" && code !== "SANDBOX") {
     return { ok: false, error: "INVALID_INPUT" };
@@ -119,6 +122,105 @@ export async function setPaymentProviderStatus(
   return { ok: true, data: true };
 }
 
+/**
+ * G3-E — Activation/désactivation contrôlée du mode réel. Idempotent ;
+ * `enable` exige un adaptateur enregistré et un prestataire en mode
+ * LIVE ; l'audit conserve l'acteur (traçabilité de la décision).
+ */
+export async function setProviderLive(
+  ctx: Ctx,
+  providerId: string,
+  enabled: boolean,
+): Promise<Res<true>> {
+  const provider = await prisma.paymentProvider.findFirst({
+    where: { id: providerId, schoolId: ctx.schoolId },
+    select: { id: true, code: true, mode: true, liveEnabled: true },
+  });
+  if (!provider) return { ok: false, error: "NOT_FOUND" };
+  if (provider.liveEnabled === enabled) return { ok: true, data: true };
+  if (enabled) {
+    if (provider.mode !== "LIVE") return { ok: false, error: "INVALID_STATE" };
+    if (!getProviderAdapter(provider.code)) {
+      return { ok: false, error: "PROVIDER_UNAVAILABLE" };
+    }
+  }
+  await prisma.paymentProvider.update({
+    where: { id: provider.id },
+    data: enabled
+      ? { liveEnabled: true, liveEnabledAt: new Date(), liveEnabledById: ctx.userId }
+      : { liveEnabled: false, liveEnabledAt: null, liveEnabledById: null },
+  });
+  await logAudit({
+    actorId: ctx.userId, schoolId: ctx.schoolId,
+    action: enabled ? "payment_provider.live_enabled" : "payment_provider.live_disabled",
+    entity: "PaymentProvider", entityId: provider.id,
+    metadata: { code: provider.code },
+  });
+  return { ok: true, data: true };
+}
+
+/**
+ * Active les remboursements via l'API prestataire — uniquement si
+ * l'adaptateur déclare la capacité ET si le contrat le prévoit
+ * (validation administrative tracée).
+ */
+export async function setProviderRefundsEnabled(
+  ctx: Ctx,
+  providerId: string,
+  enabled: boolean,
+): Promise<Res<true>> {
+  const provider = await prisma.paymentProvider.findFirst({
+    where: { id: providerId, schoolId: ctx.schoolId },
+    select: { id: true, code: true, refundsEnabled: true },
+  });
+  if (!provider) return { ok: false, error: "NOT_FOUND" };
+  if (provider.refundsEnabled === enabled) return { ok: true, data: true };
+  if (enabled) {
+    const adapter = getProviderAdapter(provider.code);
+    if (!adapter?.capabilities.refunds || !adapter.initiateRefund) {
+      return { ok: false, error: "REFUND_UNSUPPORTED" };
+    }
+  }
+  await prisma.paymentProvider.update({
+    where: { id: provider.id },
+    data: { refundsEnabled: enabled },
+  });
+  await logAudit({
+    actorId: ctx.userId, schoolId: ctx.schoolId,
+    action: enabled ? "payment_provider.refunds_enabled" : "payment_provider.refunds_disabled",
+    entity: "PaymentProvider", entityId: provider.id,
+    metadata: { code: provider.code },
+  });
+  return { ok: true, data: true };
+}
+
+/**
+ * Trace une rotation de secrets prestataire. La valeur nouvelle est
+ * posée dans l'environnement (procédure ops, hors application) — la
+ * base ne fait que consigner la date et l'acteur.
+ */
+export async function markProviderCredentialsRotated(
+  ctx: Ctx,
+  providerId: string,
+): Promise<Res<true>> {
+  const provider = await prisma.paymentProvider.findFirst({
+    where: { id: providerId, schoolId: ctx.schoolId },
+    select: { id: true, code: true },
+  });
+  if (!provider) return { ok: false, error: "NOT_FOUND" };
+  await prisma.paymentProvider.update({
+    where: { id: provider.id },
+    data: { credentialsRotatedAt: new Date() },
+  });
+  await logAudit({
+    actorId: ctx.userId, schoolId: ctx.schoolId,
+    action: "payment_provider.credentials_rotated",
+    entity: "PaymentProvider", entityId: provider.id,
+    metadata: { code: provider.code },
+  });
+  return { ok: true, data: true };
+}
+
 export async function listPaymentProviders(ctx: Ctx) {
   // credentialsRef / webhookSecretRef exclus : noms d'env internes,
   // jamais utiles côté navigateur.
@@ -130,6 +232,8 @@ export async function listPaymentProviders(ctx: Ctx) {
       mode: true, status: true, minAmount: true, maxAmount: true,
       merchantRef: true, createdAt: true, updatedAt: true,
       feeFixed: true, feePercent: true, feeBearer: true,
+      liveEnabled: true, liveEnabledAt: true, refundsEnabled: true,
+      credentialsRotatedAt: true,
     },
   });
 }
@@ -185,6 +289,11 @@ export async function createPaymentIntent(
   if (!student || !year) return { ok: false, error: "NOT_FOUND" };
   if (!provider) return { ok: false, error: "UNKNOWN_PROVIDER" };
   if (provider.status !== "ACTIVE") return { ok: false, error: "PROVIDER_INACTIVE" };
+  // G3-E — un prestataire LIVE n'initie que si l'activation contrôlée
+  // a été explicitement validée (dossier d'intégration vérifié).
+  if (provider.mode === "LIVE" && !provider.liveEnabled) {
+    return { ok: false, error: "PROVIDER_NOT_LIVE" };
+  }
   if (input.amount < provider.minAmount) return { ok: false, error: "INVALID_AMOUNT" };
   if (provider.maxAmount !== null && input.amount > provider.maxAmount) {
     return { ok: false, error: "INVALID_AMOUNT" };
