@@ -35,6 +35,7 @@ const STALE_EVENT_MS = 60 * 1000;
 const REPOST_GRACE_MS = 5 * 60 * 1000;
 const POLL_UNCERTAIN_MIN = 30;
 const POSTING_ALERT_ATTEMPTS = 3;
+const MAX_EVENT_ATTEMPTS = 5;
 
 type Res<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -186,8 +187,9 @@ export async function processWebhookEvent(eventId: string): Promise<{
     include: { provider: true },
   });
 
-  let outcome: WebhookEventStatus;
+  let outcome: WebhookEventStatus | "RETRY";
   let result: Record<string, unknown> = {};
+  let retryable = false;
 
   if (!intent || intent.schoolId !== event.schoolId) {
     outcome = "ANOMALY";
@@ -228,10 +230,22 @@ export async function processWebhookEvent(eventId: string): Promise<{
           });
         }
       } catch (e) {
-        // Erreur technique transitoire : l'événement est marqué FAILED
-        // (diagnostic + relance admin possible) et le job retente.
-        outcome = "FAILED";
-        result = { error: e instanceof Error ? e.message : "PROCESSING_ERROR" };
+        const msg = e instanceof Error ? e.message : "PROCESSING_ERROR";
+        // Erreur technique transitoire : l'événement repart en RECEIVED
+        // (repris par le sweep / le job) jusqu'au plafond de tentatives,
+        // puis FAILED + alerte — jamais de rejet définitif silencieux.
+        if (event.attempts + 1 < MAX_EVENT_ATTEMPTS) {
+          outcome = "RETRY";
+          retryable = true;
+          result = { error: msg, retrying: true };
+        } else {
+          outcome = "FAILED";
+          result = { error: msg };
+          await notifyPaymentAdmins(event.schoolId, {
+            title: "Échec persistant de traitement webhook",
+            body: `Événement ${event.externalId} : ${msg.slice(0, 200)} après ${event.attempts + 1} tentatives — intervention requise.`,
+          });
+        }
       }
     }
   }
@@ -240,10 +254,11 @@ export async function processWebhookEvent(eventId: string): Promise<{
     where: { id: event.id },
     data: {
       intentId: intent?.id ?? null,
-      status: outcome,
+      status: retryable ? "RECEIVED" : (outcome as WebhookEventStatus),
       result: result as Prisma.InputJsonValue,
-      lastError: outcome === "FAILED" ? (result.error as string) ?? "PROCESSING_ERROR" : null,
-      processedAt: new Date(),
+      lastError: outcome === "FAILED" || retryable
+        ? (result.error as string) ?? "PROCESSING_ERROR" : null,
+      processedAt: retryable ? null : new Date(),
     },
   });
   return { outcome };
@@ -564,7 +579,9 @@ export function registerMobileMoneyHandlers() {
     const eventId = typeof payload.eventId === "string" ? payload.eventId : "";
     if (!eventId) return;
     const r = await processWebhookEvent(eventId);
-    if (r.outcome === "FAILED") throw new Error("WEBHOOK_PROCESS_FAILED");
+    if (r.outcome === "FAILED" || r.outcome === "RETRY") {
+      throw new Error("WEBHOOK_PROCESS_FAILED");
+    }
   });
 }
 

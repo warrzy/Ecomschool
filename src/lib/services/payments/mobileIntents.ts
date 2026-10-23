@@ -115,9 +115,16 @@ export async function setPaymentProviderStatus(
 }
 
 export async function listPaymentProviders(ctx: Ctx) {
+  // credentialsRef / webhookSecretRef exclus : noms d'env internes,
+  // jamais utiles côté navigateur.
   return prisma.paymentProvider.findMany({
     where: { schoolId: ctx.schoolId },
     orderBy: { createdAt: "asc" },
+    select: {
+      id: true, schoolId: true, code: true, label: true,
+      mode: true, status: true, minAmount: true, maxAmount: true,
+      merchantRef: true, createdAt: true, updatedAt: true,
+    },
   });
 }
 
@@ -783,7 +790,12 @@ export async function getPaymentIntent(ctx: Ctx, intentId: string) {
     where: { id: intentId, schoolId: ctx.schoolId },
     include: {
       student: { select: { firstName: true, lastName: true, matricule: true } },
-      provider: true,
+      provider: {
+        select: {
+          id: true, code: true, label: true, mode: true, status: true,
+          minAmount: true, maxAmount: true, merchantRef: true,
+        },
+      },
       academicYear: { select: { name: true } },
       initiatedBy: { select: { firstName: true, lastName: true } },
       payment: { select: { id: true, receiptNumber: true, method: true, status: true } },
