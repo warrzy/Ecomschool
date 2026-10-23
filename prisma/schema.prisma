@@ -233,6 +233,7 @@ model School {
   paymentProviders    PaymentProvider[]
   paymentIntents      PaymentIntent[]
   paymentTransactions PaymentTransaction[]
+  webhookEvents       WebhookEvent[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -2848,6 +2849,15 @@ enum PaymentTxKind {
   REFUND
 }
 
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  IGNORED
+  ANOMALY
+}
+
 /** Configuration d'un canal de paiement par établissement. Secrets par référence d'env, jamais en clair. */
 model PaymentProvider {
   id       String @id @default(cuid())
@@ -2870,6 +2880,7 @@ model PaymentProvider {
   updatedAt DateTime @updatedAt
 
   intents PaymentIntent[]
+  webhookEvents WebhookEvent[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -2928,6 +2939,7 @@ model PaymentIntent {
   updatedAt DateTime @updatedAt
 
   transactions PaymentTransaction[]
+  webhookEvents WebhookEvent[]
 
   @@unique([schoolId, idempotencyKey])
   @@unique([schoolId, providerId, providerRef])
@@ -2954,4 +2966,46 @@ model PaymentTransaction {
 
   @@index([intentId])
   @@index([schoolId])
+}
+
+/**
+ * Événement webhook reçu d'un prestataire de paiement.
+ * Enregistré durablement AVANT traitement : un crash après réception
+ * ne perd jamais un événement authentifié. Dédupliqué par
+ * (providerId, externalId). Aucun secret ni signature stocké —
+ * uniquement l'empreinte et le payload sanitisé.
+ */
+model WebhookEvent {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  providerId String
+  provider   PaymentProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  intentId String?
+  intent   PaymentIntent? @relation(fields: [intentId], references: [id], onDelete: SetNull)
+
+  externalId String  // identifiant unique de l'événement chez le prestataire
+  eventType  String  // PAYMENT.SUCCESS | PAYMENT.FAILED | PAYMENT.EXPIRED | OTHER
+
+  status         WebhookEventStatus @default(RECEIVED)
+  attempts       Int                @default(0)
+  signatureValid Boolean            @default(true)
+
+  payloadHash String  // sha256 du corps brut — diagnostic, jamais le secret
+  payload     Json?   // contenu sanitisé (montant, refs, statut)
+  result      Json?   // résultat du traitement (sanitisé)
+  lastError   String?
+
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerId, externalId])
+  @@index([schoolId, status])
+  @@index([intentId])
+  @@index([status, receivedAt])
 }

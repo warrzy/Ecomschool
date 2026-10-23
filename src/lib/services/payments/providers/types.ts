@@ -45,10 +45,43 @@ export class ProviderTimeoutError extends Error {
   }
 }
 
+/** Événement webhook normalisé — produit de `verifyWebhook` après vérif. */
+export type NormalizedWebhookEvent = {
+  /** Identifiant unique de l'événement chez le prestataire (dédup). */
+  externalId: string;
+  /** Référence de session de l'intention (providerRef). */
+  intentRef: string;
+  status: ProviderPaymentStatus;
+  providerTxId?: string;
+  reason?: string;
+  /** Horodatage métier de l'événement (ordonnancement). */
+  occurredAt?: string;
+  eventType: string;
+  /** Contenu sanitisé stocké à des fins de diagnostic — jamais de secret. */
+  raw: Record<string, unknown>;
+};
+
+export type WebhookVerification =
+  | { ok: true; event: NormalizedWebhookEvent }
+  | { ok: false; error: "INVALID_SIGNATURE" | "EXPIRED" | "MALFORMED" };
+
 export interface PaymentProviderAdapter {
   readonly code: string;
   initiate(input: InitiateInput): Promise<InitiateResult>;
   checkStatus(providerRef: string, script?: SandboxScript | null): Promise<StatusResult>;
+  /**
+   * Vérifie l'authenticité d'un webhook sur les OCTETS BRUTS du corps
+   * et normalise l'événement. Chaque prestataire a son propre format
+   * de signature — l'implémentation est propre à l'adaptateur.
+   * Comparaison en temps constant + contrôle de fraîcheur requis.
+   */
+  verifyWebhook?(input: {
+    rawBody: string;
+    headers: Record<string, string>;
+    /** Secret résolu depuis l'environnement — jamais depuis la base. */
+    secret: string;
+    now?: Date;
+  }): WebhookVerification;
 }
 
 /** Scénario déterministe du simulateur SANDBOX. */

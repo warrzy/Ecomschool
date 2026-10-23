@@ -300,3 +300,55 @@ Durcissement appliqué avant déploiement préproduction (commit post-8e60720).
   (pull). En G3-B, webhooks signés + `WebhookEvent` dédupliqué.
 - Repost automatique des `CONFIRMED_PENDING_POSTING` (job cron dédié).
 - Notification famille/caisse après encaissement réel.
+
+## 12. G3-B — Webhooks sécurisés et reprise automatique (implémenté)
+
+### Réception
+
+- Route `POST /api/webhooks/mobile-money/{providerId}` : le providerId
+  résout **fournisseur et école côté serveur** — aucun schoolId du
+  corps n'est pris en compte.
+- Vérification par l'adaptateur (`verifyWebhook`) : HMAC-SHA256 sur
+  les **octets bruts** (`timestamp.body`), comparaison
+  `timingSafeEqual`, fraîcheur ±5 min, format propre à chaque
+  prestataire. Secret résolu depuis `webhookSecretRef` (env) —
+  jamais stocké ni journalisé.
+- Corps limité à 16 Ko. Événement rejeté : rien n'est persisté
+  (anti-remplissage), audit minimal `payment_webhook.rejected`.
+- Accusé : `202` accepté (idempotent), `401` signature, `404`
+  fournisseur inconnu (réponse uniforme), `413` taille, `503`
+  secret absent.
+
+### Durabilité et traitement
+
+- `WebhookEvent` : `(providerId, externalId)` unique — la déduplication
+  est garantie en base même sous concurrence. Empreinte SHA-256 +
+  payload sanitisé uniquement.
+- Réception → `RECEIVED` + job `mm.webhook.process` (dedupKey
+  `wh:{eventId}`) : un crash après l'accusé ne perd aucun événement ;
+  le sweep `sweepUnprocessedWebhookEvents` reprend les `RECEIVED`/
+  `PROCESSING` obsolètes (> 60 s).
+- `processWebhookEvent` applique l'événement sous le **même verrou**
+  `mm-confirm:{intentId}` que le polling : webhooks et polling
+  convergent sur `confirmIntent` — une seule machine à états.
+
+### Ordonnancement et anomalies
+
+- `FAILED`/`EXPIRED` sur une intention `CONFIRMED` ou
+  `CONFIRMED_PENDING_POSTING` → **ANOMALY** : l'encaissement
+  confirmé n'est jamais rétrogradé ; alerte interne créée pour
+  rapprochement manuel.
+- `SUCCESS` après état terminal → **ANOMALY** (`LATE_CONFIRM_AFTER_TERMINAL`).
+- Référence d'intention inconnue ou cross-école → **ANOMALY**.
+- Événement `PENDING` → `IGNORED` ; rejeu d'un événement traité → no-op.
+
+### Reprise automatique (cron `/api/cron`)
+
+`runMobileMoneyMaintenance` à chaque passage : sweep des événements
+non traités, `repostPendingPostings` (intentions
+`CONFIRMED_PENDING_POSTING` âgées > 5 min — chaque tentative tracée
+`POSTING`, alerte interne au 3ᵉ échec consécutif),
+`pollUncertainIntents` (PENDING > 30 min, non expirées, fournisseur
+actif), expiration des intentions hors délai. La barrière sandbox
+G3-A s'applique aussi dans les jobs — aucun encaissement réel ne
+peut naître d'une intention simulée.

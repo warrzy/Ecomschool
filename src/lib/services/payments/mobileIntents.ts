@@ -415,9 +415,12 @@ export async function pollPaymentIntent(
 
   switch (res.status) {
     case "SUCCESS":
+      // Même mécanisme central que les webhooks (G3-B) : la
+      // comptabilisation est tentée pour les intentions LIVE ; la
+      // barrière `isSimulated` garde le sandbox en simulation.
       return confirmIntent(ctx, intent.id, {
         providerTxId: res.providerTxId,
-        postToLedger: false, // G3-A : confirmation sans encaissement réel
+        postToLedger: !isSimulated(intent),
       });
     case "FAILED":
       await transition(ctx, intent.id, ["PENDING"], "FAILED", {
@@ -608,14 +611,32 @@ export async function postConfirmedIntent(
   // Jour clôturé : l'intention reste CONFIRMED_PENDING_POSTING —
   // l'encaissement n'est pas perdu, il sera reposté (cron ou action).
   if (pay.error === "CLOSED_DAY") {
+    await prisma.paymentTransaction.create({
+      data: {
+        intentId: intent.id, schoolId: ctx.schoolId,
+        kind: "POSTING",
+        providerTxId: intent.providerTxId ?? intent.providerRef,
+        payload: { status: "DEFERRED_CLOSED_DAY" },
+      },
+    });
     return { ok: true, data: { status: "CONFIRMED_PENDING_POSTING" } };
   }
   // Refus métier (OVERPAYMENT, NOT_FOUND…) : l'intention reste en
   // attente de comptabilisation avec la raison tracée — pas de perte
   // d'un encaissement confirmé par le prestataire.
-  await prisma.paymentIntent.updateMany({
-    where: { id: intent.id },
-    data: { failureReason: `POSTING_${pay.error}` },
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentIntent.updateMany({
+      where: { id: intent.id },
+      data: { failureReason: `POSTING_${pay.error}` },
+    });
+    await tx.paymentTransaction.create({
+      data: {
+        intentId: intent.id, schoolId: ctx.schoolId,
+        kind: "POSTING",
+        providerTxId: intent.providerTxId ?? intent.providerRef,
+        payload: { status: "RETRY_FAILED", error: pay.error },
+      },
+    });
   });
   return { ok: false, error: pay.error };
 }
@@ -689,7 +710,8 @@ async function transition(
         },
       });
       await logAudit({
-        actorId: ctx.userId, schoolId: ctx.schoolId,
+        actorId: ctx.userId === "system" ? null : ctx.userId,
+        schoolId: ctx.schoolId,
         action: `payment_intent.${to.toLowerCase()}`, entity: "PaymentIntent", entityId: intentId,
         metadata: { from: from.join(","), reason: extra.failureReason ?? null },
         tx,

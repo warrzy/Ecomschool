@@ -5,17 +5,60 @@
  * répétée, timeout. La concurrence de confirmation est garantie par
  * le verrou applicatif (service), pas par l'adaptateur.
  */
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type {
   InitiateInput,
   InitiateResult,
+  NormalizedWebhookEvent,
   PaymentProviderAdapter,
   SandboxScript,
   StatusResult,
+  WebhookVerification,
 } from "./types";
 import { ProviderTimeoutError } from "./types";
 
 function txId(providerRef: string) {
   return `SBTX-${providerRef}`;
+}
+
+/**
+ * Format du webhook SANDBOX (déterministe, hors ligne) :
+ *   corps  : {"eventId","intentRef","status","providerTxId","reason","occurredAt"}
+ *   en-tête: x-sandbox-timestamp (unix s), x-sandbox-signature
+ *            = hex HMAC-SHA256(`${timestamp}.${rawBody}`, secret)
+ * Fraîcheur : ±5 minutes. Comparaison en temps constant.
+ */
+const WEBHOOK_TOLERANCE_S = 300;
+
+export function sandboxWebhookSignature(rawBody: string, timestamp: string, secret: string) {
+  return createHmac("sha256", secret).update(`${timestamp}.${rawBody}`).digest("hex");
+}
+
+function normalize(raw: Record<string, unknown>): NormalizedWebhookEvent | null {
+  const externalId = typeof raw.eventId === "string" ? raw.eventId : null;
+  const intentRef = typeof raw.intentRef === "string" ? raw.intentRef : null;
+  const status = raw.status;
+  if (!externalId || !intentRef) return null;
+  if (status !== "SUCCESS" && status !== "FAILED" && status !== "EXPIRED" && status !== "PENDING") {
+    return null;
+  }
+  return {
+    externalId,
+    intentRef,
+    status,
+    providerTxId: typeof raw.providerTxId === "string" ? raw.providerTxId : undefined,
+    reason: typeof raw.reason === "string" ? raw.reason : undefined,
+    occurredAt: typeof raw.occurredAt === "string" ? raw.occurredAt : undefined,
+    eventType: `PAYMENT.${status}`,
+    raw: {
+      eventId: externalId,
+      intentRef,
+      status,
+      providerTxId: raw.providerTxId ?? null,
+      reason: raw.reason ?? null,
+      occurredAt: raw.occurredAt ?? null,
+    },
+  };
 }
 
 export const sandboxAdapter: PaymentProviderAdapter = {
@@ -60,5 +103,33 @@ export const sandboxAdapter: PaymentProviderAdapter = {
       default:
         return { status: "PENDING", rawStatus: "PROCESSING" };
     }
+  },
+
+  verifyWebhook({ rawBody, headers, secret, now }): WebhookVerification {
+    const timestamp = headers["x-sandbox-timestamp"];
+    const signature = headers["x-sandbox-signature"];
+    if (!timestamp || !signature || !/^\d+$/.test(timestamp)) {
+      return { ok: false, error: "MALFORMED" };
+    }
+    const ts = Number(timestamp);
+    const nowS = Math.floor((now ?? new Date()).getTime() / 1000);
+    if (Math.abs(nowS - ts) > WEBHOOK_TOLERANCE_S) {
+      return { ok: false, error: "EXPIRED" };
+    }
+    const expected = sandboxWebhookSignature(rawBody, timestamp, secret);
+    const a = Buffer.from(signature);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      return { ok: false, error: "INVALID_SIGNATURE" };
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(rawBody) as Record<string, unknown>;
+    } catch {
+      return { ok: false, error: "MALFORMED" };
+    }
+    const event = normalize(parsed);
+    if (!event) return { ok: false, error: "MALFORMED" };
+    return { ok: true, event };
   },
 };

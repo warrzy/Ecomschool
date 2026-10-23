@@ -7,6 +7,7 @@ import {
   listPaymentProviders,
   paymentIntentStats,
 } from "@/lib/services/payments/mobileIntents";
+import { listWebhookEvents } from "@/lib/services/payments/webhooks";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -16,6 +17,7 @@ import {
   createSandboxProviderAction,
   pollIntentAction,
   postIntentAction,
+  replayWebhookAction,
   simulateOutcomeAction,
   sweepExpiredAction,
   toggleProviderAction,
@@ -59,6 +61,22 @@ const KIND_LABELS: Record<string, string> = {
   POSTING: "Comptabilisation",
   WEBHOOK: "Webhook",
   REFUND: "Remboursement",
+};
+const WEBHOOK_STATUS_LABELS: Record<string, string> = {
+  RECEIVED: "Reçu",
+  PROCESSING: "En traitement",
+  PROCESSED: "Traité",
+  FAILED: "Échec",
+  IGNORED: "Ignoré",
+  ANOMALY: "Anomalie",
+};
+const WEBHOOK_STATUS_TONES: Record<string, string> = {
+  RECEIVED: "bg-zinc-100 text-zinc-700",
+  PROCESSING: "bg-amber-50 text-amber-800",
+  PROCESSED: "bg-emerald-50 text-emerald-800",
+  FAILED: "bg-red-50 text-red-800",
+  IGNORED: "bg-zinc-100 text-zinc-600",
+  ANOMALY: "bg-orange-50 text-orange-800",
 };
 const OUTCOMES = [
   ["SUCCESS", "Succès"],
@@ -111,6 +129,9 @@ export default async function PaiementsMobilePage(props: {
     }),
   ]);
   const detail = selectedId ? await getPaymentIntent(ctx, selectedId) : null;
+  const webhookEvents = await listWebhookEvents(ctx, { limit: 50 });
+  const pendingPostings = intents.filter((i) => i.status === "CONFIRMED_PENDING_POSTING");
+  const anomalies = webhookEvents.filter((e) => e.status === "ANOMALY" || e.status === "FAILED");
   const totalAmount = stats.reduce((s, r) => s + r.amount, 0);
 
   return (
@@ -360,6 +381,104 @@ export default async function PaiementsMobilePage(props: {
               ))}
               {intents.length === 0 && (
                 <tr><td colSpan={8} className="py-4 text-center text-sm text-zinc-500">Aucune intention.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Encaissements confirmés en attente de comptabilisation */}
+      {pendingPostings.length > 0 && (
+        <div className={`${card} border-blue-200`}>
+          <h2 className="text-sm font-semibold text-blue-900">
+            Encaissements confirmés en attente ({pendingPostings.length})
+          </h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Reprise automatique par le cron ; relance manuelle possible ci-dessous.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm">
+            {pendingPostings.map((i) => (
+              <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/40 px-3 py-2">
+                <span>
+                  {i.student.matricule} — {fmt(i.amount)} {i.currency}
+                  {i.failureReason && <span className="ml-2 font-mono text-xs text-red-700">{i.failureReason}</span>}
+                </span>
+                {canManage && (
+                  <form action={postIntentAction}>
+                    <input type="hidden" name="intentId" value={i.id} />
+                    <SubmitButton className="text-xs text-brand-700 hover:underline" pendingLabel="…">
+                      Relancer la comptabilisation
+                    </SubmitButton>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Événements webhooks */}
+      <div className={card} id="webhooks">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-ink">Événements webhooks</h2>
+          {anomalies.length > 0 && (
+            <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-800">
+              {anomalies.length} à vérifier
+            </span>
+          )}
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-zinc-500">
+                <th className="py-2 pr-4">Événement</th>
+                <th className="py-2 pr-4">Type</th>
+                <th className="py-2 pr-4">Statut</th>
+                <th className="py-2 pr-4">Tentatives</th>
+                <th className="py-2 pr-4">Intention</th>
+                <th className="py-2 pr-4">Reçu le</th>
+                <th className="py-2 pr-4">Erreur / résultat</th>
+                {canManage && <th className="py-2">Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {webhookEvents.map((e) => (
+                <tr key={e.id} className="border-t border-zinc-100">
+                  <td className="py-2 pr-4 font-mono text-xs">{e.externalId.slice(0, 24)}</td>
+                  <td className="py-2 pr-4 text-xs">{e.eventType}</td>
+                  <td className="py-2 pr-4">
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${WEBHOOK_STATUS_TONES[e.status]}`}>
+                      {WEBHOOK_STATUS_LABELS[e.status]}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-4 text-xs">{e.attempts}</td>
+                  <td className="py-2 pr-4 text-xs">
+                    {e.intent ? (
+                      <a href={`/app/paiements-mobile?intent=${e.intent.id}`} className="text-brand-700 hover:underline">
+                        {fmt(e.intent.amount)} {e.intent.currency}
+                      </a>
+                    ) : "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-xs text-zinc-500">{dt(e.receivedAt)}</td>
+                  <td className="py-2 pr-4 font-mono text-xs text-zinc-500">
+                    {e.lastError ?? (e.result as { anomaly?: string } | null)?.anomaly ?? "—"}
+                  </td>
+                  {canManage && (
+                    <td className="py-2">
+                      {(e.status === "FAILED" || e.status === "ANOMALY") && (
+                        <form action={replayWebhookAction}>
+                          <input type="hidden" name="eventId" value={e.id} />
+                          <SubmitButton className="text-xs text-brand-700 hover:underline" pendingLabel="…">
+                            Relancer
+                          </SubmitButton>
+                        </form>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {webhookEvents.length === 0 && (
+                <tr><td colSpan={8} className="py-4 text-center text-sm text-zinc-500">Aucun événement reçu.</td></tr>
               )}
             </tbody>
           </table>

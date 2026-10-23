@@ -13,6 +13,7 @@ import {
   setPaymentProviderStatus,
   setSandboxOutcome,
 } from "@/lib/services/payments/mobileIntents";
+import { replayWebhookEvent } from "@/lib/services/payments/webhooks";
 
 function ctx(t: { userId: string; schoolId: string }) {
   return { userId: t.userId, schoolId: t.schoolId };
@@ -136,5 +137,16 @@ export async function postIntentAction(formData: FormData) {
   const res = await confirmIntent(ctx(t), id.data, { postToLedger: true });
   return back(
     `${BASE}?${res.ok ? "ok=posted" : `error=${res.error}`}&intent=${id.data}`,
+  );
+}
+
+/** Relance le traitement d'un événement webhook (FAILED / ANOMALY). */
+export async function replayWebhookAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.manage");
+  const id = idSchema.safeParse(formData.get("eventId"));
+  if (!id.success) return back(`${BASE}?error=INVALID_INPUT`);
+  const res = await replayWebhookEvent(ctx(t), id.data);
+  return back(
+    `${BASE}?${res.ok ? `ok=webhook_replayed&outcome=${res.data.outcome}` : `error=${res.error}`}#webhooks`,
   );
 }

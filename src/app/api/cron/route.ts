@@ -6,6 +6,7 @@ import {
   runPlatformAutomations,
   runSchoolAutomations,
 } from "@/lib/services/comm/automations";
+import { runMobileMoneyMaintenance } from "@/lib/services/payments/webhooks";
 import { purgeExpiredData } from "@/lib/services/retention";
 import { prisma } from "@/lib/db/prisma";
 
@@ -32,6 +33,9 @@ async function handle(req: NextRequest) {
 
   registerCommHandlers();
   const jobs = await runDueJobs({ limit: 50 });
+  // G3-B : reprise événements webhook, repost différés, polling de
+  // secours, expiration — idempotent à chaque passage du cron.
+  const mobileMoney = await runMobileMoneyMaintenance().catch(() => null);
 
   const scope = new URL(req.url).searchParams.get("scope") ?? "all";
   let platform: unknown = null;
@@ -55,7 +59,7 @@ async function handle(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, jobs, platform, schools });
+  return NextResponse.json({ ok: true, jobs, platform, schools, mobileMoney });
 }
 
 export const GET = handle;

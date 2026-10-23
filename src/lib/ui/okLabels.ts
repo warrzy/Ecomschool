@@ -117,6 +117,7 @@ const OK_LABELS: Record<string, string> = {
   polled: "Statut prestataire consulté.",
   script: "Scénario de simulation programmé.",
   posted: "Encaissement comptabilisé.",
+  webhook_replayed: "Événement webhook relancé.",
 
   // Communication / plateforme
   sent: "Envoi lancé.",
