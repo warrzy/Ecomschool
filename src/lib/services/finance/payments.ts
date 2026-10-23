@@ -94,38 +94,14 @@ export async function recordPayment(
   });
   if (closure) return { ok: false, error: "CLOSED_DAY" };
 
-  // Répartition : explicite (somme = montant) ou FIFO sur les échéances dues.
-  const allocations = input.allocations ?? [];
-  if (allocations.length === 0) {
-    const open = await prisma.feeInstallment.findMany({
-      where: {
-        schoolId: ctx.schoolId,
-        studentId: input.studentId,
-        academicYearId: input.academicYearId,
-        status: "ACTIVE",
-        charge: { status: "ACTIVE" },
-      },
-      include: {
-        allocations: {
-          where: { payment: { status: "VALIDATED" } },
-          select: { amount: true },
-        },
-      },
-      orderBy: { dueDate: "asc" },
-    });
-    let remaining = input.amount;
-    for (const inst of open) {
-      const alreadyPaid = inst.allocations.reduce((s, a) => s + a.amount, 0);
-      const due = Math.max(0, inst.amount - alreadyPaid);
-      if (due <= 0 || remaining <= 0) continue;
-      const part = Math.min(due, remaining);
-      allocations.push({ installmentId: inst.id, amount: part });
-      remaining -= part;
-    }
-  } else {
-    const sum = allocations.reduce((s, a) => s + a.amount, 0);
+  // Répartition : explicite (somme = montant) ou FIFO sur les échéances
+  // dues — la FIFO est recalculée DANS la transaction sérialisable pour
+  // qu'aucun encaissement ne se base sur une répartition périmée.
+  const explicitAllocations = input.allocations ?? [];
+  if (explicitAllocations.length > 0) {
+    const sum = explicitAllocations.reduce((s, a) => s + a.amount, 0);
     if (sum !== input.amount) return { ok: false, error: "INVALID_INPUT" };
-    const instIds = allocations.map((a) => a.installmentId);
+    const instIds = explicitAllocations.map((a) => a.installmentId);
     const count = await prisma.feeInstallment.count({
       where: {
         id: { in: instIds },
@@ -198,6 +174,60 @@ export async function recordPayment(
         // atomique face aux paiements concurrents.
         if (input.amount > remainingDue) {
           throw new Error("OVERPAYMENT");
+        }
+        // G3-D : répartition calculée dans la transaction (FIFO relue à
+        // chaque retry sérialisable — jamais de répartition périmée),
+        // puis plafond par échéance vérifié au moment de l'écriture.
+        const allocations: { installmentId: string; amount: number }[] = [
+          ...explicitAllocations,
+        ];
+        if (allocations.length === 0) {
+          const open = await tx.feeInstallment.findMany({
+            where: {
+              schoolId: ctx.schoolId,
+              studentId: input.studentId,
+              academicYearId: input.academicYearId,
+              status: "ACTIVE",
+              charge: { status: "ACTIVE" },
+            },
+            include: {
+              allocations: {
+                where: { payment: { status: "VALIDATED" } },
+                select: { amount: true },
+              },
+            },
+            orderBy: { dueDate: "asc" },
+          });
+          let remaining = input.amount;
+          for (const inst of open) {
+            const alreadyPaid = inst.allocations.reduce((s, a) => s + a.amount, 0);
+            const due = Math.max(0, inst.amount - alreadyPaid);
+            if (due <= 0 || remaining <= 0) continue;
+            const part = Math.min(due, remaining);
+            allocations.push({ installmentId: inst.id, amount: part });
+            remaining -= part;
+          }
+        }
+        // Le contrôle global ci-dessus garantit le solde de l'élève, mais
+        // une allocation explicite peut encore dépasser le reste à payer
+        // de SON échéance — ex. guichet et Mobile Money simultanés sur la
+        // même ligne. SSI + retry forcent la seconde écriture à relire
+        // les allocations fraîches.
+        for (const a of allocations) {
+          const inst = await tx.feeInstallment.findFirst({
+            where: { id: a.installmentId, schoolId: ctx.schoolId, status: "ACTIVE" },
+            select: {
+              amount: true,
+              allocations: {
+                where: { payment: { status: "VALIDATED" } },
+                select: { amount: true },
+              },
+            },
+          });
+          const instPaid = inst?.allocations.reduce((s, x) => s + x.amount, 0) ?? 0;
+          if (!inst || a.amount > inst.amount - instPaid) {
+            throw new Error("OVERPAYMENT");
+          }
         }
         const balanceAfter = remainingDue - input.amount;
 

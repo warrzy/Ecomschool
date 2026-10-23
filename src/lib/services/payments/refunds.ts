@@ -145,7 +145,10 @@ async function transition(
 ): Promise<Res<true>> {
   const refund = await prisma.paymentRefund.findFirst({
     where: { id, schoolId: ctx.schoolId },
-    select: { id: true, status: true, paymentId: true, intentId: true, amount: true },
+    select: {
+      id: true, status: true, paymentId: true, intentId: true,
+      amount: true, requestedById: true,
+    },
   });
   if (!refund) return { ok: false, error: "NOT_FOUND" };
   if (refund.status === target) return { ok: true, data: true };
@@ -173,14 +176,59 @@ async function auditRefund(
   });
 }
 
-/** Validation par un rôle autorisé (mobilepayments.refund). */
+/**
+ * Validation par un rôle autorisé (mobilepayments.refund).
+ *
+ * Politique de séparation : un approbateur ne peut PAS valider sa
+ * propre demande (SELF_APPROVAL). Exception documentée : école
+ * mono-approbateur — si le demandeur est le SEUL membre actif
+ * détenteur de `mobilepayments.refund`, l'auto-approbation est
+ * tolérée mais consignée comme exception dans l'audit
+ * (`selfApproval: true, exception: "MONO_ADMIN"`). Dès qu'un second
+ * approbateur existe, la séparation redevient obligatoire.
+ */
 export async function approveRefund(ctx: Ctx, id: string): Promise<Res<true>> {
+  const current = await prisma.paymentRefund.findFirst({
+    where: { id, schoolId: ctx.schoolId },
+    select: { requestedById: true },
+  });
+  if (!current) return { ok: false, error: "NOT_FOUND" };
+
+  let selfApproval = false;
+  if (current.requestedById === ctx.userId) {
+    const approvers = await prisma.schoolMembership.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+        role: {
+          scope: "SCHOOL",
+          OR: [{ schoolId: null }, { schoolId: ctx.schoolId }],
+          rolePermissions: {
+            some: { permission: { key: "mobilepayments.refund" } },
+          },
+        },
+      },
+    });
+    if (approvers > 1) return { ok: false, error: "SELF_APPROVAL" };
+    selfApproval = true;
+  }
+
   const r = await transition(ctx, id, ["REQUESTED"], {
     status: "APPROVED",
     approvedById: ctx.userId,
     approvedAt: new Date(),
   }, "APPROVED");
-  if (r.ok) await auditRefund(ctx, id, "payment_refund.approved", {});
+  if (r.ok) {
+    await auditRefund(
+      ctx,
+      id,
+      "payment_refund.approved",
+      (selfApproval
+        ? { selfApproval: true, exception: "MONO_ADMIN" }
+        : {}) as Prisma.InputJsonValue,
+    );
+  }
   return r;
 }
 
@@ -293,8 +341,8 @@ export async function listRefunds(
     include: {
       payment: { select: { id: true, receiptNumber: true, amount: true, method: true, status: true } },
       intent: { select: { id: true, providerTxId: true, student: { select: { matricule: true, lastName: true, firstName: true } } } },
-      requestedBy: { select: { firstName: true, lastName: true, email: true } },
-      approvedBy: { select: { firstName: true, lastName: true, email: true } },
+      requestedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
+      approvedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(filter.limit ?? 100, 300),

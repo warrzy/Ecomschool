@@ -463,9 +463,15 @@ export default async function PaiementsMobilePage(props: {
                     )}
                   </td>
                   <td className="py-2 pr-4">
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONES[i.status]}`}>
-                      {STATUS_LABELS[i.status]}
-                    </span>
+                    {i.status === "CONFIRMED" && !i.paymentId ? (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
+                        Confirmée — imputation en anomalie
+                      </span>
+                    ) : (
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONES[i.status]}`}>
+                        {STATUS_LABELS[i.status]}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2 pr-4 font-mono text-xs text-zinc-500">
                     {i.providerTxId ?? i.providerRef ?? "—"}
@@ -597,7 +603,7 @@ export default async function PaiementsMobilePage(props: {
             <div><dt className="text-xs text-zinc-500">Élève</dt><dd>{detail.student.matricule} — {detail.student.lastName} {detail.student.firstName}</dd></div>
             <div><dt className="text-xs text-zinc-500">Année</dt><dd>{detail.academicYear.name}</dd></div>
             <div><dt className="text-xs text-zinc-500">Fournisseur</dt><dd>{detail.provider.label} ({detail.provider.mode === "SANDBOX" ? "simulateur" : "réel"})</dd></div>
-            <div><dt className="text-xs text-zinc-500">Statut</dt><dd><span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONES[detail.status]}`}>{STATUS_LABELS[detail.status]}</span></dd></div>
+            <div><dt className="text-xs text-zinc-500">Statut</dt><dd>{detail.status === "CONFIRMED" && !detail.paymentId ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">Paiement confirmé — imputation en anomalie</span> : <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_TONES[detail.status]}`}>{STATUS_LABELS[detail.status]}</span>}</dd></div>
             <div><dt className="text-xs text-zinc-500">Canal</dt><dd>{detail.channel}</dd></div>
             <div><dt className="text-xs text-zinc-500">Clé d&apos;idempotence</dt><dd className="font-mono text-xs">{detail.idempotencyKey}</dd></div>
             <div><dt className="text-xs text-zinc-500">Réf. prestataire</dt><dd className="font-mono text-xs">{detail.providerRef ?? "—"}</dd></div>
@@ -974,6 +980,11 @@ export default async function PaiementsMobilePage(props: {
                       <span className={`rounded-full px-2 py-0.5 text-xs ${REFUND_TONES[r.status]}`}>
                         {REFUND_LABELS[r.status]}
                       </span>
+                      {r.requestedBy?.id && r.requestedBy.id === r.approvedBy?.id && (
+                        <span className="ml-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-700">
+                          auto-approuvée (mono-admin)
+                        </span>
+                      )}
                     </td>
                     <td className="py-2">
                       <div className="flex flex-wrap items-center gap-2">

@@ -81,6 +81,7 @@ const ERROR_LABELS: Record<string, string> = {
   NOTE_REQUIRED: "Un motif est obligatoire pour cette décision.",
   REASON_REQUIRED: "Un motif est obligatoire.",
   EXCEEDS_REFUNDABLE: "Le montant dépasse le remboursable restant sur cet encaissement.",
+  SELF_APPROVAL: "Vous ne pouvez pas approuver votre propre demande — un autre approbateur habilité existe.",
   NOT_MOBILE_MONEY: "Seul un encaissement Mobile Money est remboursable ici.",
 
   // Abonnement / limites commerciales

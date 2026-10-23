@@ -55,7 +55,7 @@ const check = (n: string, c: boolean) => {
 
 const FX = "G3D-FX";
 const FX2 = "G3D-OTHER";
-const EMAILS = ["g3d-admin@test.local", "g3d-readonly@test.local", "g3d-adminb@test.local"];
+const EMAILS = ["g3d-admin@test.local", "g3d-readonly@test.local", "g3d-adminb@test.local", "g3d-admin2@test.local"];
 
 async function cleanup(schoolId: string) {
   await prisma.paymentDiscrepancy.deleteMany({ where: { schoolId } });
@@ -466,6 +466,82 @@ async function main() {
   const repost = await postConfirmedIntent(ctxA, i12, { __allowSandboxPosting: true });
   check("repost après libération du solde → comptabilisé", repost.ok && !!repost.data.paymentId);
 
+  // ══════════ 5b. CONCURRENCE ATOMIQUE (écriture effective) ══════════
+  console.log("\n— Concurrence atomique à l'écriture —");
+  // Deux encaissements simultanés, allocations explicites, même échéance :
+  // le plafond par échéance est garanti dans la transaction sérialisable.
+  const sC1 = await mkStudent("G3D-SC1");
+  await enroll(sC1.id);
+  const fC1 = await chargeWith(sC1.id, [5_000]);
+  const [wA, wB] = await Promise.all([
+    recordPayment(ctxA, {
+      studentId: sC1.id, academicYearId: year.id, amount: 4_000, method: "CASH",
+      allocations: [{ installmentId: fC1.installments[0].id, amount: 4_000 }],
+    }),
+    recordPayment(ctxA, {
+      studentId: sC1.id, academicYearId: year.id, amount: 4_000, method: "MOBILE_MONEY",
+      allocations: [{ installmentId: fC1.installments[0].id, amount: 4_000 }],
+    }),
+  ]);
+  check("deux allocations explicites concurrentes → une seule écrit",
+    [wA, wB].filter((r) => r.ok).length === 1 &&
+    [wA, wB].some((r) => !r.ok && r.error === "OVERPAYMENT"));
+  check("total alloué limité au plafond (4 000 / échéance 5 000)",
+    ((await prisma.paymentAllocation.aggregate({
+      where: { installmentId: fC1.installments[0].id }, _sum: { amount: true },
+    }))._sum.amount ?? 0) === 4_000);
+
+  // Guichet + intention Mobile Money simultanés sur la même échéance.
+  const sC2 = await mkStudent("G3D-SC2");
+  await enroll(sC2.id);
+  const fC2 = await chargeWith(sC2.id, [5_000]);
+  const iC2 = await mkIntent(sC2.id, 4_000, {
+    sandboxOutcome: "PENDING",
+    feeInstallmentId: fC2.installments[0].id,
+    allocations: [{ installmentId: fC2.installments[0].id, amount: 4_000 }],
+  });
+  const [rG, rM] = await Promise.all([
+    recordPayment(ctxA, {
+      studentId: sC2.id, academicYearId: year.id, amount: 3_000, method: "CASH",
+      allocations: [{ installmentId: fC2.installments[0].id, amount: 3_000 }],
+    }),
+    postSandbox(ctxA, iC2),
+  ]);
+  const intentC2 = await prisma.paymentIntent.findUnique({ where: { id: iC2 } });
+  const mmPosted = rM.ok && !!intentC2?.paymentId;
+  const guiPosted = rG.ok;
+  const allocC2 = (await prisma.paymentAllocation.aggregate({
+    where: { installmentId: fC2.installments[0].id }, _sum: { amount: true },
+  }))._sum.amount ?? 0;
+  check("guichet + MM simultanés : un seul gagnant, jamais 7 000 sur 5 000",
+    allocC2 <= 5_000 && mmPosted !== guiPosted);
+  if (!mmPosted) {
+    check("perdant MM : confirmation conservée + anomalie OVERPAYMENT_BLOCKED",
+      intentC2?.status === "CONFIRMED" && intentC2.paymentId === null &&
+      (await prisma.paymentDiscrepancy.count({
+        where: { intentId: iC2, type: "OVERPAYMENT_BLOCKED" },
+      })) >= 1);
+  } else {
+    check("perdant guichet : OVERPAYMENT atomique, aucune allocation guichet",
+      !rG.ok && rG.error === "OVERPAYMENT" && allocC2 === 4_000);
+  }
+
+  // Deux encaissements FIFO simultanés (répartition recalculée dans la tx).
+  const sC3 = await mkStudent("G3D-SC3");
+  await enroll(sC3.id);
+  const fC3 = await chargeWith(sC3.id, [5_000]);
+  const [fA2, fB2] = await Promise.all([
+    recordPayment(ctxA, { studentId: sC3.id, academicYearId: year.id, amount: 4_000, method: "CASH" }),
+    recordPayment(ctxA, { studentId: sC3.id, academicYearId: year.id, amount: 4_000, method: "MOBILE_MONEY" }),
+  ]);
+  check("deux FIFO concurrents → une seule écrit (répartition fraîche au retry)",
+    [fA2, fB2].filter((r) => r.ok).length === 1 &&
+    [fA2, fB2].some((r) => !r.ok && r.error === "OVERPAYMENT"));
+  check("FIFO : total alloué limité",
+    ((await prisma.paymentAllocation.aggregate({
+      where: { installmentId: fC3.installments[0].id }, _sum: { amount: true },
+    }))._sum.amount ?? 0) === 4_000);
+
   // ══════════ 6. REMBOURSEMENTS ══════════
   console.log("\n— Remboursements —");
   const payment1 = (await prisma.paymentIntent.findUnique({ where: { id: i1 } }))!.paymentId!;
@@ -563,6 +639,28 @@ async function main() {
   });
   const unconfirmed = await flagUnconfirmedRefunds(school.id, { graceHours: 24 });
   check("remboursement non confirmé signalé", unconfirmed === 1);
+
+  // Politique d'auto-approbation : les approbations précédentes étaient
+  // des auto-approbations mono-admin (seul détenteur de la permission)
+  // → tolérées mais auditées comme exception.
+  const saAudit = await prisma.auditLog.findFirst({
+    where: { schoolId: school.id, action: "payment_refund.approved", entityId: rf1Id },
+    select: { metadata: true },
+  });
+  check("auto-approbation mono-admin auditée comme exception",
+    (saAudit?.metadata as { selfApproval?: boolean } | null)?.selfApproval === true);
+  // Dès qu'un second approbateur existe, la séparation est obligatoire.
+  const admin2 = await makeMember("g3d-admin2@test.local", school.id, ["mobilepayments.refund"]);
+  const ctxA2 = { userId: admin2.id, schoolId: school.id };
+  const rfSA = await createRefundRequest(ctxA, { paymentId: payment3, amount: 200, reason: "Auto-app multi-approbateurs" });
+  const saId = rfSA.ok ? rfSA.data.id : "";
+  const saRes = await approveRefund(ctxA, saId);
+  check("auto-approbation refusée quand un second approbateur existe",
+    !saRes.ok && saRes.error === "SELF_APPROVAL");
+  check("demande inchangée après refus (REQUESTED)",
+    (await prisma.paymentRefund.findUnique({ where: { id: saId } }))?.status === "REQUESTED");
+  check("approbation par un autre approbateur → ok",
+    (await approveRefund(ctxA2, saId)).ok);
 
   // ══════════ 7. ISOLATION / PERMISSIONS / AUDIT ══════════
   console.log("\n— Isolation, permissions, audit —");
