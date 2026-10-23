@@ -30,8 +30,11 @@ dans `shared/.env` du serveur (mode 600, hors Git) :
 
 | Champ `PaymentProvider` | Variable proposée (TEST) | Contenu |
 |---|---|---|
-| `credentialsRef` | `PAYDUNYA_TEST_CREDENTIALS_<ECOLE>` | JSON `{"masterKey":"test_…","privateKey":"test_…","publicKey":"test_…","token":"test_…"}` |
-| `webhookSecretRef` | `PAYDUNYA_TEST_MASTERKEY_<ECOLE>` | la `test_*` MasterKey seule (vérification du hash IPN) |
+| `testCredentialsRef` | `PAYDUNYA_TEST_CREDENTIALS_<ECOLE>` | JSON `{"masterKey":"test_…","privateKey":"test_…","publicKey":"test_…","token":"test_…"}` |
+| `testWebhookSecretRef` | `PAYDUNYA_TEST_MASTERKEY_<ECOLE>` | la `test_*` MasterKey seule (vérification du hash IPN) |
+
+`credentialsRef`/`webhookSecretRef` sont réservés aux futures clés
+`live_*` — les deux jeux de références ne se croisent jamais.
 
 Conventions obligatoires :
 
@@ -53,15 +56,14 @@ Ligne proposée pour l'école de test (école fixture dédiée, pas une
 ```jsonc
 {
   "code":            "PAYDUNYA",
-  "mode":            "LIVE",            // adaptateur réel — le mode TEST
-                                        // distant n'existe PAS encore (§3A audit)
-  "remoteEnv":       "TEST",            // PROPOSÉ 3B — environnement technique distant
+  "mode":            "LIVE",            // adaptateur réel (≠ simulateur interne)
+  "remoteEnv":       "TEST",            // Phase 3B — environnement distant sandbox-api
   "status":          "ACTIVE",
   "liveEnabled":     false,             // reste false : ce n'est pas du LIVE
   "label":           "PayDunya (TEST distant)",
   "merchantRef":     "<nom application PayDunya>",
-  "credentialsRef":  "PAYDUNYA_TEST_CREDENTIALS_G3ETEST",
-  "webhookSecretRef":"PAYDUNYA_TEST_MASTERKEY_G3ETEST",
+  "testCredentialsRef":   "PAYDUNYA_TEST_CREDENTIALS_G3ETEST",
+  "testWebhookSecretRef": "PAYDUNYA_TEST_MASTERKEY_G3ETEST",
   "config": {
     "store":    { "name": "ECOM-SCHOOL TEST", "website_url": "https://preprod.ecomschool.fr" },
     "channels": ["orange-money-burkina", "moov-burkina-faso"],

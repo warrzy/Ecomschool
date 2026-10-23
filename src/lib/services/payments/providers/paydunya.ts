@@ -52,6 +52,8 @@ const REQUEST_TIMEOUT_MS = 15_000;
 /** Endpoints documentés — sandbox par défaut (fail-safe). */
 const BASE_SANDBOX = "https://app.paydunya.com/sandbox-api/v1";
 const BASE_LIVE = "https://app.paydunya.com/api/v1";
+/** Hôte officiel unique — tout autre hôte est rejeté avant transport. */
+const ALLOWED_HOST = "app.paydunya.com";
 
 // ─── Configuration ──────────────────────────────────────────────────
 
@@ -214,8 +216,15 @@ export function createPaydunyaAdapter(transport: HttpTransport): PaymentProvider
     path: string,
     body?: JsonObj,
   ): Promise<JsonObj> => {
+    const url = `${baseUrl(cfg)}${path}`;
+    // Garde réseau : HTTPS + hôte officiel uniquement — jamais de
+    // repli vers la production depuis TEST, jamais d'hôte libre.
+    const u = new URL(url);
+    if (u.protocol !== "https:" || u.hostname !== ALLOWED_HOST) {
+      throw new ProviderConfigError("baseUrl", `Hôte PayDunya non autorisé : ${u.hostname}`);
+    }
     const res = await transport({
-      url: `${baseUrl(cfg)}${path}`,
+      url,
       method,
       headers: {
         "Content-Type": "application/json",

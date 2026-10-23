@@ -4,37 +4,40 @@
 à ce stade**. Exécution uniquement après GO Phase 3B et implémentation
 de la voie TEST distante (§5).
 
-## 1. Audit de la séparation des modes (constat Phase 3A)
+## 1. Séparation des modes — implémentée en Phase 3B
 
-Quatre axes distincts doivent rester orthogonaux :
+Quatre axes distincts, désormais orthogonaux :
 
-| Axe | Valeurs | État actuel |
+| Axe | Valeurs | Implémentation |
 |---|---|---|
-| **Mode opérationnel interne** (`PaymentProvider.mode`) | `SANDBOX` (simulateur interne, 0 réseau) / `LIVE` (adaptateur réel) | ✅ implémenté — `code==="SANDBOX"` forcé en SANDBOX |
-| **Environnement technique distant** (`sandbox-api` vs `api`) | `test` / `live` | ⚠️ **conflété** : `liveCallContext` injecte `env:"live"` codé en dur pour tout provider `mode=LIVE` → toujours `api/v1` (production). **Aucune voie légitime vers `sandbox-api`.** |
-| **Autorisation d'appel réseau** | verrou `MOBILE_MONEY_LIVE_ENABLED` + `liveEnabled` + `ACTIVE` + secrets | ✅ implémenté (`checkLiveExecution`) — mais binaire : appeler en TEST exigerait d'ouvrir le verrou LIVE, ce qui pointerait vers `api/v1` |
-| **Autorisation de comptabilisation** | `recordPayment` via `confirmIntent`/`postConfirmedIntent` | ✅ verrouillée sur chemin LIVE — mais **pas de barrière « appel distant sans comptabilisation »** |
+| **Mode opérationnel interne** (`PaymentProvider.mode`) | `SANDBOX` / `LIVE` | inchangé — `code==="SANDBOX"` forcé en SANDBOX |
+| **Environnement technique distant** (`PaymentProvider.remoteEnv`) | `TEST` / `LIVE` (défaut `LIVE`, jamais reclassé) | ✅ enum `RemoteEnv` — `liveCallContext` injecte `env:"test"\|"live"` côté serveur |
+| **Autorisation d'appel réseau** | `MOBILE_MONEY_REMOTE_TEST_ENABLED` (TEST) / `MOBILE_MONEY_LIVE_ENABLED` + `liveEnabled` (LIVE) | ✅ `checkRemoteExecution` dispatche sur l'env figé |
+| **Autorisation de comptabilisation** | `recordPayment` | ✅ `isSimulated` inclut `remoteEnv==="TEST"` → `POSTING_SANDBOX_FORBIDDEN` au point transactionnel |
 
-**Constat bloquant** : aujourd'hui, tout appel réseau PayDunya exige
-`MOBILE_MONEY_LIVE_ENABLED=true` **et** aboutit à la base **production**
-(`env:"live"` injecté, `provider.config.env` écrasé côté serveur —
-volontairement). Il est donc **impossible** de tester `sandbox-api`
-sans contourner des protections — ce qui est interdit.
+**Environnement figé** (`PaymentIntent.remoteEnv`, immuable) : créée
+sous `remoteEnv=TEST`, l'intention reste TEST même si le prestataire
+bascule en LIVE — secrets TEST résolus selon l'env figé, appels
+`sandbox-api` seuls, confirmation technique possible (`CONFIRMED`)
+sans jamais créer Payment, reçu, écriture ni reversement.
 
-## 2. Voie TEST distante proposée (à implémenter en 3B)
+**Secrets par environnement** : `testCredentialsRef` /
+`testWebhookSecretRef` (TEST) distincts de `credentialsRef` /
+`webhookSecretRef` (LIVE) — séparation garantie par la configuration
+serveur, pas par le préfixe des clés (contrôle complémentaire).
 
-| Élément | Proposition |
-|---|---|
-| `PaymentProvider.remoteEnv` | `TEST` \| `LIVE` (défaut `LIVE` pour compatibilité ; champ figé à la création ou contrôlé ops). `config.remoteEnv:"test"` en alternative : la config ne peut que **descendre** vers TEST, jamais monter vers LIVE — direction sûre. |
-| `liveCallContext` | `env = provider.remoteEnv === "TEST" ? "test" : "live"` — toujours choisi côté serveur. L'adaptateur retombe déjà sur `sandbox-api` quand `env ≠ "live"` (fail-safe existant). |
-| Barrière réseau TEST | `MOBILE_MONEY_REMOTE_TEST_ENABLED === "true"` (nouvelle variable, distincte du verrou LIVE) + `mode=LIVE` + `remoteEnv=TEST` + `ACTIVE` + adaptateur enregistré + **clés préfixées `test_`** vérifiées avant tout appel. |
-| Barrière de comptabilisation | intention créée sous `remoteEnv=TEST` marquée à la création (`sandboxScript`-like figé ou flag dédié) → `confirmIntent`/`postConfirmedIntent` refusent `recordPayment` pour elle : statut confirmable, **jamais d'écriture de ledger**. |
-| Chemins async | webhooks IPN TEST : stockés + vérifiés localement (test MasterKey), re-vérifiés via `sandbox-api`, jamais comptabilisés ; cron `pollUncertainIntents` soumis à la même barrière. |
-| Remboursements | `REFUND_UNSUPPORTED` inchangé — aucun remboursement même TEST. |
+**Webhooks** : chaque IPN est authentifiée par l'un des secrets
+configurés → `verifiedEnv` persisté dans la charge ; au traitement,
+`verifiedEnv ≠ remoteEnv` figé → `ANOMALY ENV_MISMATCH`, jamais
+d'encaissement. La re-vérification `confirm/{token}` utilise l'env
+figé (sandbox-api + secrets TEST pour une intention TEST).
 
-Règle absolue : **la voie TEST distante ne réutilise ni le verrou LIVE
-ni `liveEnabled`**. Une intention TEST ne peut pas devenir opérationnelle
-par rejeu, rotation ou bascule de configuration.
+**Verrous indépendants** : `REMOTE_TEST_DISABLED` (TEST) et
+`LIVE_DISABLED` (LIVE) — activer l'un n'active jamais l'autre.
+Garde réseau : HTTPS + `app.paydunya.com` uniquement, redirections
+interdites, aucun hôte libre, aucun fallback TEST→production.
+
+Recette : `scripts/g3/payments-g3e-remoteenv-recette.ts` — **51/51**.
 
 ## 3. Protocole de recette distant (scénarios)
 
@@ -101,16 +104,16 @@ une barrière, elle ne retire rien.
 | # | Prérequis | Type |
 |---|---|---|
 | 1 | Compte PayDunya Business TEST (clés `test_*`) — gratuit | action client |
-| 2 | Voie TEST distante en code (§2 : `remoteEnv`, commutateur, barrière comptabilisation) | **code — GO 3B requis** |
+| 2 | Voie TEST distante en code | ✅ **Phase 3B livrée** |
 | 3 | Réponses contractuelles §8 spec (providerTxId, IPN sandbox, tarifs…) | en attente |
-| 4 | École fixture dédiée (pas une vraie école) | création recette |
-| 5 | Décision champ `remoteEnv` (colonne vs `config.remoteEnv`) | design 3B |
+| 4 | École fixture dédiée (pas une vraie école) | création recette 3C |
+| 5 | Secrets TEST posés dans `shared/.env` préprod (`PAYDUNYA_TEST_*`) | ops 3C |
 
 ## 7. Recommandation
 
-**NO GO pour les premiers appels distants aujourd'hui** : le build
-actuel ne peut joindre que `api/v1` (production) — toute tentative
-d'appel TEST passerait par le verrou LIVE vers le mauvais endpoint.
-Les appels `sandbox-api` exigent l'implémentation de la voie TEST (§2)
-en Phase 3B — travail local, mêmes recettes, puis GO séparé pour les
-appels distants.
+**GO technique pour la Phase 3C** : la voie TEST distante existe
+(`remoteEnv`, commutateur dédié, barrière comptabilisation, IPN
+séparées — 51/51 en recette locale). Reste conditionné à : compte
+PayDunya Business TEST ouvert, secrets `test_*` provisionnés dans
+l'environnement, GO explicite pour les premiers appels `sandbox-api`
+et le déploiement de cette évolution en préproduction.

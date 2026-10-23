@@ -26,12 +26,23 @@ export function isLivePaymentsEnabled(): boolean {
   return process.env.MOBILE_MONEY_LIVE_ENABLED === "true";
 }
 
+/**
+ * Phase 3B — commutateur des appels distants TEST (API sandbox du
+ * prestataire). DISTINCT du verrou LIVE : activer le TEST n'active
+ * jamais le LIVE, et inversement. Désactivé par défaut.
+ */
+export function isRemoteTestEnabled(): boolean {
+  return process.env.MOBILE_MONEY_REMOTE_TEST_ENABLED === "true";
+}
+
 export type LiveProviderShape = {
   code: string;
   mode: string;
   status: string;
   liveEnabled: boolean;
+  remoteEnv?: string | null;
   credentialsRef?: string | null;
+  testCredentialsRef?: string | null;
 };
 
 /**
@@ -50,10 +61,40 @@ export function checkLiveExecution(
   if (!provider.liveEnabled) return "PROVIDER_NOT_LIVE";
   if (!adapter) return "PROVIDER_UNAVAILABLE";
   try {
-    resolveProviderSecret(provider, "credentials");
+    resolveProviderSecret(provider, "credentials", "LIVE");
   } catch (e) {
     if (e instanceof ProviderConfigError) return "PROVIDER_CONFIG";
     throw e;
   }
   return null;
+}
+
+/**
+ * Barrière d'exécution distante — dispatche selon `remoteEnv` :
+ *   TEST → MOBILE_MONEY_REMOTE_TEST_ENABLED + ACTIVE + adaptateur +
+ *          références de secrets TEST résolues. `liveEnabled` n'est
+ *          PAS exigé : le TEST n'est pas une production.
+ *   LIVE → barrière LIVE complète (verrou global + liveEnabled + …).
+ * `env` permet d'imposer l'environnement FIGÉ de l'intention plutôt
+ * que celui courant du prestataire (chemins asynchrones).
+ */
+export function checkRemoteExecution(
+  provider: LiveProviderShape,
+  adapter: PaymentProviderAdapter | null,
+  env: "TEST" | "LIVE" = provider.remoteEnv === "TEST" ? "TEST" : "LIVE",
+): string | null {
+  if (provider.mode !== "LIVE") return null; // SANDBOX interne : non concerné
+  if (env === "TEST") {
+    if (!isRemoteTestEnabled()) return "REMOTE_TEST_DISABLED";
+    if (provider.status !== "ACTIVE") return "PROVIDER_INACTIVE";
+    if (!adapter) return "PROVIDER_UNAVAILABLE";
+    try {
+      resolveProviderSecret(provider, "credentials", "TEST");
+    } catch (e) {
+      if (e instanceof ProviderConfigError) return "PROVIDER_CONFIG";
+      throw e;
+    }
+    return null;
+  }
+  return checkLiveExecution(provider, adapter);
 }

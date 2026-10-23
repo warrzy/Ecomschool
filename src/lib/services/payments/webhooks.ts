@@ -21,10 +21,12 @@ import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
 import { enqueueJob, registerJobHandler } from "@/lib/services/comm/queue";
-import { checkLiveExecution, getProviderAdapter, isLivePaymentsEnabled } from "./providers";
+import { checkRemoteExecution, getProviderAdapter, isLivePaymentsEnabled } from "./providers";
+import type { RemoteEnv } from "./providers";
 import {
   confirmIntent,
   expireDuePaymentIntents,
+  intentRemoteEnv,
   liveCallContext,
   pollPaymentIntent,
   postConfirmedIntent,
@@ -91,31 +93,54 @@ export async function receiveWebhook(input: {
     return { ok: false, error: "PROVIDER_NOT_CONFIGURED" };
   }
 
-  // Secret : référence d'env résolue côté serveur — jamais stocké.
-  const secretRef =
-    provider.webhookSecretRef ??
-    (provider.code === "SANDBOX" ? "MOBILE_MONEY_SANDBOX_WEBHOOK_SECRET" : null);
-  const secret = secretRef ? process.env[secretRef] : undefined;
-  if (!secret) return { ok: false, error: "PROVIDER_NOT_CONFIGURED" };
+  // Secrets : références d'env résolues côté serveur — jamais stockés.
+  // Phase 3B — une IPN peut être signée par la clé TEST ou LIVE :
+  // chaque environnement configuré est essayé, et l'environnement
+  // qui a authentifié l'événement (`verifiedEnv`) est conservé dans
+  // la charge persistée — le traitement le compare ensuite à
+  // l'environnement FIGÉ de l'intention (IPN croisée → anomalie).
+  const candidates: { env: RemoteEnv | "SANDBOX"; secret: string }[] = [];
+  if (provider.code === "SANDBOX") {
+    const s = provider.webhookSecretRef
+      ? process.env[provider.webhookSecretRef]
+      : process.env.MOBILE_MONEY_SANDBOX_WEBHOOK_SECRET;
+    if (s) candidates.push({ env: "SANDBOX", secret: s });
+  } else {
+    // L'environnement courant du prestataire est essayé en premier.
+    const ordered: RemoteEnv[] = provider.remoteEnv === "TEST" ? ["TEST", "LIVE"] : ["LIVE", "TEST"];
+    for (const env of ordered) {
+      const ref = env === "TEST" ? provider.testWebhookSecretRef : provider.webhookSecretRef;
+      const s = ref ? process.env[ref] : undefined;
+      if (s) candidates.push({ env, secret: s });
+    }
+  }
+  if (candidates.length === 0) return { ok: false, error: "PROVIDER_NOT_CONFIGURED" };
 
-  const verif = adapter.verifyWebhook({
-    rawBody: input.rawBody,
-    headers: input.headers,
-    secret,
-  });
-  if (!verif.ok) {
+  let verified: { event: { externalId: string; eventType: string; raw: unknown } } | null = null;
+  let verifiedEnv: RemoteEnv | "SANDBOX" | null = null;
+  let lastError = "INVALID_SIGNATURE";
+  for (const c of candidates) {
+    const v = adapter.verifyWebhook({
+      rawBody: input.rawBody,
+      headers: input.headers,
+      secret: c.secret,
+    });
+    if (v.ok) { verified = v; verifiedEnv = c.env; break; }
+    lastError = v.error;
+  }
+  if (!verified || !verifiedEnv) {
     // Événement non authentifié : non persisté (anti-remplissage),
     // audit minimal sans contenu ni secret.
     await logAudit({
       schoolId: provider.schoolId,
       action: "payment_webhook.rejected",
       entity: "PaymentProvider", entityId: provider.id,
-      metadata: { reason: verif.error, providerCode: provider.code },
+      metadata: { reason: lastError, providerCode: provider.code },
     });
-    return { ok: false, error: verif.error };
+    return { ok: false, error: lastError };
   }
 
-  const event = verif.event;
+  const event = verified.event;
   const payloadHash = sha256(input.rawBody);
   let record: { id: string } | null = null;
   try {
@@ -126,7 +151,9 @@ export async function receiveWebhook(input: {
         externalId: event.externalId,
         eventType: event.eventType,
         payloadHash,
-        payload: event.raw as Prisma.InputJsonValue,
+        // verifiedEnv : environnement dont la clé a authentifié l'IPN
+        // — comparé à remoteEnv figé de l'intention au traitement.
+        payload: { ...(event.raw as Record<string, unknown>), verifiedEnv } as Prisma.InputJsonValue,
         signatureValid: true,
       },
       select: { id: true },
@@ -198,12 +225,31 @@ export async function processWebhookEvent(eventId: string): Promise<{
   let result: Record<string, unknown> = {};
   let retryable = false;
 
+  const payloadEnv = typeof payload.verifiedEnv === "string" ? payload.verifiedEnv : null;
+  const envMismatch =
+    intent != null &&
+    intent.remoteEnv != null &&
+    payloadEnv != null &&
+    payloadEnv !== "SANDBOX" &&
+    intent.remoteEnv !== payloadEnv;
+
   if (!intent || intent.schoolId !== event.schoolId) {
     outcome = "ANOMALY";
     result = { anomaly: "UNKNOWN_INTENT", intentRef };
     await notifyPaymentAdmins(event.schoolId, {
       title: "Anomalie webhook paiement",
       body: `Événement ${event.externalId} sans intention correspondante (réf. ${intentRef || "?"}).`,
+    });
+  } else if (envMismatch) {
+    // Phase 3B — IPN authentifiée par la clé d'un AUTRE environnement
+    // que celui figé de l'intention (TEST↔LIVE) : authentique mais
+    // incohérente → anomalie traçable, jamais de traitement métier.
+    outcome = "ANOMALY";
+    result = { anomaly: "ENV_MISMATCH", intentEnv: intent.remoteEnv, ipnEnv: payloadEnv };
+    await notifyPaymentAdmins(event.schoolId, {
+      title: "Anomalie webhook paiement",
+      body: `IPN ${event.externalId} signée ${payloadEnv} pour une intention ${intent.remoteEnv} — rejetée.`,
+      link: `/app/paiements-mobile?intent=${intent.id}`,
     });
   } else {
     const actorId = await resolveActor(event.schoolId, intent.initiatedById);
@@ -313,10 +359,12 @@ async function applyEventToIntent(input: {
       where: { id: intentId },
       select: {
         status: true, amount: true, currency: true, providerRef: true,
+        remoteEnv: true,
         provider: {
           select: {
             id: true, code: true, mode: true, status: true, liveEnabled: true,
-            credentialsRef: true, config: true,
+            remoteEnv: true, credentialsRef: true, testCredentialsRef: true,
+            config: true,
           },
         },
       },
@@ -338,12 +386,15 @@ async function applyEventToIntent(input: {
     // → ANOMALY sans comptabilisation.
     const adapter = cur ? getProviderAdapter(cur.provider.code) : null;
     if (cur && adapter?.webhookReverification) {
+      // L'environnement FIGÉ de l'intention pilote la barrière ET la
+      // résolution des secrets — jamais celui courant du prestataire.
+      const env = intentRemoteEnv(cur) ?? (cur.provider.remoteEnv === "TEST" ? "TEST" : "LIVE");
       const liveErr = cur.provider.mode === "LIVE"
-        ? checkLiveExecution(cur.provider, adapter)
+        ? checkRemoteExecution(cur.provider, adapter, env)
         : "PROVIDER_NOT_LIVE";
       if (liveErr) throw new Error(`REVERIFY_BLOCKED_${liveErr}`);
       const reverified = await adapter.checkStatus(
-        cur.providerRef!, null, liveCallContext(cur.provider),
+        cur.providerRef!, null, liveCallContext(cur.provider, env),
       );
       if (reverified.status !== "SUCCESS") {
         await trace({ applied: "none", contradiction: `REVERIFY_${reverified.status}` });
@@ -590,6 +641,10 @@ export async function repostPendingPostings(
   });
   let posted = 0, still = 0, failed = 0, locked = 0;
   for (const intent of due) {
+    // Une intention figée TEST ne poste jamais au ledger — elle
+    // n'atteint pas ce statut par le chemin normal ; court-circuit
+    // défensif (la barrière postConfirmedIntent la refuserait).
+    if (intent.remoteEnv === "TEST") { still++; continue; }
     // Verrou global : un encaissement LIVE différé n'est jamais
     // comptabilisé tant que MOBILE_MONEY_LIVE_ENABLED est absent —
     // la preuve est conservée, la comptabilisation attend l'activation.

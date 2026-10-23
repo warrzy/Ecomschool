@@ -283,10 +283,10 @@ export async function executeRefund(
       intent: {
         select: {
           id: true, providerRef: true, providerTxId: true,
-          sandboxScript: true,
+          sandboxScript: true, remoteEnv: true,
           provider: {
             select: {
-              code: true, mode: true, status: true,
+              code: true, mode: true, status: true, remoteEnv: true,
               liveEnabled: true, refundsEnabled: true, credentialsRef: true,
             },
           },
@@ -309,6 +309,12 @@ export async function executeRefund(
   // G3-E : exécution via l'adaptateur si le contrat l'autorise.
   const provider = refund.intent?.provider;
   const adapter = provider ? getProviderAdapter(provider.code) : null;
+
+  // Phase 3B — aucun remboursement réel ou distant depuis une
+  // intention figée TEST : refus explicite, la demande reste APPROVED.
+  if (refund.intent?.remoteEnv === "TEST") {
+    return { ok: false, error: "REMOTE_TEST_REFUND_FORBIDDEN" };
+  }
 
   if (provider?.mode === "LIVE") {
     // Barrières LIVE — chaque condition manquante est un refus

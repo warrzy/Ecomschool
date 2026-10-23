@@ -34,8 +34,8 @@ import {
   ensureReconciliation,
   notifyReconcileAdmins,
 } from "./reconciliation";
-import { getProviderAdapter, checkLiveExecution, resolveProviderSecret, ProviderTimeoutError } from "./providers";
-import type { AdapterCallContext, PaymentProviderAdapter, SandboxScript } from "./providers";
+import { getProviderAdapter, checkRemoteExecution, resolveProviderSecret, ProviderTimeoutError } from "./providers";
+import type { AdapterCallContext, PaymentProviderAdapter, RemoteEnv, SandboxScript } from "./providers";
 
 type Ctx = { userId: string; schoolId: string };
 type Res<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -54,30 +54,52 @@ const DEFAULT_INTENT_TTL_MIN = 24 * 60;
  */
 function isSimulated(i: {
   sandboxScript: unknown;
+  remoteEnv?: string | null;
   provider: { mode: string; code: string };
 }): boolean {
-  return i.provider.mode === "SANDBOX" || i.provider.code === "SANDBOX" || i.sandboxScript != null;
+  // remoteEnv TEST figé à la création : l'intention dialogue avec la
+  // sandbox distante du prestataire mais ne devient JAMAIS un
+  // encaissement opérationnel — même barrière que le simulateur.
+  return (
+    i.provider.mode === "SANDBOX" ||
+    i.provider.code === "SANDBOX" ||
+    i.sandboxScript != null ||
+    i.remoteEnv === "TEST"
+  );
+}
+
+/** Environnement distant figé de l'intention (null → interne/LIVE historique). */
+export function intentRemoteEnv(i: { remoteEnv?: string | null }): RemoteEnv | null {
+  return i.remoteEnv === "TEST" ? "TEST" : i.remoteEnv === "LIVE" ? "LIVE" : null;
 }
 
 /**
- * Contexte d'appel pour un prestataire LIVE : identifiants résolus en
- * mémoire + config non-secrète + `env: "live"` (choisi côté serveur,
- * jamais par l'admin). Ne pas appeler avant checkLiveExecution —
- * la résolution des secrets lève si la référence est absente.
+ * Contexte d'appel pour un prestataire réel : identifiants résolus en
+ * mémoire selon l'environnement `env` (figé de l'intention, sinon
+ * celui du prestataire) + config non-secrète + `env` choisi côté
+ * serveur — jamais par l'admin, jamais depuis provider.config.
+ * Ne pas appeler avant checkRemoteExecution — la résolution des
+ * secrets lève si la référence est absente.
  */
-export function liveCallContext(provider: {
-  id?: string;
-  mode: string;
-  config?: unknown;
-  credentialsRef?: string | null;
-}): AdapterCallContext | undefined {
+export function liveCallContext(
+  provider: {
+    id?: string;
+    mode: string;
+    config?: unknown;
+    remoteEnv?: string | null;
+    credentialsRef?: string | null;
+    testCredentialsRef?: string | null;
+  },
+  env?: RemoteEnv,
+): AdapterCallContext | undefined {
   if (provider.mode !== "LIVE") return undefined;
+  const e: RemoteEnv = env ?? (provider.remoteEnv === "TEST" ? "TEST" : "LIVE");
   const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "";
   return {
-    credentials: resolveProviderSecret(provider, "credentials"),
+    credentials: resolveProviderSecret(provider, "credentials", e),
     config: {
       ...((provider.config as Record<string, unknown> | null) ?? {}),
-      env: "live",
+      env: e === "TEST" ? "test" : "live",
     },
     // URL d'IPN dérivée côté serveur — jamais depuis provider.config.
     callbackUrl: appUrl && provider.id
@@ -90,7 +112,15 @@ export function liveCallContext(provider: {
 
 export async function createPaymentProvider(
   ctx: Ctx,
-  input: { code: string; label: string; mode: "SANDBOX" | "LIVE"; minAmount?: number; maxAmount?: number | null },
+  input: {
+    code: string;
+    label: string;
+    mode: "SANDBOX" | "LIVE";
+    minAmount?: number;
+    maxAmount?: number | null;
+    /** Environnement distant — LIVE par défaut (jamais reclassé). */
+    remoteEnv?: "TEST" | "LIVE";
+  },
 ): Promise<Res<{ id: string }>> {
   const code = input.code.trim().toUpperCase();
   if (!/^[A-Z0-9_]{2,30}$/.test(code)) return { ok: false, error: "INVALID_INPUT" };
@@ -112,6 +142,7 @@ export async function createPaymentProvider(
         code,
         label: input.label.trim(),
         mode: input.mode,
+        remoteEnv: input.mode === "LIVE" ? (input.remoteEnv ?? "LIVE") : "LIVE",
         minAmount: input.minAmount ?? 100,
         maxAmount: input.maxAmount ?? null,
       },
@@ -120,12 +151,42 @@ export async function createPaymentProvider(
     await logAudit({
       actorId: ctx.userId, schoolId: ctx.schoolId,
       action: "payment_provider.created", entity: "PaymentProvider", entityId: provider.id,
-      metadata: { code, mode: input.mode },
+      metadata: { code, mode: input.mode, remoteEnv: input.remoteEnv ?? "LIVE" },
     });
     return { ok: true, data: provider };
   } catch {
     return { ok: false, error: "ALREADY_EXISTS" };
   }
+}
+
+/**
+ * Phase 3B — bascule l'environnement DISTANT du prestataire (TEST ↔
+ * LIVE). Action administrative tracée ; les intentions déjà créées
+ * conservent leur `remoteEnv` figé — une intention TEST ne devient
+ * jamais LIVE par cette bascule, et inversement.
+ */
+export async function setProviderRemoteEnv(
+  ctx: Ctx,
+  providerId: string,
+  remoteEnv: "TEST" | "LIVE",
+): Promise<Res<true>> {
+  const provider = await prisma.paymentProvider.findFirst({
+    where: { id: providerId, schoolId: ctx.schoolId },
+    select: { id: true, code: true, mode: true, remoteEnv: true },
+  });
+  if (!provider) return { ok: false, error: "NOT_FOUND" };
+  if (provider.mode !== "LIVE") return { ok: false, error: "INVALID_STATE" };
+  if (provider.remoteEnv === remoteEnv) return { ok: true, data: true };
+  await prisma.paymentProvider.update({
+    where: { id: provider.id },
+    data: { remoteEnv },
+  });
+  await logAudit({
+    actorId: ctx.userId, schoolId: ctx.schoolId,
+    action: "payment_provider.remote_env", entity: "PaymentProvider", entityId: provider.id,
+    metadata: { code: provider.code, from: provider.remoteEnv, to: remoteEnv },
+  });
+  return { ok: true, data: true };
 }
 
 export async function setPaymentProviderStatus(
@@ -260,7 +321,7 @@ export async function listPaymentProviders(ctx: Ctx) {
       merchantRef: true, createdAt: true, updatedAt: true,
       feeFixed: true, feePercent: true, feeBearer: true,
       liveEnabled: true, liveEnabledAt: true, refundsEnabled: true,
-      credentialsRotatedAt: true,
+      credentialsRotatedAt: true, remoteEnv: true,
     },
   });
 }
@@ -322,10 +383,11 @@ export async function createPaymentIntent(
   }
 
   const adapter = getProviderAdapter(provider.code);
-  // G3-E — prestataire LIVE : verrou global serveur + activation
-  // contrôlée + adaptateur + secrets requis avant toute initiation.
+  // G3-E — prestataire réel : barrière selon l'environnement distant
+  // (TEST → commutateur dédié + secrets TEST ; LIVE → verrou global +
+  // activation contrôlée + secrets LIVE) avant toute initiation.
   if (provider.mode === "LIVE") {
-    const liveErr = checkLiveExecution(provider, adapter);
+    const liveErr = checkRemoteExecution(provider, adapter);
     if (liveErr) return { ok: false, error: liveErr };
   }
   if (!adapter) return { ok: false, error: "UNKNOWN_PROVIDER" };
@@ -406,6 +468,10 @@ export async function createPaymentIntent(
           idempotencyKey: key,
           channel,
           payerPhone: input.payerPhone?.trim() || null,
+          // Environnement distant FIGÉ — immuable ensuite : une
+          // intention TEST reste TEST quelle que soit la bascule
+          // ultérieure du prestataire.
+          remoteEnv: provider.mode === "LIVE" ? provider.remoteEnv : null,
           sandboxScript: script ?? undefined,
           allocations: input.allocations ?? undefined,
           expiresAt,
@@ -525,11 +591,13 @@ export async function pollPaymentIntent(
   if (!intent.providerRef) return { ok: false, error: "INVALID_STATE" };
 
   const adapter = getProviderAdapter(intent.provider.code);
-  // G3-E — la consultation de statut d'un prestataire LIVE est un
-  // appel externe : verrou global + activation + adaptateur + secrets.
+  // G3-E/3B — la consultation de statut est un appel externe : la
+  // barrière et les secrets s'appliquent selon l'environnement FIGÉ
+  // de l'intention (TEST ou LIVE), pas celui courant du prestataire.
   // Le refus laisse l'intention PENDING — aucune preuve n'est perdue.
+  const env = intentRemoteEnv(intent) ?? (intent.provider.remoteEnv === "TEST" ? "TEST" : "LIVE");
   if (intent.provider.mode === "LIVE") {
-    const liveErr = checkLiveExecution(intent.provider, adapter);
+    const liveErr = checkRemoteExecution(intent.provider, adapter, env);
     if (liveErr) return { ok: false, error: liveErr };
   }
   if (!adapter) return { ok: false, error: "UNKNOWN_PROVIDER" };
@@ -540,7 +608,7 @@ export async function pollPaymentIntent(
   let res;
   try {
     res = await adapter.checkStatus(
-      intent.providerRef, script, liveCallContext(intent.provider),
+      intent.providerRef, script, liveCallContext(intent.provider, env),
     );
   } catch (e) {
     if (e instanceof ProviderTimeoutError) {

@@ -44,7 +44,13 @@ export {
   ProviderUnavailableError,
 } from "./types";
 export { resolveProviderSecret } from "./secrets";
-export { checkLiveExecution, isLivePaymentsEnabled } from "./live";
+export type { RemoteEnv } from "./secrets";
+export {
+  checkLiveExecution,
+  checkRemoteExecution,
+  isLivePaymentsEnabled,
+  isRemoteTestEnabled,
+} from "./live";
 export type { LiveProviderShape } from "./live";
 export function listProviderAdapters(): readonly PaymentProviderAdapter[] {
   return [...adapters.values()];

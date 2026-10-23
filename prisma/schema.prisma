@@ -2872,23 +2872,44 @@ enum WebhookEventStatus {
   ANOMALY
 }
 
+/**
+ * G3-E Phase 3B — environnement TECHNIQUE distant du prestataire,
+ * indépendant du mode opérationnel (`mode`). TEST = API sandbox du
+ * prestataire (ex. PayDunya sandbox-api) ; LIVE = production réelle.
+ * Défaut LIVE : les prestataires existants ne sont jamais reclassés.
+ */
+enum RemoteEnv {
+  TEST
+  LIVE
+}
+
 /** Configuration d'un canal de paiement par établissement. Secrets par référence d'env, jamais en clair. */
 model PaymentProvider {
   id       String @id @default(cuid())
   schoolId String
   school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
 
-  code   String // ORANGE_MONEY | MOOV_MONEY | AGGREGATOR | SANDBOX
+  code   String // ORANGE_MONEY | MOOV_MONEY | AGGREGATOR | SANDBOX | PAYDUNYA
   label  String
   mode   PaymentProviderMode @default(SANDBOX)
   status RecordStatus @default(ACTIVE)
 
+  // G3-E Phase 3B — environnement distant (sandbox-api vs api). Axe
+  // technique distinct du mode opérationnel : TEST appelle le sandbox
+  // officiel sans comptabilisation, LIVE la production sous verrou.
+  remoteEnv RemoteEnv @default(LIVE)
+
   minAmount Int  @default(100)
   maxAmount Int? // null = pas de plafond
 
-  credentialsRef   String? // nom de la variable d'env contenant les identifiants
-  webhookSecretRef String? // nom de la variable d'env du secret webhook
-  merchantRef      String? // code marchand / msisdn de référence
+  credentialsRef   String? // nom de la variable d'env contenant les identifiants LIVE
+  webhookSecretRef String? // nom de la variable d'env du secret webhook LIVE
+  // Références distinctes pour l'environnement TEST — la séparation
+  // TEST/LIVE est garantie par la configuration serveur, pas par le
+  // préfixe des clés (contrôle complémentaire seulement).
+  testCredentialsRef   String?
+  testWebhookSecretRef String?
+  merchantRef          String? // code marchand / msisdn de référence
 
   // Commission opérateur (G3-D) — paramétrage contractuel, jamais de
   // tarif inventé : fixe + proportionnelle en points de base (100 = 1 %).
@@ -2968,6 +2989,10 @@ model PaymentIntent {
 
   allocations Json?   // [{installmentId, amount}] — imputation explicite optionnelle
   sandboxScript Json? // scénario du simulateur (mode SANDBOX uniquement)
+  // G3-E Phase 3B — environnement distant FIGÉ à la création (TEST/LIVE,
+  // null = interne). Immuable : une intention TEST reste TEST même si
+  // le prestataire bascule ensuite en LIVE, et ne comptabilise jamais.
+  remoteEnv RemoteEnv?
   failureReason String?
 
   initiatedById String?
