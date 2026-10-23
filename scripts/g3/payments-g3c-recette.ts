@@ -209,7 +209,7 @@ async function main() {
   const f2 = await chargeWith(s2.id, [{ amount: 5_000, dueDate: pastDue, label: "T1" }]);
   const s3 = await mkStudent("G3C-S3");
   await enroll(s3.id, school.id, year.id, classroom.id);
-  await chargeWith(s3.id, [{ amount: 7_000, dueDate: futureDue, label: "T1" }]);
+  const f3 = await chargeWith(s3.id, [{ amount: 7_000, dueDate: futureDue, label: "T1" }]);
   const parent2 = await makeParent("g3c-parent2@test.local", school.id, [s2.id, s3.id]);
   const pctx2 = { userId: parent2.id, schoolId: school.id };
 
@@ -434,6 +434,65 @@ async function main() {
   const cancelConf = await cancelParentIntent(pctx1, idT1);
   check("annulation d'une intention confirmée → refusée", !cancelConf.ok);
 
+  // ══════════ 4bis. LIBÉRATION / GUICHET CONCURRENT ══════════
+  console.log("\n— Libération des montants réservés —");
+  const inst3 = f3.installments[0];
+  // Annulation → la réservation est libérée.
+  const rel1 = await createParentPaymentIntent(pctx2, {
+    studentId: s3.id, feeInstallmentId: inst3.id, amount: 2_000,
+    providerId: providerA, idempotencyKey: "g3c-rel1", __sandboxOutcome: "PENDING",
+  });
+  check("intention active réduit le solde exigible",
+    rel1.ok && (await getPayableInstallment(pctx2, s3.id, inst3.id))?.remaining === 5_000);
+  await cancelParentIntent(pctx2, rel1.ok ? rel1.data.intentId : "");
+  check("annulation → solde exigible libéré",
+    (await getPayableInstallment(pctx2, s3.id, inst3.id))?.remaining === 7_000);
+  // Échec → libération.
+  const rel2 = await createParentPaymentIntent(pctx2, {
+    studentId: s3.id, feeInstallmentId: inst3.id, amount: 3_000,
+    providerId: providerA, idempotencyKey: "g3c-rel2", __sandboxOutcome: "FAILED",
+  });
+  const rel2Id = rel2.ok ? rel2.data.intentId : "";
+  await pollPaymentIntent(pctx2, rel2Id);
+  check("échec sandbox → solde exigible libéré",
+    (await getPayableInstallment(pctx2, s3.id, inst3.id))?.remaining === 7_000);
+  // Expiration → libération + rejeu possible.
+  const rel3 = await createParentPaymentIntent(pctx2, {
+    studentId: s3.id, feeInstallmentId: inst3.id, amount: 4_000,
+    providerId: providerA, idempotencyKey: "g3c-rel3", __sandboxOutcome: "PENDING",
+  });
+  const rel3Id = rel3.ok ? rel3.data.intentId : "";
+  await prisma.paymentIntent.update({
+    where: { id: rel3Id }, data: { expiresAt: new Date(Date.now() - 1000) },
+  });
+  await expireDuePaymentIntents({ userId: null, schoolId: school.id });
+  check("expiration → solde exigible libéré",
+    (await getPayableInstallment(pctx2, s3.id, inst3.id))?.remaining === 7_000);
+  const rel4 = await createParentPaymentIntent(pctx2, {
+    studentId: s3.id, feeInstallmentId: inst3.id, amount: 2_000,
+    providerId: providerA, idempotencyKey: "g3c-rel4", __sandboxOutcome: "PENDING",
+  });
+  check("rejeu après expiration autorisé", rel4.ok);
+  const rel4Id = rel4.ok ? rel4.data.intentId : "";
+
+  // Paiement au guichet pendant une intention parent active : le solde
+  // affiché (7 000 − 2 000 en cours) devient caduc après l'encaissement.
+  const cashPay = await recordPayment(ctxA, {
+    studentId: s3.id, academicYearId: year.id, amount: 7_000,
+    method: "CASH", allocations: [{ installmentId: inst3.id, amount: 7_000 }],
+    idempotencyKey: "g3c-cash-s3",
+  });
+  check("encaissement guichet pendant intention parent (fixture)", cashPay.ok);
+  const staleTry = await createParentPaymentIntent(pctx2, {
+    studentId: s3.id, feeInstallmentId: inst3.id, amount: 2_000,
+    providerId: providerA, idempotencyKey: "g3c-stale",
+  });
+  check("solde modifié entre affichage et confirmation → rejet",
+    !staleTry.ok && (staleTry.error === "INSTALLMENT_PAID" || staleTry.error === "AMOUNT_EXCEEDS_BALANCE"));
+  await cancelParentIntent(pctx2, rel4Id); // intention restée active en sandbox
+  check("aucune double créance ni double encaissement",
+    (await prisma.payment.count({ where: { studentId: s3.id } })) === 1);
+
   // ══════════ 5. SUIVI / HISTORIQUE / REÇUS ══════════
   console.log("\n— Suivi, historique, reçus —");
   const trk = await getParentIntent(pctx1, idT1);
@@ -477,6 +536,16 @@ async function main() {
     (await receiptGuards(pctx1)) === null);
   check("téléchargement reçu refusé hors école",
     (await receiptGuards(pctxB)) === null);
+
+  // Reçu d'un paiement non validé → refusé (même garde que la route PDF).
+  const s3pay = await prisma.payment.findFirst({
+    where: { studentId: s3.id }, select: { id: true },
+  });
+  await prisma.payment.update({ where: { id: s3pay!.id }, data: { status: "CANCELLED" } });
+  const s3payGuard = await prisma.payment.findFirst({
+    where: { id: s3pay!.id, schoolId: pctx2.schoolId, status: "VALIDATED" },
+  });
+  check("reçu d'un paiement non validé → refusé", s3payGuard === null);
 
   // Échéance soldée par le paiement guichet → plus payable.
   check("échéance soldée → non payable",

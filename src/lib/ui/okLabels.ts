@@ -118,6 +118,7 @@ const OK_LABELS: Record<string, string> = {
   script: "Scénario de simulation programmé.",
   posted: "Encaissement comptabilisé.",
   webhook_replayed: "Événement webhook relancé.",
+  refreshed: "Statut de la demande actualisé.",
 
   // Communication / plateforme
   sent: "Envoi lancé.",

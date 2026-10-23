@@ -72,6 +72,8 @@ const ERROR_LABELS: Record<string, string> = {
   INITIATE_FAILED: "L'initiation du paiement a échoué.",
   NOT_SANDBOX: "Action réservée au fournisseur simulateur.",
   POSTING_SANDBOX_FORBIDDEN: "Une intention simulée ne peut pas devenir un encaissement réel.",
+  AMOUNT_EXCEEDS_BALANCE: "Le montant demandé dépasse le solde restant à payer pour cette échéance.",
+  INSTALLMENT_PAID: "Cette échéance est déjà entièrement réglée.",
 
   // Abonnement / limites commerciales
   LIMIT_REACHED: "La limite de votre abonnement est atteinte. Contactez ECOM-TOUCH.",
