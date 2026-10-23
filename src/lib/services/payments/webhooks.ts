@@ -21,14 +21,16 @@ import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
 import { enqueueJob, registerJobHandler } from "@/lib/services/comm/queue";
-import { getProviderAdapter } from "./providers";
+import { checkLiveExecution, getProviderAdapter } from "./providers";
 import {
   confirmIntent,
   expireDuePaymentIntents,
+  liveCallContext,
   pollPaymentIntent,
   postConfirmedIntent,
 } from "./mobileIntents";
 import {
+  ensureDiscrepancy,
   flagMissingSettlements,
   flagUnconfirmedRefunds,
   syncReconciliations,
@@ -287,7 +289,10 @@ async function applyEventToIntent(input: {
   anomaly?: string;
   deferred?: boolean;
 }> {
-  const { ctx, intentId, status, providerTxId, reason, eventExternalId } = input;
+  const { ctx, intentId, status, reason, eventExternalId } = input;
+  // Réassignable : la référence transaction re-vérifiée prime sur
+  // celle reçue dans l'IPN.
+  let providerTxId = input.providerTxId;
 
   const trace = async (extra: Record<string, unknown>) => {
     await prisma.paymentTransaction.create({
@@ -306,7 +311,15 @@ async function applyEventToIntent(input: {
   if (status === "SUCCESS") {
     const cur = await prisma.paymentIntent.findUnique({
       where: { id: intentId },
-      select: { status: true },
+      select: {
+        status: true, amount: true, currency: true, providerRef: true,
+        provider: {
+          select: {
+            code: true, mode: true, status: true, liveEnabled: true,
+            credentialsRef: true, config: true,
+          },
+        },
+      },
     });
     if (cur && (cur.status === "FAILED" || cur.status === "EXPIRED" || cur.status === "CANCELLED")) {
       await trace({ applied: "none", contradiction: `SUCCESS_after_${cur.status}` });
@@ -316,6 +329,52 @@ async function applyEventToIntent(input: {
         anomaly: `Confirmation reçue après ${cur.status} — rapprochement requis.`,
       };
     }
+    // G3-E — re-vérification obligatoire : pour les adaptateurs dont
+    // la signature webhook n'authentifie pas chaque événement
+    // (PayDunya : hash statique de la MasterKey), l'IPN seule ne
+    // déclenche JAMAIS de confirmation. On re-interroge le statut
+    // auprès du prestataire et on compare montant/devise. Échec de
+    // transport → exception → RETRY (preuve conservée) ; contradiction
+    // → ANOMALY sans comptabilisation.
+    const adapter = cur ? getProviderAdapter(cur.provider.code) : null;
+    if (cur && adapter?.webhookReverification) {
+      const liveErr = cur.provider.mode === "LIVE"
+        ? checkLiveExecution(cur.provider, adapter)
+        : "PROVIDER_NOT_LIVE";
+      if (liveErr) throw new Error(`REVERIFY_BLOCKED_${liveErr}`);
+      const reverified = await adapter.checkStatus(
+        cur.providerRef!, null, liveCallContext(cur.provider),
+      );
+      if (reverified.status !== "SUCCESS") {
+        await trace({ applied: "none", contradiction: `REVERIFY_${reverified.status}` });
+        return {
+          outcome: "ANOMALY",
+          result: { anomaly: "IPN_NOT_CONFIRMED_BY_PROVIDER", providerStatus: reverified.status, rawStatus: reverified.rawStatus ?? null },
+          anomaly: `IPN de succès non confirmée par le prestataire (statut réel : ${reverified.rawStatus ?? reverified.status}) — aucune comptabilisation.`,
+        };
+      }
+      const amountMismatch = reverified.amount != null && reverified.amount !== cur.amount;
+      const currencyMismatch = reverified.currency != null && reverified.currency !== cur.currency;
+      if (amountMismatch || currencyMismatch) {
+        await ensureDiscrepancy(prisma, {
+          schoolId: ctx.schoolId,
+          type: "AMOUNT_MISMATCH",
+          intentId,
+          expectedAmount: cur.amount,
+          actualAmount: reverified.amount ?? null,
+          description: `IPN reverifiée avec montant/devise divergents (${reverified.amount ?? "?"} ${reverified.currency ?? "?"} vs attendu ${cur.amount} ${cur.currency}) — confirmation bloquée.`,
+        });
+        await trace({ applied: "none", contradiction: "AMOUNT_MISMATCH" });
+        return {
+          outcome: "ANOMALY",
+          result: { anomaly: "AMOUNT_MISMATCH", expected: cur.amount, actual: reverified.amount ?? null },
+          anomaly: "Montant/devise divergents après re-vérification prestataire — aucune comptabilisation.",
+        };
+      }
+      // La référence transaction re-vérifiée prime sur celle de l'IPN.
+      providerTxId = reverified.providerTxId ?? providerTxId;
+    }
+
     const res = await confirmIntent(ctx, intentId, {
       providerTxId,
       // La comptabilisation réelle n'a lieu que pour les intentions

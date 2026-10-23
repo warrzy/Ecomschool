@@ -1,12 +1,16 @@
 /**
- * Registre des adaptateurs prestataires. Les adaptateurs réels
- * (Orange Money, Moov Money, agrégateur) s'enregistreront ici en G3-E.
+ * Registre des adaptateurs prestataires. PAYDUNYA est enregistré
+ * mais inerte : le verrou global MOBILE_MONEY_LIVE_ENABLED +
+ * `liveEnabled` + secrets valides restent requis avant le moindre
+ * appel transport (checkLiveExecution dans les services).
  */
+import { paydunyaAdapter } from "./paydunya";
 import { sandboxAdapter } from "./sandbox";
 import type { PaymentProviderAdapter } from "./types";
 
 const adapters = new Map<string, PaymentProviderAdapter>([
   [sandboxAdapter.code, sandboxAdapter],
+  [paydunyaAdapter.code, paydunyaAdapter],
 ]);
 
 export function getProviderAdapter(code: string): PaymentProviderAdapter | null {
@@ -23,6 +27,7 @@ export function registerProviderAdapter(adapter: PaymentProviderAdapter): void {
 }
 
 export type {
+  AdapterCallContext,
   PaymentProviderAdapter,
   ProviderCapabilities,
   ProviderRefundInput,

@@ -23,6 +23,17 @@ export type ProviderPaymentStatus =
   | "FAILED"
   | "EXPIRED";
 
+/**
+ * Contexte d'appel résolu par le service pour un prestataire réel.
+ * `credentials` contient les identifiants lus depuis l'environnement
+ * (résolution `resolveProviderSecret`, mémoire seule — jamais en
+ * base ni en log) ; `config` est `PaymentProvider.config` (non-secret).
+ */
+export type AdapterCallContext = {
+  credentials?: string;
+  config?: Record<string, unknown> | null;
+};
+
 export type InitiateInput = {
   /** Référence interne unique de l'intention (renvoyée comme référence métier). */
   intentId: string;
@@ -31,6 +42,8 @@ export type InitiateInput = {
   payerPhone?: string | null;
   /** Scénario de simulation — ignoré par les adaptateurs réels. */
   sandboxScript?: SandboxScript | null;
+  /** Contexte d'exécution (secrets + config) — prestataires LIVE. */
+  call?: AdapterCallContext;
 };
 
 export type InitiateResult = {
@@ -45,6 +58,13 @@ export type StatusResult = {
   providerTxId?: string;
   rawStatus?: string;
   reason?: string;
+  /**
+   * Montant/devise lus dans la réponse prestataire, quand exposés.
+   * Le service compare toujours au montant attendu de l'intention —
+   * une divergence ouvre une anomalie, jamais de comptabilisation.
+   */
+  amount?: number;
+  currency?: string;
 };
 
 /** Délai maximal recommandé pour un appel prestataire (ms). */
@@ -170,7 +190,21 @@ export interface PaymentProviderAdapter {
   readonly capabilities: ProviderCapabilities;
 
   initiate(input: InitiateInput): Promise<InitiateResult>;
-  checkStatus(providerRef: string, script?: SandboxScript | null): Promise<StatusResult>;
+  checkStatus(
+    providerRef: string,
+    script?: SandboxScript | null,
+    call?: AdapterCallContext,
+  ): Promise<StatusResult>;
+
+  /**
+   * Sécurité des confirmations : quand `true`, un webhook `SUCCESS`
+   * n'est JAMAIS suffisant pour confirmer — le service re-vérifie le
+   * statut via `checkStatus` (et compare montant/devise) avant
+   * `confirmIntent`. Requis pour les prestataires dont le mécanisme
+   * webhook n'authentifie pas chaque événement individuellement
+   * (ex. PayDunya : hash statique de la MasterKey).
+   */
+  readonly webhookReverification?: boolean;
 
   /**
    * Vérifie l'authenticité d'un webhook sur les OCTETS BRUTS du corps

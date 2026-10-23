@@ -34,8 +34,8 @@ import {
   ensureReconciliation,
   notifyReconcileAdmins,
 } from "./reconciliation";
-import { getProviderAdapter, checkLiveExecution, ProviderTimeoutError } from "./providers";
-import type { PaymentProviderAdapter, SandboxScript } from "./providers";
+import { getProviderAdapter, checkLiveExecution, resolveProviderSecret, ProviderTimeoutError } from "./providers";
+import type { AdapterCallContext, PaymentProviderAdapter, SandboxScript } from "./providers";
 
 type Ctx = { userId: string; schoolId: string };
 type Res<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -57,6 +57,27 @@ function isSimulated(i: {
   provider: { mode: string; code: string };
 }): boolean {
   return i.provider.mode === "SANDBOX" || i.provider.code === "SANDBOX" || i.sandboxScript != null;
+}
+
+/**
+ * Contexte d'appel pour un prestataire LIVE : identifiants résolus en
+ * mémoire + config non-secrète + `env: "live"` (choisi côté serveur,
+ * jamais par l'admin). Ne pas appeler avant checkLiveExecution —
+ * la résolution des secrets lève si la référence est absente.
+ */
+export function liveCallContext(provider: {
+  mode: string;
+  config?: unknown;
+  credentialsRef?: string | null;
+}): AdapterCallContext | undefined {
+  if (provider.mode !== "LIVE") return undefined;
+  return {
+    credentials: resolveProviderSecret(provider, "credentials"),
+    config: {
+      ...((provider.config as Record<string, unknown> | null) ?? {}),
+      env: "live",
+    },
+  };
 }
 
 // ─── Fournisseurs ───────────────────────────────────────────────────
@@ -423,11 +444,15 @@ export async function createPaymentIntent(
   }
 
   // Initiation prestataire (hors transaction — appel externe simulé).
-  return initiateIntent(ctx, intentId, adapter, provider.mode === "SANDBOX");
+  return initiateIntent(
+    ctx, intentId, adapter, provider.mode === "SANDBOX",
+    liveCallContext(provider),
+  );
 }
 
 async function initiateIntent(
   ctx: Ctx, intentId: string, adapter: PaymentProviderAdapter, simulated: boolean,
+  call?: AdapterCallContext,
 ): Promise<Res<{ intentId: string; providerRef: string; replayed: boolean; active: boolean }>> {
   const intent = await prisma.paymentIntent.findFirstOrThrow({
     where: { id: intentId, schoolId: ctx.schoolId },
@@ -439,6 +464,7 @@ async function initiateIntent(
       currency: intent.currency,
       payerPhone: intent.payerPhone,
       sandboxScript: (intent.sandboxScript as SandboxScript | null) ?? null,
+      call,
     });
     await prisma.$transaction(async (tx) => {
       const upd = await tx.paymentIntent.updateMany({
@@ -507,7 +533,9 @@ export async function pollPaymentIntent(
 
   let res;
   try {
-    res = await adapter.checkStatus(intent.providerRef, script);
+    res = await adapter.checkStatus(
+      intent.providerRef, script, liveCallContext(intent.provider),
+    );
   } catch (e) {
     if (e instanceof ProviderTimeoutError) {
       await prisma.paymentTransaction.create({
@@ -544,7 +572,28 @@ export async function pollPaymentIntent(
   });
 
   switch (res.status) {
-    case "SUCCESS":
+    case "SUCCESS": {
+      // Contrôle du montant/devise renvoyés par le prestataire : une
+      // divergence bloque la confirmation et ouvre une anomalie —
+      // jamais de comptabilisation d'un montant non attendu.
+      const amountMismatch = res.amount != null && res.amount !== intent.amount;
+      const currencyMismatch = res.currency != null && res.currency !== intent.currency;
+      if (amountMismatch || currencyMismatch) {
+        await ensureDiscrepancy(prisma, {
+          schoolId: ctx.schoolId,
+          type: "AMOUNT_MISMATCH",
+          intentId: intent.id,
+          expectedAmount: intent.amount,
+          actualAmount: res.amount ?? null,
+          description: `Statut SUCCESS avec montant/devise divergents (${res.amount ?? "?"} ${res.currency ?? "?"} vs attendu ${intent.amount} ${intent.currency}) — confirmation bloquée.`,
+        });
+        await notifyReconcileAdmins(ctx.schoolId, {
+          title: "Confirmation prestataire incohérente",
+          body: `Intention ${intent.id.slice(0, 8)}… : SUCCESS reçu mais montant/devise divergent — aucune comptabilisation.`,
+          link: `/app/paiements-mobile?intent=${intent.id}`,
+        });
+        return { ok: false, error: "AMOUNT_MISMATCH" };
+      }
       // Même mécanisme central que les webhooks (G3-B) : la
       // comptabilisation est tentée pour les intentions LIVE ; la
       // barrière `isSimulated` garde le sandbox en simulation.
@@ -552,6 +601,7 @@ export async function pollPaymentIntent(
         providerTxId: res.providerTxId,
         postToLedger: !isSimulated(intent),
       });
+    }
     case "FAILED":
       await transition(ctx, intent.id, ["PENDING"], "FAILED", {
         failureReason: res.reason ?? "REFUSED", providerTxId: res.providerTxId,

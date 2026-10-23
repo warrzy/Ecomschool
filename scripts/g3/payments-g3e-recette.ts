@@ -165,13 +165,21 @@ async function main() {
   // ══════════ 1. REGISTRE & CAPACITÉS ══════════
   console.log("\n— Registre et capacités déclarées —");
   const adapters = listProviderAdapters();
-  check("aucun adaptateur réel enregistré (SANDBOX seul)",
-    adapters.length === 1 && adapters[0].code === "SANDBOX");
+  check("adaptateurs enregistrés : SANDBOX + PAYDUNYA (inerte sans verrou)",
+    adapters.length === 2 &&
+    adapters.some((a) => a.code === "SANDBOX") &&
+    adapters.some((a) => a.code === "PAYDUNYA"));
   const sb = getProviderAdapter("SANDBOX")!;
   check("capacités déclarées et cohérentes avec les méthodes",
     sb.capabilities.initiate && sb.capabilities.pollStatus && sb.capabilities.webhooks &&
     sb.capabilities.refunds === !!sb.initiateRefund &&
     sb.capabilities.settlements === !!sb.fetchSettlements);
+  const pd = getProviderAdapter("PAYDUNYA")!;
+  check("PAYDUNYA : capacities minimales, refunds/settlements OFF, reverify ON",
+    pd.capabilities.initiate && pd.capabilities.pollStatus && pd.capabilities.webhooks &&
+    !pd.capabilities.refunds && !pd.capabilities.settlements && !pd.capabilities.payerFee &&
+    pd.webhookReverification === true &&
+    pd.initiateRefund === undefined && pd.fetchSettlements === undefined);
   check("adaptateur inconnu → null", getProviderAdapter("ORANGE_MONEY") === null);
 
   // ══════════ 2. CONFIGURATION & GATES ══════════

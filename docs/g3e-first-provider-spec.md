@@ -214,3 +214,42 @@ local si le compte test n'est pas encore créé :
 - Aucun remboursement tant que le canal n'est pas validé (refus
   explicite, jamais de SIMREF- en LIVE).
 - Aucune notification payante externe.
+
+## 10. Annexe — implémentation Phase 2B (locale)
+
+Livrée sans activation LIVE ni appel réseau réel.
+
+- **Adaptateur** : `src/lib/services/payments/providers/paydunya.ts`
+  (`createPaydunyaAdapter(transport)` + `paydunyaAdapter` production
+  sur transport fetch — inerte sans `MOBILE_MONEY_LIVE_ENABLED`,
+  `liveEnabled`, secrets et adaptateur enregistré).
+- **Transport injectable** : `src/lib/services/payments/providers/http.ts`
+  (`HttpTransport`, `fetchTransport`, `createMockTransport` — la
+  recette journalise chaque requête et interdit tout réseau réel).
+- **Contrat étendu** (`types.ts`) : `AdapterCallContext`
+  (`credentials` résolus en mémoire + `config` non-secrète +
+  `env:"live"` injecté côté serveur), `StatusResult.amount/currency`,
+  `PaymentProviderAdapter.webhookReverification` (`true` pour
+  PAYDUNYA — l'IPN seule ne confirme jamais).
+- **Chaîne de confirmation** : `applyEventToIntent` re-vérifie via
+  `checkStatus` avant `confirmIntent` quand
+  `webhookReverification` — contradiction → `ANOMALY`, divergence
+  montant/devise → `AMOUNT_MISMATCH` + `PaymentDiscrepancy`, échec
+  transport → `RETRY` (preuve conservée, `replayWebhookEvent`
+  rejouable). `pollPaymentIntent` applique le même contrôle
+  montant/devise.
+- **Secrets** : `credentialsRef` → JSON `{masterKey, privateKey,
+  publicKey?, token}` ; `webhookSecretRef` → MasterKey seule
+  (vérification `sha512(masterKey)` en temps constant). Le hash IPN
+  n'est jamais persisté (`"[redacted]"`).
+- **`PaymentProvider.config` attendu** : `{store:{name,…},
+  callbackUrl, returnUrl?, cancelUrl?, channels[], description?}` —
+  `store.name` requis par l'API ; l'`env` (sandbox/live) est choisi
+  par le service d'après `provider.mode`, jamais par l'admin.
+- **Capacités déclarées** : `initiate`, `pollStatus`, `webhooks`
+  (reverify ON) ; `refunds`, `settlements`, `payerFee` = `false`.
+- **Recette** : `scripts/g3/payments-g3e-paydunya-recette.ts` —
+  51/51 PASS (fixtures déterministes documentées, 0 appel réseau).
+- **Questions contractuelles restantes** : inchangées (§8) —
+  notamment champ `providerTxId` exact, comportement IPN en échec,
+  tarifs, canal de remboursement et format des décomptes.
