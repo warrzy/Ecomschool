@@ -21,7 +21,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
 import { enqueueJob, registerJobHandler } from "@/lib/services/comm/queue";
-import { checkLiveExecution, getProviderAdapter } from "./providers";
+import { checkLiveExecution, getProviderAdapter, isLivePaymentsEnabled } from "./providers";
 import {
   confirmIntent,
   expireDuePaymentIntents,
@@ -315,7 +315,7 @@ async function applyEventToIntent(input: {
         status: true, amount: true, currency: true, providerRef: true,
         provider: {
           select: {
-            code: true, mode: true, status: true, liveEnabled: true,
+            id: true, code: true, mode: true, status: true, liveEnabled: true,
             credentialsRef: true, config: true,
           },
         },
@@ -353,23 +353,52 @@ async function applyEventToIntent(input: {
           anomaly: `IPN de succès non confirmée par le prestataire (statut réel : ${reverified.rawStatus ?? reverified.status}) — aucune comptabilisation.`,
         };
       }
-      const amountMismatch = reverified.amount != null && reverified.amount !== cur.amount;
-      const currencyMismatch = reverified.currency != null && reverified.currency !== cur.currency;
-      if (amountMismatch || currencyMismatch) {
+      // Données indispensables absentes ou divergentes → anomalie,
+      // jamais de comptabilisation : montant exact, devise attendue,
+      // référence interne (custom_data.intent_id), unicité de la
+      // transaction prestataire.
+      const amountMismatch = reverified.amount == null || reverified.amount !== cur.amount;
+      const currencyMismatch = reverified.currency == null || reverified.currency !== cur.currency;
+      const refMismatch = reverified.customRef == null || reverified.customRef !== intentId;
+      if (amountMismatch || currencyMismatch || refMismatch) {
         await ensureDiscrepancy(prisma, {
           schoolId: ctx.schoolId,
-          type: "AMOUNT_MISMATCH",
+          type: refMismatch ? "OTHER" : "AMOUNT_MISMATCH",
           intentId,
           expectedAmount: cur.amount,
           actualAmount: reverified.amount ?? null,
-          description: `IPN reverifiée avec montant/devise divergents (${reverified.amount ?? "?"} ${reverified.currency ?? "?"} vs attendu ${cur.amount} ${cur.currency}) — confirmation bloquée.`,
+          description: `IPN reverifiée incohérente (montant ${reverified.amount ?? "absent"}, devise ${reverified.currency ?? "absente"}, réf ${reverified.customRef ?? "absente"} vs attendus ${cur.amount} ${cur.currency} / ${intentId}) — confirmation bloquée.`,
         });
-        await trace({ applied: "none", contradiction: "AMOUNT_MISMATCH" });
+        await trace({ applied: "none", contradiction: refMismatch ? "REF_MISMATCH" : "AMOUNT_MISMATCH" });
         return {
           outcome: "ANOMALY",
-          result: { anomaly: "AMOUNT_MISMATCH", expected: cur.amount, actual: reverified.amount ?? null },
-          anomaly: "Montant/devise divergents après re-vérification prestataire — aucune comptabilisation.",
+          result: { anomaly: refMismatch ? "INTERNAL_REF_MISMATCH" : "AMOUNT_MISMATCH", expected: cur.amount, actual: reverified.amount ?? null },
+          anomaly: "Confirmation bloquée : montant, devise ou référence interne divergents après re-vérification prestataire.",
         };
+      }
+      if (reverified.providerTxId) {
+        const dupe = await prisma.paymentIntent.findFirst({
+          where: {
+            providerTxId: reverified.providerTxId,
+            id: { not: intentId },
+            status: { in: ["CONFIRMED", "CONFIRMED_PENDING_POSTING"] },
+          },
+          select: { id: true },
+        });
+        if (dupe) {
+          await ensureDiscrepancy(prisma, {
+            schoolId: ctx.schoolId,
+            type: "DUPLICATE_REFERENCE",
+            intentId,
+            description: `Référence transaction prestataire ${reverified.providerTxId} déjà rattachée à l'intention ${dupe.id} — confirmation bloquée.`,
+          });
+          await trace({ applied: "none", contradiction: "DUPLICATE_TXID" });
+          return {
+            outcome: "ANOMALY",
+            result: { anomaly: "DUPLICATE_PROVIDER_TXID", otherIntentId: dupe.id },
+            anomaly: "Référence transaction déjà confirmée sur une autre intention — aucune comptabilisation.",
+          };
+        }
       }
       // La référence transaction re-vérifiée prime sur celle de l'IPN.
       providerTxId = reverified.providerTxId ?? providerTxId;
@@ -555,11 +584,19 @@ export async function repostPendingPostings(
       status: "CONFIRMED_PENDING_POSTING",
       updatedAt: { lt: new Date(Date.now() - REPOST_GRACE_MS) },
     },
+    include: { provider: { select: { mode: true } } },
     orderBy: { updatedAt: "asc" },
     take: opts.limit ?? 20,
   });
-  let posted = 0, still = 0, failed = 0;
+  let posted = 0, still = 0, failed = 0, locked = 0;
   for (const intent of due) {
+    // Verrou global : un encaissement LIVE différé n'est jamais
+    // comptabilisé tant que MOBILE_MONEY_LIVE_ENABLED est absent —
+    // la preuve est conservée, la comptabilisation attend l'activation.
+    if (intent.provider.mode === "LIVE" && !isLivePaymentsEnabled()) {
+      locked++;
+      continue;
+    }
     const attempts = await prisma.paymentTransaction.count({
       where: { intentId: intent.id, kind: "POSTING" },
     });
@@ -587,7 +624,7 @@ export async function repostPendingPostings(
       });
     }
   }
-  return { due: due.length, posted, still, failed };
+  return { due: due.length, posted, still, failed, locked };
 }
 
 /** Polling de secours des intentions PENDING âgées (webhook jamais reçu). */

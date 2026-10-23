@@ -66,17 +66,23 @@ function isSimulated(i: {
  * la résolution des secrets lève si la référence est absente.
  */
 export function liveCallContext(provider: {
+  id?: string;
   mode: string;
   config?: unknown;
   credentialsRef?: string | null;
 }): AdapterCallContext | undefined {
   if (provider.mode !== "LIVE") return undefined;
+  const appUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "";
   return {
     credentials: resolveProviderSecret(provider, "credentials"),
     config: {
       ...((provider.config as Record<string, unknown> | null) ?? {}),
       env: "live",
     },
+    // URL d'IPN dérivée côté serveur — jamais depuis provider.config.
+    callbackUrl: appUrl && provider.id
+      ? `${appUrl.replace(/\/+$/, "")}/api/webhooks/mobile-money/${provider.id}`
+      : undefined,
   };
 }
 
@@ -573,26 +579,34 @@ export async function pollPaymentIntent(
 
   switch (res.status) {
     case "SUCCESS": {
-      // Contrôle du montant/devise renvoyés par le prestataire : une
-      // divergence bloque la confirmation et ouvre une anomalie —
-      // jamais de comptabilisation d'un montant non attendu.
-      const amountMismatch = res.amount != null && res.amount !== intent.amount;
-      const currencyMismatch = res.currency != null && res.currency !== intent.currency;
-      if (amountMismatch || currencyMismatch) {
+      // Contrôle du montant/devise/référence renvoyés par le
+      // prestataire : divergence OU donnée indispensable absente →
+      // confirmation bloquée + anomalie. Pour les adaptateurs à
+      // re-vérification (PayDunya), la référence interne et le
+      // montant sont exigés — absent = anomalie.
+      const strict = adapter.webhookReverification === true;
+      const amountMismatch = strict
+        ? res.amount == null || res.amount !== intent.amount
+        : res.amount != null && res.amount !== intent.amount;
+      const currencyMismatch = strict
+        ? res.currency == null || res.currency !== intent.currency
+        : res.currency != null && res.currency !== intent.currency;
+      const refMismatch = strict && (res.customRef == null || res.customRef !== intent.id);
+      if (amountMismatch || currencyMismatch || refMismatch) {
         await ensureDiscrepancy(prisma, {
           schoolId: ctx.schoolId,
-          type: "AMOUNT_MISMATCH",
+          type: refMismatch ? "OTHER" : "AMOUNT_MISMATCH",
           intentId: intent.id,
           expectedAmount: intent.amount,
           actualAmount: res.amount ?? null,
-          description: `Statut SUCCESS avec montant/devise divergents (${res.amount ?? "?"} ${res.currency ?? "?"} vs attendu ${intent.amount} ${intent.currency}) — confirmation bloquée.`,
+          description: `Statut SUCCESS incohérent (montant ${res.amount ?? "absent"}, devise ${res.currency ?? "absente"}, réf ${res.customRef ?? "absente"} vs attendus ${intent.amount} ${intent.currency} / ${intent.id}) — confirmation bloquée.`,
         });
         await notifyReconcileAdmins(ctx.schoolId, {
           title: "Confirmation prestataire incohérente",
-          body: `Intention ${intent.id.slice(0, 8)}… : SUCCESS reçu mais montant/devise divergent — aucune comptabilisation.`,
+          body: `Intention ${intent.id.slice(0, 8)}… : SUCCESS reçu mais montant/devise/référence divergents — aucune comptabilisation.`,
           link: `/app/paiements-mobile?intent=${intent.id}`,
         });
-        return { ok: false, error: "AMOUNT_MISMATCH" };
+        return { ok: false, error: refMismatch ? "REF_MISMATCH" : "AMOUNT_MISMATCH" };
       }
       // Même mécanisme central que les webhooks (G3-B) : la
       // comptabilisation est tentée pour les intentions LIVE ; la

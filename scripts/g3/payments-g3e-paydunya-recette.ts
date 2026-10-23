@@ -37,6 +37,7 @@ import {
 } from "../../src/lib/services/payments/providers/paydunya";
 import { ProviderTimeoutError } from "../../src/lib/services/payments/providers";
 import {
+  pollUncertainIntents,
   processWebhookEvent,
   receiveWebhook,
   replayWebhookEvent,
@@ -76,11 +77,24 @@ function ipnBody(input: {
 
 // ─── Transport simulé ───────────────────────────────────────────────
 
+type MockStatus = {
+  status: string;
+  amount?: number;
+  currency?: string;
+  responseCode?: string;
+  /** custom_data.intent_id renvoyé — défaut : déduit du token. */
+  customRef?: string | null;
+  /** Renvoie un token différent de celui interrogé (incohérent). */
+  wrongToken?: boolean;
+  /** transaction_id fixé — pour le test d'unicité. */
+  txId?: string;
+};
+
 type MockState = {
   /** Statut renvoyé par confirm/{token}. */
-  statuses: Map<string, { status: string; amount?: number; currency?: string; responseCode?: string }>;
+  statuses: Map<string, MockStatus>;
   /** Comportements dégradés : next create/confirm échoue ainsi. */
-  failNext: "timeout" | "http500" | "malformed" | "empty" | null;
+  failNext: "timeout" | "http500" | "malformed" | "empty" | "redirect" | "network" | null;
   /** response_code ≠ "00" sur la création. */
   createRejectCode: string | null;
 };
@@ -91,6 +105,8 @@ function buildMock(state: MockState) {
       const f = state.failNext;
       state.failNext = null;
       if (f === "timeout") throw new ProviderTimeoutError("timeout simulé");
+      if (f === "network") throw new Error("ECONNREFUSED — réseau simulé");
+      if (f === "redirect") return { status: 302, body: "" };
       if (f === "http500") return { status: 500, body: JSON.stringify({ response_code: "99", response_text: "Erreur serveur" }) };
       if (f === "malformed") return { status: 200, body: "<<< pas du json >>>" };
       if (f === "empty") return { status: 200, body: JSON.stringify({ response_code: "00" }) };
@@ -123,8 +139,16 @@ function buildMock(state: MockState) {
         body: JSON.stringify({
           response_code: "00",
           response_text: "Transaction Found",
-          invoice: { token, status: s.status, total_amount: s.amount, currency: s.currency },
-          transaction_id: `pdtx_${token}`,
+          invoice: {
+            token: s.wrongToken ? "pd_tok_autre" : token,
+            status: s.status,
+            total_amount: s.amount,
+            currency: s.currency,
+          },
+          custom_data: s.customRef === null
+            ? {}
+            : { intent_id: s.customRef ?? token.replace(/^pd_tok_/, "") },
+          transaction_id: s.txId ?? `pdtx_${token}`,
         }),
       };
     }
@@ -232,8 +256,11 @@ async function main() {
       dueDate: new Date(Date.now() + 30 * 86400_000), amount: 5_000, label: "T",
     },
   });
+  // Charge unique dimensionnée pour couvrir tous les versements de
+  // la recette — le solde se contrôle au niveau de la charge, un
+  // dépassement déclencherait OVERPAYMENT_BLOCKED.
   const charge = await prisma.studentFeeCharge.create({
-    data: { schoolId: school.id, studentId: student.id, academicYearId: year.id, categoryId: cat.id, amount: 300_000 },
+    data: { schoolId: school.id, studentId: student.id, academicYearId: year.id, categoryId: cat.id, amount: 10_000_000 },
   });
   const mkInstallment = (amount: number) =>
     prisma.feeInstallment.create({
@@ -258,11 +285,15 @@ async function main() {
   });
   process.env.PD_TEST_WH_B = MK_B;
   const prevLock = process.env.MOBILE_MONEY_LIVE_ENABLED;
+  const prevAppUrl = process.env.NEXTAUTH_URL;
   process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  process.env.NEXTAUTH_URL = "https://fixture.test";
 
   const pdConfig = {
     store: { name: "École Fixture A", website_url: "https://fixture-a.test" },
-    callbackUrl: "https://fixture-a.test/webhooks/paydunya",
+    // URL piège : ne doit JAMAIS être envoyée à PayDunya — la callback
+    // est calculée côté serveur (NEXTAUTH_URL + providerId).
+    callbackUrl: "https://evil.example/ipn",
     channels: ["orange-money-burkina", "moov-burkina-faso"],
   };
 
@@ -314,6 +345,7 @@ async function main() {
   const call = {
     credentials: process.env.PD_TEST_CREDS_A!,
     config: { ...pdConfig, env: "live" as const },
+    callbackUrl: "https://fixture.test/api/webhooks/mobile-money/prov-unit",
   };
   const callsBefore = calls.length;
   const init = await adapter.initiate({ intentId: "unit-i1", amount: 5000, currency: "XOF", payerPhone: "+22670000000", call });
@@ -325,6 +357,9 @@ async function main() {
     sentBody.invoice.total_amount === 5000 && sentBody.custom_data.intent_id === "unit-i1");
   check("en-têtes marchands présents (clés seulement)",
     "PAYDUNYA-MASTER-KEY" in calls[calls.length - 1].headers && "PAYDUNYA-PRIVATE-KEY" in calls[calls.length - 1].headers);
+  const sentActions = (sentBody as { actions?: { callback_url?: string } }).actions;
+  check("callback_url = URL serveur calculée, jamais provider.config",
+    sentActions?.callback_url === "https://fixture.test/api/webhooks/mobile-money/prov-unit");
 
   // Mapping des statuts.
   state.statuses.set("tok-completed", { status: "completed", amount: 5000 });
@@ -385,6 +420,14 @@ async function main() {
   try { await adapter.initiate({ intentId: "i", amount: 1, currency: "XOF", call }); } catch (e) { err = e; }
   state.createRejectCode = null;
   check("refus métier (response_code≠00) → ProviderBusinessError", (err as { name?: string })?.name === "ProviderBusinessError");
+  state.failNext = "redirect";
+  err = null;
+  try { await adapter.checkStatus("tok-x", null, call); } catch (e) { err = e; }
+  check("redirection HTTP inattendue → ProviderUnavailableError", (err as { name?: string })?.name === "ProviderUnavailableError");
+  state.failNext = "network";
+  err = null;
+  try { await adapter.checkStatus("tok-x", null, call); } catch (e) { err = e; }
+  check("échec réseau propagé (jamais silencieux)", err instanceof Error && (err as Error).message.includes("ECONNREFUSED"));
 
   // ══════════ B. SERVICE — cycle complet avec re-vérification ══════════
   console.log("\n— Cycle service : initiation → IPN → re-vérification → encaissement —");
@@ -396,6 +439,10 @@ async function main() {
   const tokenA = iA.ok ? iA.data.providerRef : "";
   check("aucune url externe réelle touchée (tout passe par le mock)",
     calls.every((c) => c.url.startsWith("https://app.paydunya.com/")));
+  const iACall = calls[calls.length - 1];
+  const iABody = JSON.parse(iACall.body!) as { actions?: { callback_url?: string } };
+  check("callback_url service = URL serveur (provider.config ignorée)",
+    iABody.actions?.callback_url === `https://fixture.test/api/webhooks/mobile-money/${providerA}`);
 
   // Polling de statut → montant vérifié → confirmation + posting.
   state.statuses.set(tokenA, { status: "completed", amount: 10_000, currency: "XOF" });
@@ -585,8 +632,11 @@ async function main() {
     where: { id: iI.ok ? iI.data.intentId : "" },
     select: { paymentId: true, status: true },
   });
+  // Le perdant peut recevoir OVERPAYMENT_BLOCKED (le garde-fou bloque
+  // le second posting pendant que le gagnant comptabilise) — l'invariant
+  // attendu est : 1 confirmation, 1 encaissement, jamais deux.
   check("guichet concurrent : 2 poll simultanés → 1 seul encaissement",
-    c1.ok && c2.ok && intentI?.status === "CONFIRMED" && !!intentI.paymentId);
+    (c1.ok || c2.ok) && intentI?.status === "CONFIRMED" && !!intentI.paymentId);
 
   // Isolation : provider A utilisé depuis l'école B → refus scoping.
   const iso = await createPaymentIntent(ctxB, {
@@ -630,6 +680,168 @@ async function main() {
   const payAll = await prisma.payment.count({ where: { schoolId: school.id } });
   check("aucun encaissement parasite école A", payAll === 4);
 
+  // ══════════ C2. VERROU SUR CHEMINS ASYNCHRONES ══════════
+  console.log("\n— Verrou LIVE sur webhooks/cron + données indispensables —");
+
+  // IPN reçue verrou désactivé : conservée, vérifiée localement,
+  // jamais d'appel externe ni d'encaissement — rejouable après
+  // activation.
+  const inst10 = await mkInstallment(100_000);
+  const iK = await mkPdIntent({ amount: 100_000, installmentId: inst10.id });
+  const tokenK = iK.ok ? iK.data.providerRef : "";
+  const intentKId = iK.ok ? iK.data.intentId : "";
+  state.statuses.set(tokenK, { status: "completed", amount: 100_000, currency: "XOF" });
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  const callsLockOff = calls.length;
+  const wK = await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenK, status: "completed", masterKey: MK_A, amount: 100_000 }),
+    headers: {},
+  });
+  const evK = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenK}:completed` } });
+  const pK0 = evK ? await processWebhookEvent(evK.id) : { outcome: "?" };
+  const intentK0 = await prisma.paymentIntent.findUnique({ where: { id: intentKId } });
+  check("IPN sous verrou OFF : preuve conservée, RETRY, 0 appel transport, PENDING",
+    wK.ok && pK0.outcome === "RETRY" && calls.length === callsLockOff && intentK0?.status === "PENDING");
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  const pK1 = evK ? await processWebhookEvent(evK.id) : { outcome: "?" };
+  const intentK1 = await prisma.paymentIntent.findUnique({ where: { id: intentKId } });
+  check("même IPN rejouée après activation → PROCESSED + encaissement",
+    pK1.outcome === "PROCESSED" && intentK1?.status === "CONFIRMED" && !!intentK1.paymentId);
+
+  // Cron de polling sous verrou : aucun appel externe, intentions intactes.
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  const inst11 = await mkInstallment(110_000);
+  const iL = await createPaymentIntent(ctxA, {
+    studentId: student.id, academicYearId: year.id, providerId: providerA,
+    amount: 110_000, currency: "XOF", channel: "ADMIN_TEST",
+  });
+  check("initiation LIVE bloquée par le verrou (cron-proof)", !iL.ok && iL.error === "LIVE_DISABLED");
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  const iL2 = await mkPdIntent({ amount: 110_000, installmentId: inst11.id });
+  const intentLId = iL2.ok ? iL2.data.intentId : "";
+  const tokenL = iL2.ok ? iL2.data.providerRef : "";
+  await prisma.paymentIntent.update({
+    where: { id: intentLId },
+    data: { createdAt: new Date(Date.now() - 60 * 60_000) },
+  });
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  const callsCron = calls.length;
+  await pollUncertainIntents({ minAgeMin: 0, limit: 50 });
+  const intentL0 = await prisma.paymentIntent.findUnique({ where: { id: intentLId } });
+  check("cron sous verrou OFF : intention intacte, 0 appel transport",
+    intentL0?.status === "PENDING" && calls.length === callsCron);
+  process.env.MOBILE_MONEY_LIVE_ENABLED = "true";
+  state.statuses.set(tokenL, { status: "completed", amount: 110_000, currency: "XOF" });
+  const pL = await pollPaymentIntent(ctxA, intentLId);
+  check("intention confirmable après activation (posting LIVE)",
+    pL.ok && pL.data.status === "CONFIRMED");
+
+  // ══════════ C3. DONNÉES INDISPENSABLES ══════════
+  // Montant absent → ANOMALY.
+  const inst12 = await mkInstallment(120_000);
+  const iM = await mkPdIntent({ amount: 120_000, installmentId: inst12.id });
+  const tokenM = iM.ok ? iM.data.providerRef : "";
+  state.statuses.set(tokenM, { status: "completed", currency: "XOF" });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenM, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evM = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenM}:completed` } });
+  const pM = await processWebhookEvent(evM!.id);
+  check("statut sans montant → ANOMALY, aucune comptabilisation",
+    pM.outcome === "ANOMALY" &&
+    (await prisma.paymentIntent.findUnique({ where: { id: iM.ok ? iM.data.intentId : "" } }))?.status === "PENDING");
+
+  // Devise absente → ANOMALY.
+  const inst13 = await mkInstallment(130_000);
+  const iN = await mkPdIntent({ amount: 130_000, installmentId: inst13.id });
+  const tokenN = iN.ok ? iN.data.providerRef : "";
+  state.statuses.set(tokenN, { status: "completed", amount: 130_000 });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenN, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evN = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenN}:completed` } });
+  const pN = await processWebhookEvent(evN!.id);
+  check("devise absente → ANOMALY", pN.outcome === "ANOMALY");
+
+  // Référence interne incohérente (mauvais marchand/opération) → ANOMALY.
+  const inst14 = await mkInstallment(140_000);
+  const iO = await mkPdIntent({ amount: 140_000, installmentId: inst14.id });
+  const tokenO = iO.ok ? iO.data.providerRef : "";
+  state.statuses.set(tokenO, { status: "completed", amount: 140_000, currency: "XOF", customRef: "autre-intention" });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenO, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evO = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenO}:completed` } });
+  const pO = await processWebhookEvent(evO!.id);
+  check("référence interne divergente → ANOMALY INTERNAL_REF_MISMATCH",
+    pO.outcome === "ANOMALY" &&
+    (await prisma.paymentDiscrepancy.count({ where: { schoolId: school.id, intentId: iO.ok ? iO.data.intentId : "", type: "OTHER" } })) === 1);
+
+  // Token incohérent : le prestataire répond pour un autre token → RETRY.
+  const inst15 = await mkInstallment(150_000);
+  const iP = await mkPdIntent({ amount: 150_000, installmentId: inst15.id });
+  const tokenP = iP.ok ? iP.data.providerRef : "";
+  state.statuses.set(tokenP, { status: "completed", amount: 150_000, currency: "XOF", wrongToken: true });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenP, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evP = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenP}:completed` } });
+  const pP = await processWebhookEvent(evP!.id);
+  check("token retourné incohérent → RETRY, intention PENDING",
+    pP.outcome === "RETRY" &&
+    (await prisma.paymentIntent.findUnique({ where: { id: iP.ok ? iP.data.intentId : "" } }))?.status === "PENDING");
+
+  // Double confirmation concurrente : poll + IPN simultanés → 1 encaissement.
+  const inst16 = await mkInstallment(160_000);
+  const iQ = await mkPdIntent({ amount: 160_000, installmentId: inst16.id });
+  const tokenQ = iQ.ok ? iQ.data.providerRef : "";
+  const intentQId = iQ.ok ? iQ.data.intentId : "";
+  state.statuses.set(tokenQ, { status: "completed", amount: 160_000, currency: "XOF" });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenQ, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evQ = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenQ}:completed` } });
+  const [qPoll, qEv] = await Promise.all([
+    pollPaymentIntent(ctxA, intentQId),
+    processWebhookEvent(evQ!.id),
+  ]);
+  const intentQ = await prisma.paymentIntent.findUnique({ where: { id: intentQId }, select: { status: true, paymentId: true } });
+  check("poll + IPN concurrents → 1 confirmation, 1 encaissement",
+    intentQ?.status === "CONFIRMED" && !!intentQ.paymentId && (qPoll.ok || qEv.outcome === "PROCESSED"));
+
+  // Unicité de la transaction prestataire : même transaction_id sur
+  // deux intentions → seconde confirmation bloquée.
+  const inst17 = await mkInstallment(170_000);
+  const iR = await mkPdIntent({ amount: 170_000, installmentId: inst17.id });
+  const tokenR = iR.ok ? iR.data.providerRef : "";
+  state.statuses.set(tokenR, { status: "completed", amount: 170_000, currency: "XOF", txId: "pdtx_partage" });
+  const pR = await pollPaymentIntent(ctxA, iR.ok ? iR.data.intentId : "");
+  const inst18 = await mkInstallment(180_000);
+  const iS = await mkPdIntent({ amount: 180_000, installmentId: inst18.id });
+  const tokenS = iS.ok ? iS.data.providerRef : "";
+  state.statuses.set(tokenS, { status: "completed", amount: 180_000, currency: "XOF", txId: "pdtx_partage" });
+  await receiveWebhook({
+    providerId: providerA,
+    rawBody: ipnBody({ token: tokenS, status: "completed", masterKey: MK_A }),
+    headers: {},
+  });
+  const evS = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenS}:completed` } });
+  const pS = evS ? await processWebhookEvent(evS.id) : { outcome: "?" };
+  check("transaction_id déjà confirmé ailleurs → ANOMALY DUPLICATE",
+    pR.ok && pS.outcome === "ANOMALY" &&
+    (await prisma.paymentIntent.findUnique({ where: { id: iS.ok ? iS.data.intentId : "" } }))?.status === "PENDING");
+
   // ══════════ D. VERROU & RÉSILIENCE SERVICE ══════════
   console.log("\n— Verrou LIVE, timeouts et erreurs en service —");
   const lock = process.env.MOBILE_MONEY_LIVE_ENABLED;
@@ -654,6 +866,11 @@ async function main() {
   check("erreur HTTP à l'initiation → INITIATE_FAILED",
     !th.ok && th.error === "INITIATE_FAILED");
 
+  state.failNext = "network";
+  const tn = await mkPdIntent({ amount: 2_000, installmentId: (await mkInstallment(2_000)).id });
+  check("échec réseau à l'initiation → INITIATE_FAILED",
+    !tn.ok && tn.error === "INITIATE_FAILED");
+
   const totalCalls = calls.length;
   check("zéro appel hors transport simulé (100 % via mock, domaine documenté)",
     totalCalls > 0 && calls.every((c) => c.url.startsWith("https://app.paydunya.com/")));
@@ -673,6 +890,8 @@ async function main() {
   }
   if (prevLock === undefined) delete process.env.MOBILE_MONEY_LIVE_ENABLED;
   else process.env.MOBILE_MONEY_LIVE_ENABLED = prevLock;
+  if (prevAppUrl === undefined) delete process.env.NEXTAUTH_URL;
+  else process.env.NEXTAUTH_URL = prevAppUrl;
   registerProviderAdapter(paydunyaAdapter); // restaure l'instance production
 
   console.log(`\n${pass} PASS, ${fail} FAIL`);

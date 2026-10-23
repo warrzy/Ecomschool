@@ -43,6 +43,9 @@ export const fetchTransport: HttpTransport = async (req) => {
       headers: req.headers,
       body: req.body,
       signal: ctrl.signal,
+      // Jamais de suivi de redirection : un 3xx inattendu pourrait
+      // emporter les en-têtes marchands vers un hôte non prévu.
+      redirect: "manual",
     });
     return { status: res.status, body: await res.text() };
   } catch (e) {

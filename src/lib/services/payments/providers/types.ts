@@ -32,6 +32,12 @@ export type ProviderPaymentStatus =
 export type AdapterCallContext = {
   credentials?: string;
   config?: Record<string, unknown> | null;
+  /**
+   * URL d'IPN calculée côté serveur (NEXTAUTH_URL + providerId) —
+   * jamais reprise de `provider.config` : aucune URL libre ne peut
+   * être injectée par la configuration d'une école.
+   */
+  callbackUrl?: string;
 };
 
 export type InitiateInput = {
@@ -65,6 +71,12 @@ export type StatusResult = {
    */
   amount?: number;
   currency?: string;
+  /**
+   * Référence interne renvoyée par le prestataire (champ de
+   * corrélation, ex. custom_data.intent_id) — quand exposée, le
+   * service la compare à l'intention attendue avant confirmation.
+   */
+  customRef?: string;
 };
 
 /** Délai maximal recommandé pour un appel prestataire (ms). */

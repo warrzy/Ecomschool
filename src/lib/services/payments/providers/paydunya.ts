@@ -86,22 +86,17 @@ function parseCredentials(raw: string | undefined): PaydunyaCreds {
  * `PaymentProvider.config` (JSON non-secret) attendu :
  * {
  *   "store":        { "name": "…", "website_url": "…" },   // requis par PayDunya
- *   "callbackUrl":  "https://…/webhooks/paydunya",
- *   "returnUrl":    "https://…/retour-paiement",
- *   "cancelUrl":    "https://…/paiement-annule",
  *   "channels":     ["orange-money-burkina","moov-burkina-faso"],
  *   "description":  "Frais scolaires"
  * }
  * `baseUrl` n'est JAMAIS pris depuis la config : l'URL de production
  * ne peut pas être injectée par un paramètre école. La variante
  * sandbox est choisie par le service (provider.mode) — absent →
- * sandbox (fail-safe).
+ * sandbox (fail-safe). Aucune URL libre n'est acceptée : l'URL de
+ * callback IPN est calculée côté serveur (call.callbackUrl).
  */
 type PaydunyaConfig = {
   store?: { name?: string; tagline?: string; phone_number?: string; postal_address?: string; website_url?: string };
-  callbackUrl?: string;
-  returnUrl?: string;
-  cancelUrl?: string;
   channels?: string[];
   description?: string;
   /** Renseigné par le service d'après provider.mode — jamais par l'admin. */
@@ -283,9 +278,8 @@ export function createPaydunyaAdapter(transport: HttpTransport): PaymentProvider
         // champ documenté renvoyé tel quel dans l'IPN et le statut.
         custom_data: { intent_id: input.intentId },
         actions: {
-          ...(cfg.callbackUrl ? { callback_url: cfg.callbackUrl } : {}),
-          ...(cfg.returnUrl ? { return_url: cfg.returnUrl } : {}),
-          ...(cfg.cancelUrl ? { cancel_url: cfg.cancelUrl } : {}),
+          // URL d'IPN calculée côté serveur — jamais depuis la config.
+          ...(input.call?.callbackUrl ? { callback_url: input.call.callbackUrl } : {}),
         },
       });
       if (str(res.response_code) !== "00") {
@@ -320,6 +314,15 @@ export function createPaydunyaAdapter(transport: HttpTransport): PaymentProvider
         );
       }
       const invoice = (res.invoice ?? res.data) as JsonObj | undefined;
+      // Le token retourné doit correspondre à celui interrogé —
+      // une facture d'un autre compte n'est jamais acceptée.
+      const returnedToken = str(invoice?.token);
+      if (returnedToken && returnedToken !== providerRef) {
+        throw new ProviderUnavailableError(
+          "Réponse PayDunya incohérente (token ≠ facture demandée)",
+        );
+      }
+      const custom = (res.custom_data ?? invoice?.custom_data) as JsonObj | undefined;
       const rawStatus =
         str(invoice?.status) ?? str(res.status);
       const n = normalizeStatus(rawStatus);
@@ -328,6 +331,7 @@ export function createPaydunyaAdapter(transport: HttpTransport): PaymentProvider
         rawStatus: n.rawStatus,
         amount: num(invoice?.total_amount) ?? num(invoice?.amount),
         currency: str(invoice?.currency),
+        customRef: str(custom?.intent_id),
         // Référence transaction : champ exact à confirmer
         // contractuellement (cf. g3e-first-provider-spec.md §10).
         providerTxId: str(res.transaction_id) ?? str(invoice?.transaction_id),
