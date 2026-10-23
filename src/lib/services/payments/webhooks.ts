@@ -141,6 +141,13 @@ export async function receiveWebhook(input: {
   }
 
   const event = verified.event;
+  // Phase 3C — la clé de déduplication distingue l'environnement :
+  // une IPN TEST et une IPN LIVE portant le même token/statut sont
+  // deux événements distincts (même prestataire, environnements
+  // différents). SANDBOX inchangé — l'idempotence est préservée :
+  // le même couple (env, externalId) déduplique toujours.
+  const externalId =
+    verifiedEnv === "SANDBOX" ? event.externalId : `${verifiedEnv}:${event.externalId}`;
   const payloadHash = sha256(input.rawBody);
   let record: { id: string } | null = null;
   try {
@@ -148,7 +155,7 @@ export async function receiveWebhook(input: {
       data: {
         schoolId: provider.schoolId,
         providerId: provider.id,
-        externalId: event.externalId,
+        externalId,
         eventType: event.eventType,
         payloadHash,
         // verifiedEnv : environnement dont la clé a authentifié l'IPN

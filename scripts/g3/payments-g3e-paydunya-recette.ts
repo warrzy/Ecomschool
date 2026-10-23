@@ -515,7 +515,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenC, status: "completed", masterKey: MK_A, amount: 30_000 }),
     headers: {},
   });
-  const ev4 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenC}:completed` } });
+  const ev4 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenC}:completed` } } });
   const p4 = ev4 ? await processWebhookEvent(ev4.id) : { outcome: "?" };
   const ev4b = ev4 ? await prisma.webhookEvent.findUnique({ where: { id: ev4.id } }) : null;
   check("IPN avant persistance de l'initiation → ANOMALY (preuve conservée)",
@@ -538,7 +538,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenD, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const ev5 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenD}:completed` } });
+  const ev5 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenD}:completed` } } });
   const p5 = await processWebhookEvent(ev5!.id);
   const intentD = await prisma.paymentIntent.findUnique({ where: { id: iD.ok ? iD.data.intentId : "" } });
   check("IPN contredite par le statut réel → ANOMALY, intention PENDING",
@@ -554,7 +554,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenE, status: "completed", masterKey: MK_A, amount: 49_999 }),
     headers: {},
   });
-  const ev6 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenE}:completed` } });
+  const ev6 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenE}:completed` } } });
   const p6 = await processWebhookEvent(ev6!.id);
   const intentE = await prisma.paymentIntent.findUnique({ where: { id: iE.ok ? iE.data.intentId : "" } });
   const disc = await prisma.paymentDiscrepancy.findFirst({
@@ -578,7 +578,7 @@ async function main() {
     rawBody: ipnBody({ token: "pd_tok_inconnu", status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const ev7 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: "pd_tok_inconnu:completed" } });
+  const ev7 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: ":pd_tok_inconnu:completed" } } });
   const p7 = await processWebhookEvent(ev7!.id);
   check("référence inconnue → ANOMALY UNKNOWN_INTENT",
     p7.outcome === "ANOMALY" && ev7?.intentId === null);
@@ -594,7 +594,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenG, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const ev8 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenG}:completed` } });
+  const ev8 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenG}:completed` } } });
   const p8 = await processWebhookEvent(ev8!.id);
   const intentG = await prisma.paymentIntent.findUnique({ where: { id: iG.ok ? iG.data.intentId : "" } });
   check("transaction inconnue chez le marchand → RETRY, intention intacte",
@@ -611,7 +611,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenH, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const ev9 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenH}:completed` } });
+  const ev9 = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenH}:completed` } } });
   const p9 = await processWebhookEvent(ev9!.id);
   const payH = await prisma.payment.count({ where: { schoolId: school.id } });
   check("confirmation tardive post-expiration → ANOMALY LATE_CONFIRM",
@@ -659,7 +659,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenJ, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evJ = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenJ}:completed` } });
+  const evJ = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenJ}:completed` } } });
   const pJ = evJ ? await processWebhookEvent(evJ.id) : { outcome: "?" };
   const intentJ = await prisma.paymentIntent.findUnique({ where: { id: iJ.ok ? iJ.data.intentId : "" } });
   check("IPN cross-écoles → ANOMALY, intention B intacte",
@@ -672,7 +672,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenJ, status: "completed", masterKey: MK_B }),
     headers: {},
   });
-  const evJ2 = await prisma.webhookEvent.findFirst({ where: { schoolId: schoolB.id, externalId: `${tokenJ}:completed` } });
+  const evJ2 = await prisma.webhookEvent.findFirst({ where: { schoolId: schoolB.id, externalId: { endsWith: `:${tokenJ}:completed` } } });
   const pJ2 = evJ2 ? await processWebhookEvent(evJ2.id) : { outcome: "?" };
   const payB = await prisma.payment.count({ where: { schoolId: schoolB.id } });
   check("même flux sous le bon marchand → PROCESSED école B",
@@ -698,7 +698,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenK, status: "completed", masterKey: MK_A, amount: 100_000 }),
     headers: {},
   });
-  const evK = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenK}:completed` } });
+  const evK = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenK}:completed` } } });
   const pK0 = evK ? await processWebhookEvent(evK.id) : { outcome: "?" };
   const intentK0 = await prisma.paymentIntent.findUnique({ where: { id: intentKId } });
   check("IPN sous verrou OFF : preuve conservée, RETRY, 0 appel transport, PENDING",
@@ -748,7 +748,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenM, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evM = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenM}:completed` } });
+  const evM = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenM}:completed` } } });
   const pM = await processWebhookEvent(evM!.id);
   check("statut sans montant → ANOMALY, aucune comptabilisation",
     pM.outcome === "ANOMALY" &&
@@ -764,7 +764,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenN, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evN = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenN}:completed` } });
+  const evN = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenN}:completed` } } });
   const pN = await processWebhookEvent(evN!.id);
   check("devise absente → ANOMALY", pN.outcome === "ANOMALY");
 
@@ -778,7 +778,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenO, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evO = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenO}:completed` } });
+  const evO = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenO}:completed` } } });
   const pO = await processWebhookEvent(evO!.id);
   check("référence interne divergente → ANOMALY INTERNAL_REF_MISMATCH",
     pO.outcome === "ANOMALY" &&
@@ -794,7 +794,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenP, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evP = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenP}:completed` } });
+  const evP = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenP}:completed` } } });
   const pP = await processWebhookEvent(evP!.id);
   check("token retourné incohérent → RETRY, intention PENDING",
     pP.outcome === "RETRY" &&
@@ -811,7 +811,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenQ, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evQ = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenQ}:completed` } });
+  const evQ = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenQ}:completed` } } });
   const [qPoll, qEv] = await Promise.all([
     pollPaymentIntent(ctxA, intentQId),
     processWebhookEvent(evQ!.id),
@@ -836,7 +836,7 @@ async function main() {
     rawBody: ipnBody({ token: tokenS, status: "completed", masterKey: MK_A }),
     headers: {},
   });
-  const evS = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: `${tokenS}:completed` } });
+  const evS = await prisma.webhookEvent.findFirst({ where: { schoolId: school.id, externalId: { endsWith: `:${tokenS}:completed` } } });
   const pS = evS ? await processWebhookEvent(evS.id) : { outcome: "?" };
   check("transaction_id déjà confirmé ailleurs → ANOMALY DUPLICATE",
     pR.ok && pS.outcome === "ANOMALY" &&

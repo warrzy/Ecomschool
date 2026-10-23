@@ -575,6 +575,82 @@ async function main() {
   });
   check("provider école A inaccessible depuis école B", !iso.ok);
 
+  // ══════════ H. Durcissement 3C : immutabilité et dédup par env ══════════
+  console.log("\n— H. Immutabilité remoteEnv + déduplication TEST/LIVE —");
+  // A. Modification directe de remoteEnv → le trigger base refuse.
+  let mutErr: unknown = null;
+  try {
+    await prisma.paymentIntent.update({
+      where: { id: iT1!.id }, data: { remoteEnv: "LIVE" },
+    });
+  } catch (e) { mutErr = e; }
+  check("update remoteEnv après création → refusé par la base (REMOTE_ENV_IMMUTABLE)", mutErr != null);
+  const iT1Chk = await prisma.paymentIntent.findUnique({ where: { id: iT1!.id }, select: { remoteEnv: true } });
+  check("remoteEnv inchangé après tentative", iT1Chk?.remoteEnv === "TEST");
+  // Une mise à jour ordinaire (statut/champs) reste possible.
+  await prisma.paymentIntent.update({ where: { id: iT1!.id }, data: { failureReason: "note-recette" } });
+  const iT1Chk2 = await prisma.paymentIntent.findUnique({ where: { id: iT1!.id }, select: { remoteEnv: true } });
+  check("mise à jour autre champ autorisée, env préservé", iT1Chk2?.remoteEnv === "TEST");
+
+  // B. IPN TEST et LIVE partageant le MÊME token → deux événements.
+  const inst9 = await mkInstallment(2_500);
+  const t9 = await createPaymentIntent(ctxA, {
+    studentId: student.id, academicYearId: year.id, providerId: providerTest,
+    amount: 2_500, currency: "XOF", channel: "ADMIN_TEST",
+    feeInstallmentId: inst9.id, allocations: [{ installmentId: inst9.id, amount: 2_500 }],
+    idempotencyKey: "env-t9",
+  });
+  const iT9 = await prisma.paymentIntent.findUnique({ where: { id: t9.ok ? t9.data.intentId : "" } });
+  state.statuses.set(iT9!.providerRef!, { status: "completed", amount: 2_500, currency: "XOF", customRef: iT9!.id });
+  const ipnTest9 = await receiveWebhook({
+    providerId: providerTest, rawBody: ipnBody({ token: iT9!.providerRef!, status: "completed", key: TMK, intentId: iT9!.id, amount: 2_500 }), headers: {},
+  });
+  check("IPN TEST acceptée (token iT9)", ipnTest9.ok && !ipnTest9.data.duplicate);
+  const ipnLive9 = await receiveWebhook({
+    providerId: providerTest, rawBody: ipnBody({ token: iT9!.providerRef!, status: "completed", key: LMK, intentId: iT9!.id, amount: 2_500 }), headers: {},
+  });
+  check("IPN LIVE même token+statut → événement DISTINCT (pas un doublon)",
+    ipnLive9.ok && !ipnLive9.data.duplicate);
+  const ipnTest9dup = await receiveWebhook({
+    providerId: providerTest, rawBody: ipnBody({ token: iT9!.providerRef!, status: "completed", key: TMK, intentId: iT9!.id, amount: 2_500 }), headers: {},
+  });
+  check("même IPN TEST renvoyée → dédupliquée", ipnTest9dup.ok && ipnTest9dup.data.duplicate);
+  const evs9 = await prisma.webhookEvent.findMany({
+    where: { providerId: providerTest, externalId: { endsWith: `:${iT9!.providerRef!}:completed` } },
+  });
+  check("2 événements persistés (TEST:… et LIVE:…)",
+    evs9.length === 2 && new Set(evs9.map((e) => e.externalId)).size === 2);
+
+  // Traitement : TEST → CONFIRMED sans Payment ; LIVE → ANOMALY.
+  const evTest9 = evs9.find((e) => e.externalId.startsWith("TEST:"));
+  const evLive9 = evs9.find((e) => e.externalId.startsWith("LIVE:"));
+  const rT9 = await processWebhookEvent(evTest9!.id);
+  const iT9F = await prisma.paymentIntent.findUnique({ where: { id: iT9!.id } });
+  check("IPN TEST traitée → CONFIRMED, 0 Payment",
+    rT9.outcome === "PROCESSED" && iT9F?.status === "CONFIRMED" && iT9F?.paymentId === null);
+  const rL9 = await processWebhookEvent(evLive9!.id);
+  check("IPN LIVE même token → ANOMALY ENV_MISMATCH", rL9.outcome === "ANOMALY");
+
+  // C. IPN ciblant une intention d'une AUTRE école via SON provider.
+  const ipnCross = await receiveWebhook({
+    providerId: providerLive,
+    rawBody: ipnBody({ token: iT9!.providerRef!, status: "completed", key: LMK, intentId: iT9!.id, amount: 2_500 }), headers: {},
+  });
+  check("IPN école A reçue sur provider école B → persistée (authentifiée)", ipnCross.ok);
+  const evCross = await prisma.webhookEvent.findFirst({
+    where: { providerId: providerLive }, orderBy: { receivedAt: "desc" },
+  });
+  const rCross = await processWebhookEvent(evCross!.id);
+  check("intention introuvable sous ce provider → ANOMALY, 0 effet",
+    rCross.outcome === "ANOMALY" && (await paymentsCount(school.id)) === 0);
+
+  // LIVE toujours verrouillé côté service : une intention LIVE figée
+  // ne se confirme pas si le verrou retombe.
+  delete process.env.MOBILE_MONEY_LIVE_ENABLED;
+  const liveLocked = await pollPaymentIntent(ctxA, iT3!.id);
+  check("intention LIVE : poll sous verrou OFF → LIVE_DISABLED",
+    !liveLocked.ok && liveLocked.error === "LIVE_DISABLED");
+
   // Comptabilité finale : aucun effet financier TEST sur la base.
   const totals = {
     payments: await paymentsCount(school.id),
