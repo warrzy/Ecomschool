@@ -6,7 +6,10 @@ import {
   runPlatformAutomations,
   runSchoolAutomations,
 } from "@/lib/services/comm/automations";
-import { runMobileMoneyMaintenance } from "@/lib/services/payments/webhooks";
+import {
+  registerMobileMoneyHandlers,
+  runMobileMoneyMaintenance,
+} from "@/lib/services/payments/webhooks";
 import { purgeExpiredData } from "@/lib/services/retention";
 import { prisma } from "@/lib/db/prisma";
 
@@ -32,6 +35,7 @@ async function handle(req: NextRequest) {
   }
 
   registerCommHandlers();
+  registerMobileMoneyHandlers();
   const jobs = await runDueJobs({ limit: 50 });
   // G3-B : reprise événements webhook, repost différés, polling de
   // secours, expiration — idempotent à chaque passage du cron.
