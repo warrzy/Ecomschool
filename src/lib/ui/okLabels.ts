@@ -120,6 +120,19 @@ const OK_LABELS: Record<string, string> = {
   webhook_replayed: "Événement webhook relancé.",
   refreshed: "Statut de la demande actualisé.",
 
+  // Rapprochement / reversements / remboursements (G3-D)
+  fees: "Commission du fournisseur enregistrée.",
+  settlement: "Reversement déclaré.",
+  reconciled: "Décision de rapprochement enregistrée.",
+  decided: "Décision enregistrée dans l'historique de l'anomalie.",
+  sync: "Rapprochements synchronisés.",
+  refund: "Demande de remboursement enregistrée.",
+  refund_approve: "Remboursement approuvé.",
+  refund_reject: "Demande de remboursement refusée.",
+  refund_cancel: "Demande de remboursement annulée.",
+  refund_execute: "Remboursement exécuté (simulation).",
+  refund_confirm: "Remboursement confirmé.",
+
   // Communication / plateforme
   sent: "Envoi lancé.",
   request: "Demande envoyée.",

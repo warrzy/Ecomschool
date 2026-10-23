@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "DiscrepancyType" ADD VALUE 'UNKNOWN_REFERENCE';

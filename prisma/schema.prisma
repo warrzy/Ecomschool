@@ -234,6 +234,10 @@ model School {
   paymentIntents      PaymentIntent[]
   paymentTransactions PaymentTransaction[]
   webhookEvents       WebhookEvent[]
+  paymentReconciliations PaymentReconciliation[]
+  paymentSettlements     PaymentSettlement[]
+  paymentRefunds         PaymentRefund[]
+  paymentDiscrepancies   PaymentDiscrepancy[]
 
   subscriptions            SchoolSubscription[]
   moduleOverrides          SchoolModuleOverride[]
@@ -299,6 +303,11 @@ model User {
   reenrollmentCompletions  ReenrollmentRequest[]   @relation("ReenrollCompleter")
   reenrollmentMessages     ReenrollmentMessage[]   @relation("ReenrollMsgAuthor")
   paymentIntents           PaymentIntent[]         @relation("PaymentIntentInitiator")
+  reconciliationChecks     PaymentReconciliation[] @relation("ReconciliationCheckedBy")
+  settlementDeclarations   PaymentSettlement[]     @relation("SettlementDeclaredBy")
+  refundRequests           PaymentRefund[]         @relation("RefundRequestedBy")
+  refundApprovals          PaymentRefund[]         @relation("RefundApprovedBy")
+  discrepancyResolutions   PaymentDiscrepancy[]    @relation("DiscrepancyResolvedBy")
 
   @@index([schoolId])
   @@index([email])
@@ -552,6 +561,9 @@ model Payment {
 
   allocations PaymentAllocation[]
   intent      PaymentIntent?
+  reconciliations PaymentReconciliation[]
+  refunds         PaymentRefund[]
+  discrepancies   PaymentDiscrepancy[]
 
   @@unique([schoolId, receiptNumber])
   @@unique([schoolId, idempotencyKey])
@@ -715,6 +727,7 @@ model AcademicYear {
   reenrollmentCampaignsTarget ReenrollmentCampaign[] @relation("ReenrollTargetYear")
   reenrollmentRequestsTarget  ReenrollmentRequest[]  @relation("ReenrollReqTargetYear")
   paymentIntents            PaymentIntent[]
+  paymentReconciliations    PaymentReconciliation[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -2876,11 +2889,19 @@ model PaymentProvider {
   webhookSecretRef String? // nom de la variable d'env du secret webhook
   merchantRef      String? // code marchand / msisdn de référence
 
+  // Commission opérateur (G3-D) — paramétrage contractuel, jamais de
+  // tarif inventé : fixe + proportionnelle en points de base (100 = 1 %).
+  feeFixed   Int        @default(0)
+  feePercent Int        @default(0)
+  feeBearer  FeeBearer  @default(SCHOOL)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   intents PaymentIntent[]
   webhookEvents WebhookEvent[]
+  reconciliations PaymentReconciliation[]
+  settlements     PaymentSettlement[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -2940,6 +2961,9 @@ model PaymentIntent {
 
   transactions PaymentTransaction[]
   webhookEvents WebhookEvent[]
+  reconciliation  PaymentReconciliation?
+  refunds         PaymentRefund[]
+  discrepancies   PaymentDiscrepancy[]
 
   @@unique([schoolId, idempotencyKey])
   @@unique([schoolId, providerId, providerRef])
@@ -3008,4 +3032,232 @@ model WebhookEvent {
   @@index([schoolId, status])
   @@index([intentId])
   @@index([status, receivedAt])
+}
+
+// ─── G3-D : rapprochement, commissions, reversements, remboursements ──
+
+/** Partie qui supporte la commission opérateur (contrat fournisseur). */
+enum FeeBearer {
+  SCHOOL // commission déduite du reversement (reçue nette)
+  PAYER  // commission facturée au payeur en sus du montant
+}
+
+enum ReconciliationStatus {
+  PENDING      // en attente de rapprochement
+  MATCHED      // rapprochée sans écart
+  DISCREPANCY  // écart détecté
+  TO_VERIFY    // à vérifier manuellement
+  RESOLVED     // corrigée / clôturée après décision
+}
+
+enum SettlementStatus {
+  DECLARED    // reversement déclaré, en cours d'analyse
+  MATCHED     // net déclaré = net attendu
+  PARTIAL     // reversement partiel (net déclaré < attendu)
+  DISCREPANCY // écart entre déclaré et attendu
+  MISSING     // attendu mais non déclaré (signalé)
+}
+
+enum RefundStatus {
+  REQUESTED // demande déposée — n'est PAS un remboursement effectué
+  APPROVED  // validée par un rôle autorisé
+  EXECUTED  // exécution (simulée tant qu'aucun prestataire réel)
+  CONFIRMED // confirmée — remboursement effectif
+  REJECTED  // refusée avec motif
+  FAILED    // échec d'exécution
+  CANCELLED // annulée avant exécution
+}
+
+enum DiscrepancyType {
+  CONFIRMED_NO_PAYMENT   // prestataire confirme, encaissement absent
+  PAYMENT_NO_CONFIRM     // encaissement présent, confirmation absente
+  AMOUNT_MISMATCH        // montant confirmé ≠ montant demandé
+  FEE_MISMATCH           // commission déclarée ≠ commission attendue
+  SETTLEMENT_MISSING     // reversement attendu non déclaré
+  SETTLEMENT_PARTIAL     // reversement partiel
+  SETTLEMENT_MISMATCH    // reversement ≠ net attendu
+  DUPLICATE_REFERENCE    // même référence utilisée deux fois
+  UNKNOWN_REFERENCE      // reversement sans opération rapprochée
+  LATE_CONFIRMATION      // confirmation après expiration/échec
+  OVERPAYMENT_BLOCKED    // échéance déjà soldée (ex. guichet) — imputation impossible
+  REFUND_UNCONFIRMED     // remboursement exécuté non confirmé
+  OTHER
+}
+
+enum DiscrepancyStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  IGNORED
+}
+
+/**
+ * Rapprochement d'une intention confirmée : montant demandé par le
+ * parent, montant confirmé par le prestataire, commission calculée,
+ * net attendu, reversement associé. Créé une fois par intention
+ * (unicité) — jamais déduit de la seule similitude des montants.
+ */
+model PaymentReconciliation {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  intentId   String  @unique
+  intent     PaymentIntent @relation(fields: [intentId], references: [id], onDelete: Restrict)
+  providerId String
+  provider   PaymentProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+
+  grossAmount     Int  // montant demandé/confirmé (brut)
+  confirmedAmount Int? // montant effectivement confirmé par le prestataire
+  feeAmount       Int  // commission opérateur calculée (distincte de la créance)
+  feeBearer       FeeBearer @default(SCHOOL)
+  netExpected     Int  // net attendu pour l'établissement
+
+  settlementId String?
+  settlement   PaymentSettlement? @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+
+  status ReconciliationStatus @default(PENDING)
+  notes  String?
+
+  checkedById String?
+  checkedBy   User?   @relation("ReconciliationCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+  checkedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, status])
+  @@index([settlementId])
+}
+
+/**
+ * Reversement déclaré par le prestataire (ou saisi administrativement
+ * à partir d'un relevé) — regroupe plusieurs opérations rapprochées.
+ * Une déclaration manuelle n'est PAS une preuve bancaire : `declared`
+ * le signale explicitement.
+ */
+model PaymentSettlement {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  providerId String
+  provider   PaymentProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  reference  String // référence du reversement (prestataire ou relevé)
+  periodStart DateTime
+  periodEnd   DateTime
+
+  grossTotal  Int  // total brut des opérations couvertes
+  feeTotal    Int  // total des commissions attendues
+  netExpected Int  // net attendu
+  netDeclared Int? // net déclaré reçu — null tant que non déclaré
+
+  receivedAt  DateTime?
+  status      SettlementStatus @default(DECLARED)
+  declared    Boolean @default(true) // saisie administrative = déclaration
+  notes       String?
+
+  declaredById String?
+  declaredBy   User?   @relation("SettlementDeclaredBy", fields: [declaredById], references: [id], onDelete: SetNull)
+
+  reconciliations PaymentReconciliation[]
+  discrepancies   PaymentDiscrepancy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, providerId, reference])
+  @@index([schoolId, status])
+}
+
+/**
+ * Demande de remboursement d'un encaissement Mobile Money.
+ * Une demande n'est JAMAIS un remboursement effectué : les statuts
+ * REQUESTED/APPROVED précèdent l'exécution (simulée tant qu'aucun
+ * prestataire réel n'est activé) puis la confirmation.
+ */
+model PaymentRefund {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  intentId  String?
+  intent    PaymentIntent? @relation(fields: [intentId], references: [id], onDelete: SetNull)
+
+  amount Int
+  reason String
+
+  status RefundStatus @default(REQUESTED)
+  idempotencyKey String
+
+  providerRef String? // référence de remboursement (simulée ou réelle)
+  failureReason String?
+
+  requestedById String
+  requestedBy   User   @relation("RefundRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvedById  String?
+  approvedBy    User?  @relation("RefundApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  approvedAt  DateTime?
+  executedAt  DateTime?
+  confirmedAt DateTime?
+  rejectedAt  DateTime?
+  rejectReason String?
+
+  discrepancies PaymentDiscrepancy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, idempotencyKey])
+  @@index([schoolId, status])
+  @@index([paymentId])
+}
+
+/**
+ * File d'anomalies financières Mobile Money — chaque divergence entre
+ * confirmation prestataire, encaissement et reversement est tracée ici
+ * avec l'historique des décisions. Aucune correction silencieuse.
+ */
+model PaymentDiscrepancy {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  type   DiscrepancyType
+  status DiscrepancyStatus @default(OPEN)
+
+  intentId     String?
+  intent       PaymentIntent?     @relation(fields: [intentId], references: [id], onDelete: SetNull)
+  paymentId    String?
+  payment      Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  settlementId String?
+  settlement   PaymentSettlement? @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+  refundId     String?
+  refund       PaymentRefund?     @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  expectedAmount Int?
+  actualAmount   Int?
+  description    String
+  history        Json? // [{at, by, action, note}] — décisions successives
+
+  resolvedById String?
+  resolvedBy   User?    @relation("DiscrepancyResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolvedAt   DateTime?
+  resolutionNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, status])
+  @@index([intentId])
+  @@index([paymentId])
 }

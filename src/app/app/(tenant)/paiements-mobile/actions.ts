@@ -14,6 +14,22 @@ import {
   setSandboxOutcome,
 } from "@/lib/services/payments/mobileIntents";
 import { replayWebhookEvent } from "@/lib/services/payments/webhooks";
+import {
+  completeSettlement,
+  decideDiscrepancy,
+  declareSettlement,
+  syncReconciliations,
+  verifyReconciliation,
+} from "@/lib/services/payments/reconciliation";
+import {
+  approveRefund,
+  cancelRefund,
+  confirmRefund,
+  createRefundRequest,
+  executeRefund,
+  rejectRefund,
+} from "@/lib/services/payments/refunds";
+import { prisma } from "@/lib/db/prisma";
 
 function ctx(t: { userId: string; schoolId: string }) {
   return { userId: t.userId, schoolId: t.schoolId };
@@ -150,3 +166,138 @@ export async function replayWebhookAction(formData: FormData) {
     `${BASE}?${res.ok ? `ok=webhook_replayed&outcome=${res.data.outcome}` : `error=${res.error}`}#webhooks`,
   );
 }
+
+// ─── G3-D : commissions, rapprochement, reversements, remboursements ──
+
+const feesSchema = z.object({
+  providerId: z.string().min(1),
+  feeFixed: z.coerce.number().int().min(0),
+  feePercent: z.coerce.number().int().min(0).max(10000),
+  feeBearer: z.enum(["SCHOOL", "PAYER"]),
+});
+
+/** Paramétrage contractuel de la commission opérateur (points de base). */
+export async function setProviderFeesAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.manage");
+  const p = feesSchema.safeParse(Object.fromEntries(formData));
+  if (!p.success) return back(`${BASE}?error=INVALID_INPUT#commissions`);
+  const upd = await prisma.paymentProvider.updateMany({
+    where: { id: p.data.providerId, schoolId: t.schoolId },
+    data: { feeFixed: p.data.feeFixed, feePercent: p.data.feePercent, feeBearer: p.data.feeBearer },
+  });
+  return back(`${BASE}?${upd.count ? "ok=fees" : "error=NOT_FOUND"}#commissions`);
+}
+
+const settlementSchema = z.object({
+  providerId: z.string().min(1),
+  reference: z.string().min(1).max(120),
+  periodStart: z.coerce.date(),
+  periodEnd: z.coerce.date(),
+  netDeclared: z.coerce.number().int().min(0).optional().or(z.literal("")),
+  receivedAt: z.coerce.date().optional().or(z.literal("")),
+  notes: z.string().max(500).optional(),
+});
+
+/** Déclaration d'un reversement groupé — jamais une preuve bancaire. */
+export async function declareSettlementAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.reconcile");
+  const p = settlementSchema.safeParse(Object.fromEntries(formData));
+  if (!p.success) return back(`${BASE}?error=INVALID_INPUT#reversements`);
+  const res = await declareSettlement(ctx(t), {
+    providerId: p.data.providerId,
+    reference: p.data.reference,
+    periodStart: p.data.periodStart,
+    periodEnd: p.data.periodEnd,
+    netDeclared: p.data.netDeclared === "" || p.data.netDeclared === undefined ? null : p.data.netDeclared,
+    receivedAt: p.data.receivedAt instanceof Date ? p.data.receivedAt : null,
+    notes: p.data.notes,
+  });
+  return back(`${BASE}?${res.ok ? `ok=settlement&st=${res.data.status}` : `error=${res.error}`}#reversements`);
+}
+
+/** Clôture un reversement déclaré en saisissant le net réellement reçu. */
+export async function completeSettlementAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.reconcile");
+  const id = idSchema.safeParse(formData.get("settlementId"));
+  const net = z.coerce.number().int().min(0).safeParse(formData.get("netDeclared"));
+  if (!id.success || !net.success) return back(`${BASE}?error=INVALID_INPUT#reversements`);
+  const res = await completeSettlement(ctx(t), id.data, {
+    netDeclared: net.data,
+    notes: String(formData.get("notes") ?? ""),
+  });
+  return back(`${BASE}?${res.ok ? `ok=settlement&st=${res.data.status}` : `error=${res.error}`}#reversements`);
+}
+
+/** Décision sur un rapprochement (vérifier / rapprocher / clôturer). */
+export async function verifyReconciliationAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.reconcile");
+  const id = idSchema.safeParse(formData.get("reconciliationId"));
+  const action = z.enum(["TO_VERIFY", "MATCHED", "RESOLVED"]).safeParse(formData.get("action"));
+  if (!id.success || !action.success) return back(`${BASE}?error=INVALID_INPUT#rapprochement`);
+  const res = await verifyReconciliation(ctx(t), id.data, {
+    action: action.data,
+    note: String(formData.get("note") ?? ""),
+  });
+  return back(`${BASE}?${res.ok ? "ok=reconciled" : `error=${res.error}`}#rapprochement`);
+}
+
+/** Décision sur une anomalie — motif obligatoire, historique conservé. */
+export async function decideDiscrepancyAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.reconcile");
+  const id = idSchema.safeParse(formData.get("discrepancyId"));
+  const action = z.enum(["IN_REVIEW", "RESOLVED", "IGNORED"]).safeParse(formData.get("action"));
+  if (!id.success || !action.success) return back(`${BASE}?error=INVALID_INPUT#anomalies`);
+  const res = await decideDiscrepancy(ctx(t), id.data, {
+    action: action.data,
+    note: String(formData.get("note") ?? ""),
+  });
+  return back(`${BASE}?${res.ok ? "ok=decided" : `error=${res.error}`}#anomalies`);
+}
+
+/** Balayage manuel des rapprochements et anomalies. */
+export async function syncReconciliationAction() {
+  const t = await requireSchoolPermission("mobilepayments.reconcile");
+  const res = await syncReconciliations(t.schoolId);
+  return back(`${BASE}?ok=sync&n=${res.created + res.anomalies}#rapprochement`);
+}
+
+const refundSchema = z.object({
+  paymentId: z.string().min(1),
+  amount: z.coerce.number().int().positive(),
+  reason: z.string().min(1).max(500),
+  idempotencyKey: z.string().max(120).optional(),
+});
+
+/** Demande de remboursement — n'est JAMAIS un remboursement effectué. */
+export async function createRefundAction(formData: FormData) {
+  const t = await requireSchoolPermission("mobilepayments.refund");
+  const p = refundSchema.safeParse(Object.fromEntries(formData));
+  if (!p.success) return back(`${BASE}?error=INVALID_INPUT#remboursements`);
+  const res = await createRefundRequest(ctx(t), {
+    paymentId: p.data.paymentId,
+    amount: p.data.amount,
+    reason: p.data.reason,
+    idempotencyKey: p.data.idempotencyKey || undefined,
+  });
+  return back(`${BASE}?${res.ok ? (res.data.already ? "ok=replayed" : "ok=refund") : `error=${res.error}`}#remboursements`);
+}
+
+const refundOp = (action: "approve" | "reject" | "cancel" | "execute" | "confirm") =>
+  async (formData: FormData) => {
+    const t = await requireSchoolPermission("mobilepayments.refund");
+    const id = idSchema.safeParse(formData.get("refundId"));
+    if (!id.success) return back(`${BASE}?error=INVALID_INPUT#remboursements`);
+    const res =
+      action === "approve" ? await approveRefund(ctx(t), id.data)
+      : action === "reject" ? await rejectRefund(ctx(t), id.data, String(formData.get("reason") ?? ""))
+      : action === "cancel" ? await cancelRefund(ctx(t), id.data)
+      : action === "execute" ? await executeRefund(ctx(t), id.data)
+      : await confirmRefund(ctx(t), id.data);
+    return back(`${BASE}?${res.ok ? `ok=refund_${action}` : `error=${res.error}`}#remboursements`);
+  };
+
+export const approveRefundAction = refundOp("approve");
+export const rejectRefundAction = refundOp("reject");
+export const cancelRefundAction = refundOp("cancel");
+export const executeRefundAction = refundOp("execute");
+export const confirmRefundAction = refundOp("confirm");

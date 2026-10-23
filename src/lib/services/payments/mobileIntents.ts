@@ -29,6 +29,11 @@ import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { recordPayment } from "@/lib/services/finance/payments";
 import { notifyUsers } from "@/lib/services/notifications";
+import {
+  ensureDiscrepancy,
+  ensureReconciliation,
+  notifyReconcileAdmins,
+} from "./reconciliation";
 import { getProviderAdapter, ProviderTimeoutError } from "./providers";
 import type { PaymentProviderAdapter, SandboxScript } from "./providers";
 
@@ -124,6 +129,7 @@ export async function listPaymentProviders(ctx: Ctx) {
       id: true, schoolId: true, code: true, label: true,
       mode: true, status: true, minAmount: true, maxAmount: true,
       merchantRef: true, createdAt: true, updatedAt: true,
+      feeFixed: true, feePercent: true, feeBearer: true,
     },
   });
 }
@@ -535,6 +541,10 @@ export async function confirmIntent(
     });
   }
 
+  // G3-D : toute confirmation matérialise son rapprochement
+  // (brut/frais/net attendu), même sans comptabilisation.
+  await ensureReconciliation(prisma, intent.id).catch(() => null);
+
   // Confirmation simulée ou sans comptabilisation : notification.
   await notifyUsers({
     schoolId: ctx.schoolId,
@@ -566,7 +576,11 @@ export async function postConfirmedIntent(
   if (intent.status === "CONFIRMED" && intent.paymentId) {
     return { ok: true, data: { status: "CONFIRMED", paymentId: intent.paymentId, already: true } };
   }
-  if (intent.status !== "CONFIRMED_PENDING_POSTING") {
+  // CONFIRMED_PENDING_POSTING : flux normal. CONFIRMED sans paymentId :
+  // une anomalie d'imputation passée — relançable si le solde s'est
+  // libéré (ex. encaissement guichet annulé).
+  const retryableConfirmed = intent.status === "CONFIRMED" && !intent.paymentId;
+  if (intent.status !== "CONFIRMED_PENDING_POSTING" && !retryableConfirmed) {
     return { ok: false, error: "INVALID_STATE" };
   }
   // Barrière serveur : une intention simulée ne devient jamais un
@@ -575,25 +589,53 @@ export async function postConfirmedIntent(
     return { ok: false, error: "POSTING_SANDBOX_FORBIDDEN" };
   }
 
-  const pay = await recordPayment(
-    { userId: intent.initiatedById ?? ctx.userId, schoolId: ctx.schoolId },
-    {
-      studentId: intent.studentId,
-      academicYearId: intent.academicYearId,
-      amount: intent.amount,
-      method: PaymentMethod.MOBILE_MONEY,
-      reference: intent.providerTxId ?? intent.providerRef ?? intent.id,
-      idempotencyKey: `mm:${intent.id}`,
-      allocations: (intent.allocations as { installmentId: string; amount: number }[] | null) ?? undefined,
-    },
-  );
+  // Idempotence d'abord : un crash après recordPayment a pu laisser
+  // l'encaissement `mm:{intentId}` créé sans rattachement — le solde
+  // est alors déjà consommé par CE paiement ; on le rattache avant
+  // tout recalcul de solde.
+  const existingPay = await prisma.payment.findFirst({
+    where: { schoolId: ctx.schoolId, idempotencyKey: `mm:${intent.id}` },
+    select: { id: true, receiptNumber: true },
+  });
+  let pay: Awaited<ReturnType<typeof recordPayment>>;
+  if (existingPay?.receiptNumber) {
+    pay = { ok: true, result: { id: existingPay.id, receiptNumber: existingPay.receiptNumber } };
+  } else {
+    // G3-D — risque guichet : entre l'émission de l'intention et sa
+    // confirmation, un encaissement au guichet a pu consommer tout ou
+    // partie du solde. `recordPayment` bloque le dépassement du solde
+    // GLOBAL de l'élève, mais une allocation explicite peut encore
+    // dépasser le reste à payer de SON échéance. On recalcule avant
+    // toute imputation : si le montant n'est plus imputable, la preuve
+    // de confirmation est conservée (statut CONFIRMED), aucune double
+    // allocation n'est créée, aucune créance n'est inventée — la
+    // divergence part dans la file d'anomalies pour traitement
+    // administratif (remboursement ou régularisation manuelle).
+    const allocatable = await checkPostingBalance(ctx.schoolId, intent);
+    if (!allocatable.ok) {
+      await blockUnallocatableIntent(ctx, intent, allocatable.detail);
+      return { ok: false, error: "OVERPAYMENT_BLOCKED" };
+    }
+    pay = await recordPayment(
+      { userId: intent.initiatedById ?? ctx.userId, schoolId: ctx.schoolId },
+      {
+        studentId: intent.studentId,
+        academicYearId: intent.academicYearId,
+        amount: intent.amount,
+        method: PaymentMethod.MOBILE_MONEY,
+        reference: intent.providerTxId ?? intent.providerRef ?? intent.id,
+        idempotencyKey: `mm:${intent.id}`,
+        allocations: (intent.allocations as { installmentId: string; amount: number }[] | null) ?? undefined,
+      },
+    );
+  }
 
   if (pay.ok) {
     // Le paiement existe déjà (rejeu idempotent de `mm:{intentId}`) ou
     // vient d'être créé — dans les deux cas on le rattache.
     await prisma.$transaction(async (tx) => {
       const upd = await tx.paymentIntent.updateMany({
-        where: { id: intent.id, status: "CONFIRMED_PENDING_POSTING" },
+        where: { id: intent.id, paymentId: null },
         data: { status: "CONFIRMED", paymentId: pay.result.id },
       });
       if (upd.count === 0) return;
@@ -611,8 +653,22 @@ export async function postConfirmedIntent(
         metadata: { paymentId: pay.result.id, receiptNumber: pay.result.receiptNumber },
         tx,
       });
+      // G3-D : le rapprochement brut/frais/net est matérialisé dès
+      // l'encaissement confirmé.
+      await ensureReconciliation(tx, intent.id);
     });
     return { ok: true, data: { status: "CONFIRMED", paymentId: pay.result.id } };
+  }
+
+  // Solde global épuisé entre l'émission et la confirmation (ex. le
+  // guichet a tout encaissé) : même traitement que la garde pré-posting
+  // — la confirmation reste, l'imputation part en anomalie.
+  if (pay.error === "OVERPAYMENT") {
+    await blockUnallocatableIntent(ctx, intent, {
+      kind: "GLOBAL",
+      message: `solde global élève épuisé (recordPayment: ${pay.error})`,
+    });
+    return { ok: false, error: "OVERPAYMENT_BLOCKED" };
   }
 
   // Jour clôturé : l'intention reste CONFIRMED_PENDING_POSTING —
@@ -817,3 +873,135 @@ export async function paymentIntentStats(ctx: Ctx) {
   return rows.map((r) => ({ status: r.status, count: r._count._all, amount: r._sum.amount ?? 0 }));
 }
 
+
+/**
+ * G3-D — recalcul du solde réellement imputable au moment du posting.
+ * - Allocations explicites : chaque échéance visée doit avoir un reste
+ *   à payer ≥ l'allocation (allocations validées déduites).
+ * - Sans allocations (FIFO F3) : le solde global de l'élève doit
+ *   couvrir le montant confirmé.
+ * Ne modifie rien : vérification pure avant appel à `recordPayment`.
+ */
+async function checkPostingBalance(
+  schoolId: string,
+  intent: { studentId: string; academicYearId: string; amount: number; allocations: unknown },
+): Promise<{ ok: true } | { ok: false; detail: { kind: string; message: string } }> {
+  const allocs = (intent.allocations as { installmentId: string; amount: number }[] | null) ?? [];
+  if (allocs.length > 0) {
+    const insts = await prisma.feeInstallment.findMany({
+      where: { id: { in: allocs.map((a) => a.installmentId) }, schoolId },
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        allocations: {
+          where: { payment: { status: "VALIDATED" } },
+          select: { amount: true },
+        },
+      },
+    });
+    for (const a of allocs) {
+      const inst = insts.find((i) => i.id === a.installmentId);
+      const paid = inst?.allocations.reduce((s, x) => s + x.amount, 0) ?? 0;
+      const remaining = inst ? Math.max(0, inst.amount - paid) : 0;
+      if (!inst || inst.status !== "ACTIVE" || a.amount > remaining) {
+        return {
+          ok: false,
+          detail: {
+            kind: "INSTALLMENT",
+            message: `échéance ${a.installmentId.slice(0, 8)}… : allocation ${a.amount} > reste ${remaining}`,
+          },
+        };
+      }
+    }
+    return { ok: true };
+  }
+  // Sans allocations explicites : même calcul de solde global que F3.
+  const [chargesSum, paidSum, discounts] = await Promise.all([
+    prisma.studentFeeCharge.aggregate({
+      where: {
+        schoolId, studentId: intent.studentId,
+        academicYearId: intent.academicYearId, status: "ACTIVE",
+      },
+      _sum: { amount: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        schoolId, studentId: intent.studentId,
+        academicYearId: intent.academicYearId, status: "VALIDATED",
+      },
+      _sum: { amount: true },
+    }),
+    prisma.feeDiscount.findMany({
+      where: {
+        schoolId, studentId: intent.studentId,
+        academicYearId: intent.academicYearId, status: "ACTIVE",
+      },
+      select: { type: true, value: true },
+    }),
+  ]);
+  const total = chargesSum._sum.amount ?? 0;
+  const disc = discounts.reduce(
+    (s, d) =>
+      s + (d.type === "PERCENT" ? Math.floor((total * d.value) / 100) : d.type === "EXEMPTION" ? total : d.value),
+    0,
+  );
+  const remainingDue = Math.max(0, total - disc - (paidSum._sum.amount ?? 0));
+  if (intent.amount > remainingDue) {
+    return {
+      ok: false,
+      detail: { kind: "GLOBAL", message: `montant ${intent.amount} > solde restant ${remainingDue}` },
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * G3-D — intention confirmée non imputable : la preuve prestataire est
+ * conservée (CONFIRMED), aucune allocation n'est créée, la divergence
+ * part dans la file d'anomalies avec notification. Remboursement ou
+ * régularisation manuelle ensuite. Le posting reste relançable si le
+ * solde se libère (CONFIRMED sans paymentId).
+ */
+async function blockUnallocatableIntent(
+  ctx: Ctx,
+  intent: {
+    id: string; schoolId: string; amount: number; currency: string;
+    providerTxId: string | null; providerRef: string | null;
+  },
+  detail: { kind: string; message: string },
+) {
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentIntent.updateMany({
+      where: { id: intent.id, paymentId: null },
+      data: { status: "CONFIRMED", failureReason: "OVERPAYMENT_BLOCKED" },
+    });
+    await tx.paymentTransaction.create({
+      data: {
+        intentId: intent.id, schoolId: ctx.schoolId,
+        kind: "POSTING",
+        providerTxId: intent.providerTxId ?? intent.providerRef,
+        payload: { status: "UNALLOCATABLE", reason: detail.message },
+      },
+    });
+    await ensureDiscrepancy(tx, {
+      schoolId: ctx.schoolId,
+      type: "OVERPAYMENT_BLOCKED",
+      intentId: intent.id,
+      expectedAmount: intent.amount,
+      description: `Confirmation prestataire non imputable : ${detail.message} — trop-perçu à traiter (remboursement ou régularisation)`,
+    });
+    await ensureReconciliation(tx, intent.id);
+    await logAudit({
+      actorId: ctx.userId, schoolId: ctx.schoolId,
+      action: "payment_intent.unallocatable", entity: "PaymentIntent", entityId: intent.id,
+      metadata: { amount: intent.amount, reason: detail.message },
+      tx,
+    });
+  });
+  await notifyReconcileAdmins(ctx.schoolId, {
+    title: "Paiement Mobile Money confirmé non imputable",
+    body: `${intent.amount} ${intent.currency} — ${detail.message}. Traitement via la file d'anomalies.`,
+    link: "/app/paiements-mobile?tab=anomalies",
+  });
+}

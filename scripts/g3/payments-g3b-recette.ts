@@ -52,6 +52,10 @@ const FX2 = "G3B-OTHER";
 const EMAILS = ["g3b-admin@test.local", "g3b-other@test.local"];
 
 async function cleanup(schoolId: string) {
+  await prisma.paymentDiscrepancy.deleteMany({ where: { schoolId } });
+  await prisma.paymentReconciliation.deleteMany({ where: { schoolId } });
+  await prisma.paymentRefund.deleteMany({ where: { schoolId } });
+  await prisma.paymentSettlement.deleteMany({ where: { schoolId } });
   await prisma.webhookEvent.deleteMany({ where: { schoolId } });
   await prisma.job.deleteMany({ where: { schoolId } });
   await prisma.paymentTransaction.deleteMany({ where: { schoolId } });

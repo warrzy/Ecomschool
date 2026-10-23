@@ -7,6 +7,8 @@
  *                            les fournisseurs, comptabiliser
  *   mobilepayments.simulate  déclencher les scénarios du simulateur
  *                            SANDBOX (développement/recette uniquement)
+ *   mobilepayments.reconcile rapprochements, reversements, anomalies (G3-D)
+ *   mobilepayments.refund    valider/exécuter les remboursements (G3-D)
  *
  * Attribution : ADMIN_SCHOOL uniquement — les écoles créent leurs
  * propres rôles si besoin. Aucun prestataire réel n'est activé par
@@ -21,6 +23,8 @@ const NEW_KEYS = [
   "mobilepayments.read",
   "mobilepayments.manage",
   "mobilepayments.simulate",
+  "mobilepayments.reconcile",
+  "mobilepayments.refund",
 ] as const;
 
 const ROLE_KEYS: Record<string, readonly string[]> = {

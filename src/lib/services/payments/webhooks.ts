@@ -28,6 +28,11 @@ import {
   pollPaymentIntent,
   postConfirmedIntent,
 } from "./mobileIntents";
+import {
+  flagMissingSettlements,
+  flagUnconfirmedRefunds,
+  syncReconciliations,
+} from "./reconciliation";
 import type { Prisma, WebhookEventStatus } from "@prisma/client";
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -569,7 +574,22 @@ export async function runMobileMoneyMaintenance() {
     const r = await expireDuePaymentIntents({ userId: null, schoolId: s.schoolId });
     expired += r.expired;
   }
-  return { events, reposts, polls, expired };
+  // G3-D : rapprochements manquants, reversements attendus,
+  // remboursements non confirmés — balayage idempotent par école.
+  const recon = { created: 0, anomalies: 0, missingSettlements: 0, unconfirmedRefunds: 0 };
+  const reconSchools = await prisma.paymentIntent.findMany({
+    where: { status: { in: ["CONFIRMED", "CONFIRMED_PENDING_POSTING"] } },
+    select: { schoolId: true },
+    distinct: ["schoolId"],
+    take: 50,
+  });
+  for (const s of reconSchools) {
+    const r = await syncReconciliations(s.schoolId).catch(() => null);
+    if (r) { recon.created += r.created; recon.anomalies += r.anomalies; }
+    recon.missingSettlements += await flagMissingSettlements(s.schoolId).catch(() => 0);
+    recon.unconfirmedRefunds += await flagUnconfirmedRefunds(s.schoolId).catch(() => 0);
+  }
+  return { events, reposts, polls, expired, reconciliation: recon };
 }
 
 // ─── Enregistrement des handlers ────────────────────────────────────

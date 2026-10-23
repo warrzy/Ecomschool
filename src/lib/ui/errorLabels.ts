@@ -75,6 +75,14 @@ const ERROR_LABELS: Record<string, string> = {
   AMOUNT_EXCEEDS_BALANCE: "Le montant demandé dépasse le solde restant à payer pour cette échéance.",
   INSTALLMENT_PAID: "Cette échéance est déjà entièrement réglée.",
 
+  // Rapprochement / reversements / remboursements (G3-D)
+  OVERPAYMENT_BLOCKED: "Paiement confirmé non imputable : l'échéance a déjà été soldée (ex. au guichet). L'anomalie est enregistrée pour traitement.",
+  DUPLICATE_REFERENCE: "Cette référence de reversement existe déjà pour ce prestataire.",
+  NOTE_REQUIRED: "Un motif est obligatoire pour cette décision.",
+  REASON_REQUIRED: "Un motif est obligatoire.",
+  EXCEEDS_REFUNDABLE: "Le montant dépasse le remboursable restant sur cet encaissement.",
+  NOT_MOBILE_MONEY: "Seul un encaissement Mobile Money est remboursable ici.",
+
   // Abonnement / limites commerciales
   LIMIT_REACHED: "La limite de votre abonnement est atteinte. Contactez ECOM-TOUCH.",
   LIMIT_STUDENTS: "Le nombre maximal d'élèves de votre abonnement est atteint.",

@@ -8,19 +8,37 @@ import {
   paymentIntentStats,
 } from "@/lib/services/payments/mobileIntents";
 import { listWebhookEvents } from "@/lib/services/payments/webhooks";
+import {
+  listDiscrepancies,
+  listReconciliations,
+  listSettlements,
+} from "@/lib/services/payments/reconciliation";
+import { listRefunds } from "@/lib/services/payments/refunds";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import {
+  approveRefundAction,
   cancelIntentAction,
+  cancelRefundAction,
+  completeSettlementAction,
+  confirmRefundAction,
   createIntentAction,
+  createRefundAction,
   createSandboxProviderAction,
+  decideDiscrepancyAction,
+  declareSettlementAction,
+  executeRefundAction,
   pollIntentAction,
   postIntentAction,
+  rejectRefundAction,
   replayWebhookAction,
+  setProviderFeesAction,
   simulateOutcomeAction,
   sweepExpiredAction,
+  syncReconciliationAction,
   toggleProviderAction,
+  verifyReconciliationAction,
 } from "./actions";
 import type { PaymentIntentStatus } from "@prisma/client";
 
@@ -78,6 +96,67 @@ const WEBHOOK_STATUS_TONES: Record<string, string> = {
   IGNORED: "bg-zinc-100 text-zinc-600",
   ANOMALY: "bg-orange-50 text-orange-800",
 };
+const RECON_LABELS: Record<string, string> = {
+  PENDING: "En attente",
+  MATCHED: "Rapprochée",
+  DISCREPANCY: "Écart détecté",
+  TO_VERIFY: "À vérifier",
+  RESOLVED: "Clôturée",
+};
+const RECON_TONES: Record<string, string> = {
+  PENDING: "bg-amber-50 text-amber-800",
+  MATCHED: "bg-emerald-50 text-emerald-800",
+  DISCREPANCY: "bg-red-50 text-red-800",
+  TO_VERIFY: "bg-blue-50 text-blue-800",
+  RESOLVED: "bg-zinc-100 text-zinc-600",
+};
+const SETTLE_LABELS: Record<string, string> = {
+  DECLARED: "Déclaré",
+  MATCHED: "Rapproché",
+  PARTIAL: "Partiel",
+  DISCREPANCY: "Écart",
+  MISSING: "Manquant",
+};
+const SETTLE_TONES: Record<string, string> = RECON_TONES;
+const REFUND_LABELS: Record<string, string> = {
+  REQUESTED: "Demandé",
+  APPROVED: "Approuvé",
+  EXECUTED: "Exécuté (simulé)",
+  CONFIRMED: "Confirmé",
+  REJECTED: "Refusé",
+  FAILED: "Échoué",
+  CANCELLED: "Annulé",
+};
+const REFUND_TONES: Record<string, string> = {
+  REQUESTED: "bg-amber-50 text-amber-800",
+  APPROVED: "bg-blue-50 text-blue-800",
+  EXECUTED: "bg-violet-50 text-violet-800",
+  CONFIRMED: "bg-emerald-50 text-emerald-800",
+  REJECTED: "bg-red-50 text-red-800",
+  FAILED: "bg-red-50 text-red-800",
+  CANCELLED: "bg-zinc-100 text-zinc-600",
+};
+const DISC_LABELS: Record<string, string> = {
+  CONFIRMED_NO_PAYMENT: "Confirmation sans encaissement",
+  PAYMENT_NO_CONFIRM: "Encaissement sans confirmation",
+  AMOUNT_MISMATCH: "Écart de montant",
+  FEE_MISMATCH: "Commission incorrecte",
+  SETTLEMENT_MISSING: "Reversement manquant",
+  SETTLEMENT_PARTIAL: "Reversement partiel",
+  SETTLEMENT_MISMATCH: "Écart de reversement",
+  DUPLICATE_REFERENCE: "Double référence",
+  UNKNOWN_REFERENCE: "Référence inconnue",
+  LATE_CONFIRMATION: "Confirmation tardive",
+  OVERPAYMENT_BLOCKED: "Déjà soldé (guichet) — imputation impossible",
+  REFUND_UNCONFIRMED: "Remboursement non confirmé",
+  OTHER: "Autre",
+};
+const DISC_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Ouverte",
+  IN_REVIEW: "En traitement",
+  RESOLVED: "Résolue",
+  IGNORED: "Classée",
+};
 const OUTCOMES = [
   ["SUCCESS", "Succès"],
   ["FAILED", "Échec"],
@@ -103,9 +182,11 @@ export default async function PaiementsMobilePage(props: {
   const statusFilter = str("status");
   const selectedId = str("intent");
 
-  const [canManage, canSimulate] = await Promise.all([
+  const [canManage, canSimulate, canReconcile, canRefund] = await Promise.all([
     userHasSchoolPermission({ ...ctx, permissionKey: "mobilepayments.manage" }),
     userHasSchoolPermission({ ...ctx, permissionKey: "mobilepayments.simulate" }),
+    userHasSchoolPermission({ ...ctx, permissionKey: "mobilepayments.reconcile" }),
+    userHasSchoolPermission({ ...ctx, permissionKey: "mobilepayments.refund" }),
   ]);
   // Simulation : permission dédiée + environnement autorisé uniquement.
   const sandboxEnv =
@@ -133,6 +214,27 @@ export default async function PaiementsMobilePage(props: {
   const pendingPostings = intents.filter((i) => i.status === "CONFIRMED_PENDING_POSTING");
   const anomalies = webhookEvents.filter((e) => e.status === "ANOMALY" || e.status === "FAILED");
   const totalAmount = stats.reduce((s, r) => s + r.amount, 0);
+
+  // G3-D : rapprochement, reversements, anomalies, remboursements.
+  const [reconciliations, settlements, discrepancies, refunds, mmPayments] =
+    canReconcile || canRefund
+      ? await Promise.all([
+          listReconciliations(ctx),
+          listSettlements(ctx),
+          listDiscrepancies(ctx),
+          listRefunds(ctx),
+          prisma.payment.findMany({
+            where: { schoolId: ctx.schoolId, method: "MOBILE_MONEY", status: "VALIDATED" },
+            select: {
+              id: true, amount: true, receiptNumber: true,
+              student: { select: { matricule: true, lastName: true, firstName: true } },
+            },
+            orderBy: { paidAt: "desc" },
+            take: 200,
+          }),
+        ])
+      : [[], [], [], [], []] as const;
+  const openDiscrepancies = discrepancies.filter((d) => d.status === "OPEN" || d.status === "IN_REVIEW");
 
   return (
     <div className="space-y-6">
@@ -574,6 +676,421 @@ export default async function PaiementsMobilePage(props: {
                 ))}
                 {detail.transactions.length === 0 && (
                   <tr><td colSpan={5} className="py-4 text-center text-sm text-zinc-500">Aucun échange enregistré.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── G3-D : commissions opérateurs ─── */}
+      {canManage && providers.length > 0 && (
+        <div className={card} id="commissions">
+          <h2 className="text-sm font-semibold text-ink">Commissions opérateurs</h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Paramétrage contractuel par fournisseur — fixe + proportionnelle (points de base,
+            100&nbsp;=&nbsp;1&nbsp;%). Aucun tarif n&apos;est présumé : seule la saisie compte.
+          </p>
+          <div className="mt-3 space-y-3">
+            {providers.map((p) => (
+              <form key={p.id} action={setProviderFeesAction} className="flex flex-wrap items-end gap-3 rounded-lg border border-zinc-100 px-3 py-2">
+                <input type="hidden" name="providerId" value={p.id} />
+                <span className="pb-2 text-sm font-medium">{p.label}</span>
+                <label className="text-sm">
+                  Fixe (XOF)
+                  <input name="feeFixed" type="number" min={0} defaultValue={p.feeFixed} className={input} />
+                </label>
+                <label className="text-sm">
+                  Taux (points de base)
+                  <input name="feePercent" type="number" min={0} max={10000} defaultValue={p.feePercent} className={input} />
+                </label>
+                <label className="text-sm">
+                  Supportée par
+                  <select name="feeBearer" defaultValue={p.feeBearer} className={input}>
+                    <option value="SCHOOL">L&apos;établissement</option>
+                    <option value="PAYER">Le payeur</option>
+                  </select>
+                </label>
+                <SubmitButton className={btnNeutral} pendingLabel="…">Enregistrer</SubmitButton>
+              </form>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ─── G3-D : rapprochement ─── */}
+      {canReconcile && (
+        <div className={card} id="rapprochement">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">Rapprochement financier</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Brut payé / commission / net attendu par opération confirmée — aucun
+                rapprochement automatique sur la seule similitude des montants.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <form action={syncReconciliationAction}>
+                <SubmitButton className={btnNeutral} pendingLabel="Balayage…">
+                  Synchroniser
+                </SubmitButton>
+              </form>
+              <a href="/app/paiements-mobile/export?type=reconciliations" className={btnNeutral}>
+                Export CSV
+              </a>
+            </div>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Élève</th>
+                  <th className="py-2 pr-4">Brut</th>
+                  <th className="py-2 pr-4">Commission</th>
+                  <th className="py-2 pr-4">Net attendu</th>
+                  <th className="py-2 pr-4">Reçu</th>
+                  <th className="py-2 pr-4">Reversement</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">Décision</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reconciliations.map((r) => (
+                  <tr key={r.id} className="border-t border-zinc-100">
+                    <td className="py-2 pr-4 text-xs">
+                      {r.intent.student.matricule} — {r.intent.student.lastName} {r.intent.student.firstName}
+                    </td>
+                    <td className="py-2 pr-4 font-medium">{fmt(r.grossAmount)}</td>
+                    <td className="py-2 pr-4 text-xs">
+                      {fmt(r.feeAmount)}{r.feeBearer === "PAYER" && <span className="ml-1 text-zinc-500">(payeur)</span>}
+                    </td>
+                    <td className="py-2 pr-4">{fmt(r.netExpected)}</td>
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {r.payment?.receiptNumber ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {r.settlement?.reference ?? "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${RECON_TONES[r.status]}`}>
+                        {RECON_LABELS[r.status]}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      {(r.status === "PENDING" || r.status === "TO_VERIFY" || r.status === "DISCREPANCY") && (
+                        <form action={verifyReconciliationAction} className="flex flex-wrap items-center gap-1">
+                          <input type="hidden" name="reconciliationId" value={r.id} />
+                          <input name="note" placeholder="motif" className="h-7 w-28 rounded border border-zinc-300 px-1 text-xs" />
+                          <button name="action" value="TO_VERIFY" className="text-xs text-blue-700 hover:underline">À vérifier</button>
+                          <button name="action" value="MATCHED" className="text-xs text-emerald-700 hover:underline">Rapprochée</button>
+                          <button name="action" value="RESOLVED" className="text-xs text-zinc-600 hover:underline">Clôturer</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {reconciliations.length === 0 && (
+                  <tr><td colSpan={8} className="py-4 text-center text-sm text-zinc-500">Aucune opération à rapprocher.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── G3-D : reversements ─── */}
+      {canReconcile && (
+        <div className={card} id="reversements">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">Reversements</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Reversements groupés déclarés (prestataire ou relevé) — une déclaration
+                administrative n&apos;est pas une preuve bancaire.
+              </p>
+            </div>
+            <a href="/app/paiements-mobile/export?type=settlements" className={btnNeutral}>
+              Export CSV
+            </a>
+          </div>
+          <form action={declareSettlementAction} className="mt-3 grid gap-3 border-b border-zinc-100 pb-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm">
+              Fournisseur
+              <select name="providerId" required className={input}>
+                {providers.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </select>
+            </label>
+            <label className="text-sm">
+              Référence du reversement
+              <input name="reference" required className={input} placeholder="REV-2026-001" />
+            </label>
+            <label className="text-sm">
+              Début de période
+              <input name="periodStart" type="date" required className={input} />
+            </label>
+            <label className="text-sm">
+              Fin de période
+              <input name="periodEnd" type="date" required className={input} />
+            </label>
+            <label className="text-sm">
+              Net déclaré reçu (vide = non reçu)
+              <input name="netDeclared" type="number" min={0} className={input} />
+            </label>
+            <label className="text-sm">
+              Date de réception
+              <input name="receivedAt" type="date" className={input} />
+            </label>
+            <label className="text-sm sm:col-span-2">
+              Notes
+              <input name="notes" className={input} />
+            </label>
+            <div className="flex items-end">
+              <SubmitButton className={btnPrimary} pendingLabel="Déclaration…">
+                Déclarer le reversement
+              </SubmitButton>
+            </div>
+          </form>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Référence</th>
+                  <th className="py-2 pr-4">Prestataire</th>
+                  <th className="py-2 pr-4">Période</th>
+                  <th className="py-2 pr-4">Brut</th>
+                  <th className="py-2 pr-4">Commissions</th>
+                  <th className="py-2 pr-4">Net attendu</th>
+                  <th className="py-2 pr-4">Net déclaré</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2 pr-4">Opér.</th>
+                  <th className="py-2">Clôturer</th>
+                </tr>
+              </thead>
+              <tbody>
+                {settlements.map((s) => (
+                  <tr key={s.id} className="border-t border-zinc-100">
+                    <td className="py-2 pr-4 font-mono text-xs">
+                      {s.reference}
+                      <span className="ml-1 rounded bg-zinc-100 px-1 text-[10px] text-zinc-500">déclaré</span>
+                    </td>
+                    <td className="py-2 pr-4 text-xs">{s.provider.label}</td>
+                    <td className="py-2 pr-4 text-xs text-zinc-500">
+                      {dt(s.periodStart)} → {dt(s.periodEnd)}
+                    </td>
+                    <td className="py-2 pr-4">{fmt(s.grossTotal)}</td>
+                    <td className="py-2 pr-4">{fmt(s.feeTotal)}</td>
+                    <td className="py-2 pr-4">{fmt(s.netExpected)}</td>
+                    <td className="py-2 pr-4">{s.netDeclared == null ? "—" : fmt(s.netDeclared)}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${SETTLE_TONES[s.status] ?? "bg-zinc-100 text-zinc-600"}`}>
+                        {SETTLE_LABELS[s.status]}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 text-xs">{s._count.reconciliations}</td>
+                    <td className="py-2">
+                      {s.status === "DECLARED" && (
+                        <form action={completeSettlementAction} className="flex items-center gap-1">
+                          <input type="hidden" name="settlementId" value={s.id} />
+                          <input name="netDeclared" type="number" min={0} required placeholder="net reçu" className="h-7 w-24 rounded border border-zinc-300 px-1 text-xs" />
+                          <SubmitButton className="text-xs text-brand-700 hover:underline" pendingLabel="…">Valider</SubmitButton>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {settlements.length === 0 && (
+                  <tr><td colSpan={10} className="py-4 text-center text-sm text-zinc-500">Aucun reversement déclaré.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── G3-D : remboursements ─── */}
+      {canRefund && (
+        <div className={card} id="remboursements">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">Remboursements</h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Demandé → approuvé → exécuté (simulé) → confirmé. Une demande n&apos;est
+                jamais un remboursement effectué ; aucun prestataire réel n&apos;est appelé.
+              </p>
+            </div>
+            <a href="/app/paiements-mobile/export?type=refunds" className={btnNeutral}>
+              Export CSV
+            </a>
+          </div>
+          <form action={createRefundAction} className="mt-3 grid gap-3 border-b border-zinc-100 pb-4 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-sm">
+              Encaissement Mobile Money
+              <select name="paymentId" required className={input}>
+                {mmPayments.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.receiptNumber ?? p.id.slice(0, 8)} — {p.student.lastName} {p.student.firstName} ({fmt(p.amount)})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              Montant (XOF)
+              <input name="amount" type="number" min={1} required className={input} />
+            </label>
+            <label className="text-sm sm:col-span-2">
+              Motif (obligatoire)
+              <input name="reason" required className={input} placeholder="Trop-perçu, annulation…" />
+            </label>
+            <div className="flex items-end">
+              <SubmitButton className={btnPrimary} pendingLabel="Envoi…">
+                Déposer la demande
+              </SubmitButton>
+            </div>
+          </form>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Reçu</th>
+                  <th className="py-2 pr-4">Élève</th>
+                  <th className="py-2 pr-4">Montant</th>
+                  <th className="py-2 pr-4">Motif</th>
+                  <th className="py-2 pr-4">Réf.</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((r) => (
+                  <tr key={r.id} className="border-t border-zinc-100">
+                    <td className="py-2 pr-4 font-mono text-xs">{r.payment?.receiptNumber ?? "—"}</td>
+                    <td className="py-2 pr-4 text-xs">
+                      {r.intent?.student ? `${r.intent.student.matricule} — ${r.intent.student.lastName}` : "—"}
+                    </td>
+                    <td className="py-2 pr-4 font-medium">{fmt(r.amount)}</td>
+                    <td className="py-2 pr-4 text-xs">{r.reason}</td>
+                    <td className="py-2 pr-4 font-mono text-xs">{r.providerRef ?? "—"}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${REFUND_TONES[r.status]}`}>
+                        {REFUND_LABELS[r.status]}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {r.status === "REQUESTED" && (
+                          <>
+                            <form action={approveRefundAction}>
+                              <input type="hidden" name="refundId" value={r.id} />
+                              <SubmitButton className="text-xs text-emerald-700 hover:underline" pendingLabel="…">Approuver</SubmitButton>
+                            </form>
+                            <form action={rejectRefundAction} className="flex items-center gap-1">
+                              <input type="hidden" name="refundId" value={r.id} />
+                              <input name="reason" placeholder="motif du refus" className="h-7 w-24 rounded border border-zinc-300 px-1 text-xs" />
+                              <SubmitButton className="text-xs text-red-700 hover:underline" pendingLabel="…">Refuser</SubmitButton>
+                            </form>
+                          </>
+                        )}
+                        {r.status === "APPROVED" && (
+                          <form action={executeRefundAction}>
+                            <input type="hidden" name="refundId" value={r.id} />
+                            <SubmitButton className="text-xs text-violet-700 hover:underline" pendingLabel="…">Exécuter (simulé)</SubmitButton>
+                          </form>
+                        )}
+                        {r.status === "EXECUTED" && (
+                          <form action={confirmRefundAction}>
+                            <input type="hidden" name="refundId" value={r.id} />
+                            <SubmitButton className="text-xs text-emerald-700 hover:underline" pendingLabel="…">Confirmer</SubmitButton>
+                          </form>
+                        )}
+                        {(r.status === "REQUESTED" || r.status === "APPROVED") && (
+                          <form action={cancelRefundAction}>
+                            <input type="hidden" name="refundId" value={r.id} />
+                            <SubmitButton className="text-xs text-zinc-600 hover:underline" pendingLabel="…">Annuler</SubmitButton>
+                          </form>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {refunds.length === 0 && (
+                  <tr><td colSpan={7} className="py-4 text-center text-sm text-zinc-500">Aucun remboursement.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ─── G3-D : anomalies financières ─── */}
+      {canReconcile && (
+        <div className={card} id="anomalies">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-ink">
+                Anomalies financières
+                {openDiscrepancies.length > 0 && (
+                  <span className="ml-2 rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-800">
+                    {openDiscrepancies.length} ouverte{openDiscrepancies.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                File de traitement — chaque décision est tracée avec acteur, motif et
+                horodatage. Aucune correction financière silencieuse.
+              </p>
+            </div>
+            <a href="/app/paiements-mobile/export?type=discrepancies" className={btnNeutral}>
+              Export CSV
+            </a>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-zinc-500">
+                  <th className="py-2 pr-4">Type</th>
+                  <th className="py-2 pr-4">Description</th>
+                  <th className="py-2 pr-4">Attendu</th>
+                  <th className="py-2 pr-4">Constaté</th>
+                  <th className="py-2 pr-4">Statut</th>
+                  <th className="py-2">Décision</th>
+                </tr>
+              </thead>
+              <tbody>
+                {discrepancies.map((d) => (
+                  <tr key={d.id} className="border-t border-zinc-100 align-top">
+                    <td className="py-2 pr-4 text-xs font-medium">{DISC_LABELS[d.type] ?? d.type}</td>
+                    <td className="py-2 pr-4 text-xs text-zinc-600">
+                      {d.description}
+                      {(d.history as { action: string; note: string }[] | null)?.length ? (
+                        <ul className="mt-1 space-y-0.5 text-[11px] text-zinc-400">
+                          {(d.history as { action: string; note: string }[]).map((h, i) => (
+                            <li key={i}>→ {h.action} : {h.note}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </td>
+                    <td className="py-2 pr-4 text-xs">{d.expectedAmount == null ? "—" : fmt(d.expectedAmount)}</td>
+                    <td className="py-2 pr-4 text-xs">{d.actualAmount == null ? "—" : fmt(d.actualAmount)}</td>
+                    <td className="py-2 pr-4">
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${d.status === "OPEN" ? "bg-red-50 text-red-800" : d.status === "IN_REVIEW" ? "bg-blue-50 text-blue-800" : "bg-zinc-100 text-zinc-600"}`}>
+                        {DISC_STATUS_LABELS[d.status]}
+                      </span>
+                    </td>
+                    <td className="py-2">
+                      {(d.status === "OPEN" || d.status === "IN_REVIEW") && (
+                        <form action={decideDiscrepancyAction} className="flex flex-wrap items-center gap-1">
+                          <input type="hidden" name="discrepancyId" value={d.id} />
+                          <input name="note" required placeholder="motif (obligatoire)" className="h-7 w-32 rounded border border-zinc-300 px-1 text-xs" />
+                          <button name="action" value="IN_REVIEW" className="text-xs text-blue-700 hover:underline">Prendre en charge</button>
+                          <button name="action" value="RESOLVED" className="text-xs text-emerald-700 hover:underline">Résoudre</button>
+                          <button name="action" value="IGNORED" className="text-xs text-zinc-600 hover:underline">Classer</button>
+                        </form>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {discrepancies.length === 0 && (
+                  <tr><td colSpan={6} className="py-4 text-center text-sm text-zinc-500">Aucune anomalie.</td></tr>
                 )}
               </tbody>
             </table>

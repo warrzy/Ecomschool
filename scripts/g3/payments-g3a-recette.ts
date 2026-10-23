@@ -43,6 +43,10 @@ const EMAILS = [
 ];
 
 async function cleanup(schoolId: string) {
+  await prisma.paymentDiscrepancy.deleteMany({ where: { schoolId } });
+  await prisma.paymentReconciliation.deleteMany({ where: { schoolId } });
+  await prisma.paymentRefund.deleteMany({ where: { schoolId } });
+  await prisma.paymentSettlement.deleteMany({ where: { schoolId } });
   await prisma.paymentTransaction.deleteMany({ where: { schoolId } });
   await prisma.paymentIntent.deleteMany({ where: { schoolId } });
   await prisma.paymentProvider.deleteMany({ where: { schoolId } });
