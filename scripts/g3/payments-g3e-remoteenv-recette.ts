@@ -651,6 +651,33 @@ async function main() {
   check("intention LIVE : poll sous verrou OFF → LIVE_DISABLED",
     !liveLocked.ok && liveLocked.error === "LIVE_DISABLED");
 
+  // D. Intention HISTORIQUE (remoteEnv NULL, insérée directement —
+  //    le trigger interdit de nullifier une intention existante) sous
+  //    un prestataire désormais TEST : l'environnement effectif est
+  //    TEST → confirmation technique autorisée, JAMAIS de ledger.
+  process.env.MOBILE_MONEY_REMOTE_TEST_ENABLED = "true";
+  const hist = await prisma.paymentIntent.create({
+    data: {
+      schoolId: school.id, studentId: student.id, academicYearId: year.id,
+      providerId: providerTest, initiatedById: ctxA.userId,
+      amount: 1_000, currency: "XOF", idempotencyKey: "env-hist-null",
+      channel: "PARENT_PORTAL", providerRef: "pd-hist-null-tok",
+      status: "PENDING", remoteEnv: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    },
+  });
+  state.statuses.set("pd-hist-null-tok", { status: "completed", amount: 1_000, currency: "XOF", customRef: hist.id });
+  const callsBeforeHist = calls.length;
+  const rHist = await pollPaymentIntent(ctxA, hist.id);
+  const histF = await prisma.paymentIntent.findUnique({ where: { id: hist.id } });
+  check("intention historique NULL sous provider TEST → CONFIRMED sans Payment",
+    rHist.ok && histF?.status === "CONFIRMED" && histF?.paymentId === null &&
+    (await paymentsCount(school.id)) === 0);
+  check("appel passé par sandbox-api + secrets TEST (env effectif)",
+    calls.length > callsBeforeHist &&
+    calls[calls.length - 1].url.includes("sandbox-api") &&
+    calls[calls.length - 1].headers["PAYDUNYA-MASTER-KEY"] === TMK);
+
   // Comptabilité finale : aucun effet financier TEST sur la base.
   const totals = {
     payments: await paymentsCount(school.id),

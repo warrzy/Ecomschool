@@ -55,16 +55,21 @@ const DEFAULT_INTENT_TTL_MIN = 24 * 60;
 function isSimulated(i: {
   sandboxScript: unknown;
   remoteEnv?: string | null;
-  provider: { mode: string; code: string };
+  provider: { mode: string; code: string; remoteEnv?: string | null };
 }): boolean {
   // remoteEnv TEST figé à la création : l'intention dialogue avec la
   // sandbox distante du prestataire mais ne devient JAMAIS un
   // encaissement opérationnel — même barrière que le simulateur.
+  // Les intentions historiques (remoteEnv NULL) héritent de
+  // l'environnement COURANT du prestataire : si celui-ci est passé en
+  // TEST, la barrière comptable suit l'environnement d'exécution
+  // effectif — jamais de ledger pour un appel sandbox-api.
   return (
     i.provider.mode === "SANDBOX" ||
     i.provider.code === "SANDBOX" ||
     i.sandboxScript != null ||
-    i.remoteEnv === "TEST"
+    i.remoteEnv === "TEST" ||
+    (i.remoteEnv == null && i.provider.remoteEnv === "TEST")
   );
 }
 
@@ -819,7 +824,7 @@ export async function postConfirmedIntent(
 ): Promise<Res<{ status: string; paymentId?: string; already?: boolean }>> {
   const intent = await prisma.paymentIntent.findFirst({
     where: { id: intentId, schoolId: ctx.schoolId },
-    include: { provider: { select: { mode: true, code: true } } },
+    include: { provider: { select: { mode: true, code: true, remoteEnv: true } } },
   });
   if (!intent) return { ok: false, error: "NOT_FOUND" };
   if (intent.status === "CONFIRMED" && intent.paymentId) {

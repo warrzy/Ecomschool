@@ -642,16 +642,20 @@ export async function repostPendingPostings(
       status: "CONFIRMED_PENDING_POSTING",
       updatedAt: { lt: new Date(Date.now() - REPOST_GRACE_MS) },
     },
-    include: { provider: { select: { mode: true } } },
+    include: { provider: { select: { mode: true, remoteEnv: true } } },
     orderBy: { updatedAt: "asc" },
     take: opts.limit ?? 20,
   });
   let posted = 0, still = 0, failed = 0, locked = 0;
   for (const intent of due) {
-    // Une intention figée TEST ne poste jamais au ledger — elle
-    // n'atteint pas ce statut par le chemin normal ; court-circuit
-    // défensif (la barrière postConfirmedIntent la refuserait).
-    if (intent.remoteEnv === "TEST") { still++; continue; }
+    // Une intention figée TEST — ou historique (remoteEnv NULL) sous
+    // un prestataire désormais TEST — ne poste jamais au ledger :
+    // court-circuit défensif (postConfirmedIntent la refuserait).
+    if (intent.remoteEnv === "TEST" ||
+        (intent.remoteEnv == null && intent.provider.remoteEnv === "TEST")) {
+      still++;
+      continue;
+    }
     // Verrou global : un encaissement LIVE différé n'est jamais
     // comptabilisé tant que MOBILE_MONEY_LIVE_ENABLED est absent —
     // la preuve est conservée, la comptabilisation attend l'activation.

@@ -312,7 +312,12 @@ export async function executeRefund(
 
   // Phase 3B — aucun remboursement réel ou distant depuis une
   // intention figée TEST : refus explicite, la demande reste APPROVED.
-  if (refund.intent?.remoteEnv === "TEST") {
+  // Une intention historique (remoteEnv NULL) sous un prestataire
+  // désormais TEST hérite de la même barrière (env effectif).
+  if (
+    refund.intent?.remoteEnv === "TEST" ||
+    (refund.intent && refund.intent.remoteEnv == null && provider?.remoteEnv === "TEST")
+  ) {
     return { ok: false, error: "REMOTE_TEST_REFUND_FORBIDDEN" };
   }
 
