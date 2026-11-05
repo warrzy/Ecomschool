@@ -12,6 +12,9 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "user.read": "ADMINISTRATION",
   "user.manage": "ADMINISTRATION",
   "academic.manage": "ADMINISTRATION",
+  // G4 — documents administratifs
+  "administrative-docs.read": "ADMINISTRATION",
+  "administrative-docs.issue": "ADMINISTRATION",
   // Élèves
   "students.read": "STUDENTS",
   "students.manage": "STUDENTS",
@@ -113,6 +116,9 @@ export const PERMISSION_MODULE_V2: Record<string, string> = {
   "portal.manage": "ADMINISTRATION",
   "notifications.read": "ADMINISTRATION",
   "preferences.read": "ADMINISTRATION",
+  // G4 — documents administratifs
+  "administrative-docs.read": "ADMINISTRATION",
+  "administrative-docs.issue": "ADMINISTRATION",
   // Élèves, tuteurs, inscriptions
   "student.read": "STUDENTS",
   "student.manage": "STUDENTS",

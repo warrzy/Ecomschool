@@ -57,6 +57,7 @@ const TABS = [
   ["notes", "Notes"],
   ["resultats", "Résultats"],
   ["bulletins", "Bulletins"],
+  ["documents", "Documents"],
   ["absences", "Absences"],
   ["finances", "Finances"],
   ["reinscription", "Réinscription"],
@@ -351,6 +352,37 @@ async function ParentTab({
           </ul>
         ) : (
           <p className="text-sm text-zinc-600">Aucun bulletin publié.</p>
+        )}
+      </Card>
+    );
+  }
+
+  if (tab === "documents") {
+    const { listAdminDocsForParent } = await import("@/lib/services/administrative-docs");
+    const { ADMIN_DOC_TYPE_LABELS } = await import("@/lib/services/administrative-docs");
+    const docs = await listAdminDocsForParent(ctx, studentId);
+    return (
+      <Card title="Documents administratifs">
+        {docs.length > 0 ? (
+          <ul className="space-y-2 text-sm">
+            {docs.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center justify-between">
+                <span>
+                  {ADMIN_DOC_TYPE_LABELS[d.type]} — {d.academicYear.name}
+                  <span className="ml-2 font-mono text-xs text-zinc-500">{d.number}</span>
+                </span>
+                <a
+                  href={`/parent/documents/${d.id}/pdf`}
+                  target="_blank"
+                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+                >
+                  PDF
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-zinc-600">Aucun document disponible pour cet enfant.</p>
         )}
       </Card>
     );

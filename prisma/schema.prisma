@@ -222,6 +222,7 @@ model School {
   expenseCategories   ExpenseCategory[]
   expenses            Expense[]
   documents           Document[]
+  administrativeDocuments AdministrativeDocument[]
   admissionCampaigns  AdmissionCampaign[]
   admissionApplications AdmissionApplication[]
   admissionEvents     AdmissionEvent[]
@@ -729,6 +730,7 @@ model AcademicYear {
   reenrollmentRequestsTarget  ReenrollmentRequest[]  @relation("ReenrollReqTargetYear")
   paymentIntents            PaymentIntent[]
   paymentReconciliations    PaymentReconciliation[]
+  administrativeDocuments   AdministrativeDocument[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -957,6 +959,7 @@ model Student {
   admissionApplications AdmissionApplication[]
   reenrollmentRequests  ReenrollmentRequest[]
   paymentIntents      PaymentIntent[]
+  administrativeDocuments AdministrativeDocument[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -2403,6 +2406,64 @@ model Document {
   @@index([schoolId, status])
   @@index([schoolId, ownerType, ownerId])
   @@index([sha256])
+}
+
+/**
+ * G4 — Document administratif émis par l'établissement : attestation
+ * d'inscription, certificat de scolarité, carte scolaire.
+ *
+ * Le PDF est régénéré à la volée depuis `payload` (snapshot métier figé
+ * à l'émission — historiquement stable, comme `receiptSnapshot`).
+ * `publicCode` opaque (192 bits, non prédictible) sert à la
+ * vérification publique — aucun identifiant interne n'est exposé.
+ * `number` est attribué de façon atomique par école sous verrou
+ * transactionnel + contrainte unique.
+ */
+model AdministrativeDocument {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  type   AdminDocumentType
+  number String // DOC-YYYY-NNNNN — numérotation atomique par établissement
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  status     AdminDocumentStatus @default(ISSUED)
+  publicCode String              @unique
+  payload    Json
+
+  issuedById String?
+  issuedAt   DateTime @default(now())
+
+  revokedAt    DateTime?
+  revokedById  String?
+  revokeReason String?
+  /** Référence du document qui remplace celui-ci (réémission). */
+  replacedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, number])
+  @@index([schoolId, studentId])
+  @@index([schoolId, status])
+  @@index([academicYearId])
+}
+
+enum AdminDocumentType {
+  ATTESTATION_INSCRIPTION
+  CERTIFICAT_SCOLAIRE
+  CARTE_SCOLAIRE
+}
+
+enum AdminDocumentStatus {
+  ISSUED
+  REVOKED
 }
 
 /**
