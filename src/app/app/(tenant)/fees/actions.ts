@@ -21,6 +21,11 @@ import {
   recordPayment,
   remindUnpaid,
 } from "@/lib/services/finance/payments";
+import {
+  recordManualMobileMoney,
+  rejectManualPayment,
+  validateManualPayment,
+} from "@/lib/services/finance/manualMobileMoney";
 import type { PaymentMethod } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -37,8 +42,10 @@ const paymentMethodSchema = z.enum([
   "BANK_TRANSFER",
   "CHECK",
   "MOBILE_MONEY",
+  "MOBILE_MONEY_MANUAL",
   "OTHER",
 ]);
+const momoOperatorSchema = z.enum(["ORANGE_MONEY", "MOOV_MONEY"]);
 const discountTypeSchema = z.enum([
   "FIXED_AMOUNT",
   "PERCENT",
@@ -233,6 +240,44 @@ export async function recordPaymentAction(formData: FormData) {
   const { studentId, academicYearId: yearId } = parsed.data;
   const idempotencyKey =
     String(formData.get("idempotencyKey") ?? "").trim() || randomUUID();
+
+  // Mobile Money « vérification manuelle » : la ligne est créée PENDING
+  // — elle n'est comptabilisée qu'après confirmation explicite par un
+  // agent habilité (finance.payments.validate).
+  if (parsed.data.method === "MOBILE_MONEY_MANUAL") {
+    const extra = z
+      .object({
+        operator: momoOperatorSchema,
+        reference: requiredText.max(120),
+        merchantAccount: optionalText,
+      })
+      .safeParse({
+        operator: formData.get("operator"),
+        reference: formData.get("reference"),
+        merchantAccount: formData.get("merchantAccount"),
+      });
+    if (!extra.success) {
+      return back(
+        `/app/fees/accounts/${studentId}?year=${yearId}&error=INVALID_INPUT`,
+      );
+    }
+    const res = await recordManualMobileMoney(ctx(tenant), {
+      studentId,
+      academicYearId: yearId,
+      amount: parsed.data.amount,
+      operator: extra.data.operator,
+      reference: extra.data.reference,
+      merchantAccount: extra.data.merchantAccount,
+      observation: parsed.data.observation,
+      idempotencyKey,
+    });
+    return back(
+      res.ok
+        ? `/app/fees/accounts/${studentId}?year=${yearId}&ok=payment_pending`
+        : `/app/fees/accounts/${studentId}?year=${yearId}&error=${res.error}`,
+    );
+  }
+
   const res = await recordPayment(ctx(tenant), {
     ...parsed.data,
     method: parsed.data.method as PaymentMethod,
@@ -256,6 +301,33 @@ export async function cancelPaymentAction(formData: FormData) {
     reason: parsed.data.reason,
   });
   back(res.ok ? "/app/fees/payments?ok=cancelled" : `/app/fees/payments?error=${res.error}`);
+}
+
+/** Confirmation humaine d'un encaissement MoMo manuel (PENDING → VALIDATED). */
+export async function validateManualPaymentAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("finance.payments.validate");
+  const parsed = z.object({ id: idField }).safeParse({ id: formData.get("id") });
+  if (!parsed.success) return back("/app/fees/payments?error=INVALID_INPUT");
+  const res = await validateManualPayment(ctx(tenant), parsed.data.id);
+  back(
+    res.ok
+      ? `/app/fees/payments?ok=payment_validated&receipt=${res.result.receiptNumber}`
+      : `/app/fees/payments?error=${res.error}`,
+  );
+}
+
+/** Rejet d'un encaissement MoMo manuel en attente (motif obligatoire). */
+export async function rejectManualPaymentAction(formData: FormData) {
+  const tenant = await requireSchoolPermission("finance.payments.validate");
+  const parsed = z
+    .object({ id: idField, reason: requiredText.max(300) })
+    .safeParse({ id: formData.get("id"), reason: formData.get("reason") });
+  if (!parsed.success) return back("/app/fees/payments?error=INVALID_INPUT");
+  const res = await rejectManualPayment(ctx(tenant), {
+    paymentId: parsed.data.id,
+    reason: parsed.data.reason,
+  });
+  back(res.ok ? "/app/fees/payments?ok=payment_rejected" : `/app/fees/payments?error=${res.error}`);
 }
 
 // ---------- Caisse / relances ----------

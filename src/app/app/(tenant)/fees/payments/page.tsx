@@ -10,6 +10,8 @@ import {
 import {
   cancelPaymentAction,
   closeCashAction,
+  rejectManualPaymentAction,
+  validateManualPaymentAction,
 } from "@/app/app/(tenant)/fees/actions";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
@@ -26,7 +28,12 @@ const METHOD_LABELS: Record<string, string> = {
   BANK_TRANSFER: "Virement",
   CHECK: "Chèque",
   MOBILE_MONEY: "Mobile Money",
+  MOBILE_MONEY_MANUAL: "MoMo — vérif. manuelle",
   OTHER: "Autre",
+};
+const OPERATOR_LABELS: Record<string, string> = {
+  ORANGE_MONEY: "Orange Money",
+  MOOV_MONEY: "Moov Money",
 };
 
 export default async function PaymentsJournalPage(props: {
@@ -41,10 +48,11 @@ export default async function PaymentsJournalPage(props: {
   const confirm = str("confirm");
   const confirmId = str("id");
 
-  const [canCancel, canClose, canPrint] = await Promise.all([
+  const [canCancel, canClose, canPrint, canValidate] = await Promise.all([
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.payments.cancel" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.cash.close" }),
     userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.receipts.print" }),
+    userHasSchoolPermission({ userId: tenant.userId, schoolId: tenant.schoolId, permissionKey: "finance.payments.validate" }),
   ]);
 
   const years = await prisma.academicYear.findMany({
@@ -58,7 +66,7 @@ export default async function PaymentsJournalPage(props: {
   const to = str("to");
   const cashier = str("cashier") || undefined;
   const q = str("q")?.trim() || undefined;
-  const status = (["VALIDATED", "CANCELLED"] as const).find(
+  const status = (["VALIDATED", "CANCELLED", "PENDING"] as const).find(
     (s) => s === str("status"),
   ) as PaymentStatus | undefined;
   const page = Math.max(1, parseInt(str("page") ?? "1", 10) || 1);
@@ -187,6 +195,52 @@ export default async function PaymentsJournalPage(props: {
           l&apos;audit.
         </ConfirmPanel>
       ) : null}
+      {canValidate && confirm === "validate" && confirmPayment ? (
+        <ConfirmPanel
+          title="Confirmer la vérification manuelle"
+          action={validateManualPaymentAction}
+          fields={{ id: confirmPayment.id }}
+          inputs={[]}
+          confirmLabel="Confirmer et comptabiliser"
+          cancelHref={cancelHref}
+        >
+          Confirmer que la transaction{" "}
+          <strong>
+            {confirmPayment.mobileMoneyOperator
+              ? (OPERATOR_LABELS[confirmPayment.mobileMoneyOperator] ?? confirmPayment.mobileMoneyOperator)
+              : "Mobile Money"}{" "}
+            {confirmPayment.reference ?? ""}
+          </strong>{" "}
+          de <strong>{fmt(confirmPayment.amount)}</strong> —{" "}
+          {confirmPayment.student.firstName} {confirmPayment.student.lastName} —
+          a bien été vérifiée sur le compte marchand de l&apos;établissement.
+          Le paiement sera comptabilisé et le reçu émis.{" "}
+          <strong>Cette confirmation est un acte humain tracé dans l&apos;audit.</strong>
+        </ConfirmPanel>
+      ) : null}
+      {canValidate && confirm === "reject" && confirmPayment ? (
+        <ConfirmPanel
+          title="Rejeter l'encaissement en attente"
+          tone="danger"
+          action={rejectManualPaymentAction}
+          fields={{ id: confirmPayment.id }}
+          inputs={[
+            {
+              name: "reason",
+              label: "Motif du rejet :",
+              required: true,
+              placeholder: "Transaction introuvable sur le compte marchand…",
+            },
+          ]}
+          confirmLabel="Rejeter l'encaissement"
+          cancelHref={cancelHref}
+        >
+          Rejeter l&apos;encaissement <strong>{confirmPayment.reference ?? ""}</strong>{" "}
+          de <strong>{fmt(confirmPayment.amount)}</strong> —{" "}
+          {confirmPayment.student.firstName} {confirmPayment.student.lastName}.
+          La ligne est annulée (jamais supprimée) et reste tracée dans l&apos;audit.
+        </ConfirmPanel>
+      ) : null}
       <div className={card}>
         <div className="text-sm text-zinc-500">
           <Link href="/app/fees" className="hover:underline">Finances</Link> / Journal des paiements
@@ -260,6 +314,7 @@ export default async function PaymentsJournalPage(props: {
                   aria-label="Tous statuts" name="status" defaultValue={status ?? ""} className={input}>
             <option value="">Tous statuts</option>
             <option value="VALIDATED">Validés</option>
+            <option value="PENDING">En attente de vérification</option>
             <option value="CANCELLED">Annulés</option>
           </select>
           <button type="submit" className="rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-mist">
@@ -299,8 +354,8 @@ export default async function PaymentsJournalPage(props: {
                 <td className="py-2">{p.reference ?? "—"}</td>
                 <td className="py-2 text-xs">{p.receivedById ? (agentBy.get(p.receivedById) ?? "—") : "—"}</td>
                 <td className="py-2 text-right font-medium">{fmt(p.amount)}</td>
-                <td className={`py-2 text-xs ${p.status === "CANCELLED" ? "text-red-700" : "text-emerald-700"}`}>
-                  {p.status === "CANCELLED" ? "Annulé" : "Validé"}
+                <td className={`py-2 text-xs ${p.status === "CANCELLED" ? "text-red-700" : p.status === "PENDING" ? "text-amber-700" : "text-emerald-700"}`}>
+                  {p.status === "CANCELLED" ? "Annulé" : p.status === "PENDING" ? "En attente" : "Validé"}
                 </td>
                 <td className="py-2 text-right text-xs">
                   {canPrint && p.status === "VALIDATED" ? (
@@ -315,6 +370,22 @@ export default async function PaymentsJournalPage(props: {
                     >
                       Annuler
                     </Link>
+                  ) : null}
+                  {canValidate && p.status === "PENDING" ? (
+                    <>
+                      <Link
+                        href={`/app/fees/payments?confirm=validate&id=${p.id}${yearId ? `&year=${yearId}` : ""}`}
+                        className="mr-2 text-emerald-700 hover:underline"
+                      >
+                        Valider
+                      </Link>
+                      <Link
+                        href={`/app/fees/payments?confirm=reject&id=${p.id}${yearId ? `&year=${yearId}` : ""}`}
+                        className="text-red-600 hover:underline"
+                      >
+                        Rejeter
+                      </Link>
+                    </>
                   ) : null}
                 </td>
               </tr>

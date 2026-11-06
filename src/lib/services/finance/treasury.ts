@@ -83,6 +83,7 @@ export const TREASURY_METHOD_LABELS: Record<PaymentMethod, string> = {
   BANK_TRANSFER: "Virement",
   CHECK: "Chèque",
   MOBILE_MONEY: "Mobile Money",
+  MOBILE_MONEY_MANUAL: "Mobile Money (vérif. manuelle)",
   OTHER: "Autre",
 };
 

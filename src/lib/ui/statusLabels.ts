@@ -82,6 +82,7 @@ const PAYMENT_METHOD: Labels = {
   BANK_TRANSFER: "Virement bancaire",
   CHECK: "Chèque",
   MOBILE_MONEY: "Mobile Money",
+  MOBILE_MONEY_MANUAL: "Mobile Money (vérif. manuelle)",
   OTHER: "Autre",
 };
 

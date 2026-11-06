@@ -79,6 +79,7 @@ const METHOD: Record<string, string> = {
   BANK_TRANSFER: "Virement",
   CHECK: "Chèque",
   MOBILE_MONEY: "Mobile Money",
+  MOBILE_MONEY_MANUAL: "Mobile Money (vérif. manuelle)",
   OTHER: "Autre",
 };
 const EXPENSE_STATUS: Record<string, string> = {

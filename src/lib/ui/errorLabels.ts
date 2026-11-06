@@ -83,7 +83,8 @@ const ERROR_LABELS: Record<string, string> = {
 
   // Rapprochement / reversements / remboursements (G3-D)
   OVERPAYMENT_BLOCKED: "Paiement confirmé non imputable : l'échéance a déjà été soldée (ex. au guichet). L'anomalie est enregistrée pour traitement.",
-  DUPLICATE_REFERENCE: "Cette référence de reversement existe déjà pour ce prestataire.",
+  DUPLICATE_REFERENCE: "Cette référence existe déjà pour cet opérateur ou ce prestataire.",
+  NOT_PENDING: "Cet encaissement n'est plus en attente — il a déjà été traité.",
   NOTE_REQUIRED: "Un motif est obligatoire pour cette décision.",
   REASON_REQUIRED: "Un motif est obligatoire.",
   EXCEEDS_REFUNDABLE: "Le montant dépasse le remboursable restant sur cet encaissement.",

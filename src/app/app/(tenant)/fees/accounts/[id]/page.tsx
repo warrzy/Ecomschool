@@ -47,7 +47,12 @@ const METHOD_LABELS: Record<string, string> = {
   BANK_TRANSFER: "Virement",
   CHECK: "Chèque",
   MOBILE_MONEY: "Mobile Money",
+  MOBILE_MONEY_MANUAL: "Mobile Money (vérif. manuelle)",
   OTHER: "Autre",
+};
+const OPERATOR_LABELS: Record<string, string> = {
+  ORANGE_MONEY: "Orange Money",
+  MOOV_MONEY: "Moov Money",
 };
 
 export default async function StudentAccountPage(props: {
@@ -319,10 +324,18 @@ export default async function StudentAccountPage(props: {
                 <option value="CASH">Espèces</option>
                 <option value="BANK_TRANSFER">Virement</option>
                 <option value="CHECK">Chèque</option>
-                <option value="MOBILE_MONEY">Mobile Money</option>
+                <option value="MOBILE_MONEY_MANUAL">Mobile Money — vérification manuelle</option>
+                <option value="MOBILE_MONEY">Mobile Money (autre)</option>
                 <option value="OTHER">Autre</option>
               </select>
-              <input aria-label="Référence" name="reference" placeholder="Référence" className={input} />
+              <select
+                  aria-label="Opérateur Mobile Money" name="operator" className={input} defaultValue="">
+                <option value="" disabled>Opérateur (MoMo manuel)</option>
+                <option value="ORANGE_MONEY">Orange Money</option>
+                <option value="MOOV_MONEY">Moov Money</option>
+              </select>
+              <input aria-label="Référence" name="reference" placeholder="Réf. transaction (requis MoMo)" className={input} />
+              <input aria-label="Compte marchand" name="merchantAccount" placeholder="Compte marchand destinataire" className={input} />
               <input aria-label="Observation" name="observation" placeholder="Observation" className={input} />
               <SubmitButton
                 pendingLabel="Encaissement…"
@@ -336,6 +349,9 @@ export default async function StudentAccountPage(props: {
           )}
           <p className="mt-2 text-xs text-zinc-500">
             Le montant est réparti automatiquement sur les échéances les plus anciennes.
+            « Mobile Money — vérification manuelle » enregistre la transaction en attente :
+            elle n&apos;est comptabilisée qu&apos;après confirmation sur le compte marchand
+            par un agent habilité (journal des paiements).
           </p>
         </div>
       </div>
@@ -360,11 +376,11 @@ export default async function StudentAccountPage(props: {
               <tr key={p.id} className="border-b border-zinc-100 last:border-0">
                 <td className="py-2">{dstr(p.paidAt)}</td>
                 <td className="py-2 font-mono text-xs">{p.receiptNumber ?? "—"}</td>
-                <td className="py-2">{METHOD_LABELS[p.method] ?? p.method}</td>
+                <td className="py-2">{METHOD_LABELS[p.method] ?? p.method}{p.mobileMoneyOperator ? ` — ${OPERATOR_LABELS[p.mobileMoneyOperator] ?? p.mobileMoneyOperator}` : ""}</td>
                 <td className="py-2">{p.reference ?? "—"}</td>
                 <td className="py-2 text-right font-medium">{fmt(p.amount)}</td>
-                <td className={`py-2 text-xs ${p.status === "CANCELLED" ? "text-red-700" : "text-emerald-700"}`}>
-                  {p.status === "CANCELLED" ? `Annulé — ${p.cancelReason ?? ""}` : "Validé"}
+                <td className={`py-2 text-xs ${p.status === "CANCELLED" ? "text-red-700" : p.status === "PENDING" ? "text-amber-700" : "text-emerald-700"}`}>
+                  {p.status === "CANCELLED" ? `Annulé — ${p.cancelReason ?? ""}` : p.status === "PENDING" ? "En attente de vérification" : "Validé"}
                 </td>
                 <td className="py-2 text-right">
                   {canPrint && p.status === "VALIDATED" ? (

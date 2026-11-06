@@ -553,6 +553,13 @@ model Payment {
   cancelledById String?
   cancelReason  String?
 
+  // G3 manuel — encaissement Mobile Money vérifié manuellement.
+  // `PENDING` jusqu'à validation explicite : aucun reçu ni allocation.
+  mobileMoneyOperator MobileMoneyOperator?
+  merchantAccount     String? // compte marchand destinataire (ex. *144# / MSISDN)
+  verifiedById        String?
+  verifiedAt          DateTime?
+
   receiptNumber   String?
   receiptSnapshot Json?
 
@@ -1661,10 +1668,20 @@ enum PaymentMethod {
   BANK_TRANSFER
   CHECK
   MOBILE_MONEY
+  MOBILE_MONEY_MANUAL
   OTHER
 }
 
+// G3 manuel — opérateur d'un encaissement Mobile Money vérifié à la
+// main sur le compte marchand de l'établissement (jamais de vérification
+// automatique auprès de l'opérateur).
+enum MobileMoneyOperator {
+  ORANGE_MONEY
+  MOOV_MONEY
+}
+
 enum PaymentStatus {
+  PENDING
   VALIDATED
   CANCELLED
 }

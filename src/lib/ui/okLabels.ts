@@ -64,6 +64,10 @@ const OK_LABELS: Record<string, string> = {
   registered_charges_failed:
     "Inscription enregistrée, mais la génération des créances a échoué. Relancez la génération depuis le tableau de bord financier.",
   payment: "Paiement encaissé.",
+  payment_pending:
+    "Encaissement Mobile Money enregistré — en attente de vérification par un agent habilité.",
+  payment_validated: "Encaissement vérifié et comptabilisé — reçu émis.",
+  payment_rejected: "Encaissement rejeté.",
   recorded: "Paiement enregistré.",
   payment_cancelled: "Paiement annulé.",
   charges: "Frais générés.",

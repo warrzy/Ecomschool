@@ -28,6 +28,240 @@ function dayBounds(d: Date) {
 
 // ---------- Encaissements ----------
 
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Moteur de comptabilisation d'un encaissement — numéro de reçu
+ * séquentiel, contrôle de surpaiement (solde élève + plafond par
+ * échéance), répartition FIFO ou explicite, snapshot de reçu immuable
+ * et création des allocations. S'exécute dans la transaction
+ * sérialisable appelante.
+ *
+ * Deux modes : création directe (`recordPayment`, paiements de guichet
+ * et encaissements vérifiés par prestataire) ou comptabilisation d'un
+ * paiement `PENDING` existant (`validateManualPayment` — la ligne
+ * devient VALIDATED avec `verifiedById`/`verifiedAt`). Le snapshot est
+ * identique dans les deux cas, plus `snapshotExtras` éventuels.
+ */
+export async function postPaymentTx(
+  tx: Tx,
+  args: {
+    ctx: SchoolCtx;
+    studentId: string;
+    academicYearId: string;
+    amount: number;
+    paidAt: Date;
+    method: PaymentMethod;
+    reference?: string | null;
+    observation?: string | null;
+    idempotencyKey?: string;
+    explicitAllocations?: { installmentId: string; amount: number }[];
+    student: {
+      matricule: string;
+      firstName: string;
+      lastName: string;
+      enrollments: { classroom: { name: string } | null }[];
+    };
+    yearName: string;
+    school: {
+      name: string;
+      logoUrl: string | null;
+      address: string | null;
+      city: string | null;
+      phone: string | null;
+      currency: string | null;
+    } | null;
+    agent: { firstName: string | null; lastName: string | null; email: string } | null;
+    snapshotExtras?: Record<string, unknown>;
+    paymentId?: string;
+    verifiedById?: string;
+  },
+): Promise<{ id: string; receiptNumber: string }> {
+  const { ctx, input } = { ctx: args.ctx, input: args };
+  const seq = await tx.payment.count({
+    where: { schoolId: ctx.schoolId, receiptNumber: { not: null } },
+  });
+  const receiptNumber = `REC-${input.paidAt.getUTCFullYear()}-${String(seq + 1).padStart(5, "0")}`;
+
+  // Solde après paiement (snapshot reçu)
+  const [chargesSum, paidSum] = await Promise.all([
+    tx.studentFeeCharge.aggregate({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        academicYearId: input.academicYearId,
+        status: "ACTIVE",
+      },
+      _sum: { amount: true },
+    }),
+    tx.payment.aggregate({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        academicYearId: input.academicYearId,
+        status: "VALIDATED",
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+  const discounts = await tx.feeDiscount.findMany({
+    where: {
+      schoolId: ctx.schoolId,
+      studentId: input.studentId,
+      academicYearId: input.academicYearId,
+      status: "ACTIVE",
+    },
+    select: { type: true, value: true },
+  });
+  const total = chargesSum._sum.amount ?? 0;
+  const disc = discounts.reduce(
+    (s, d) =>
+      s + (d.type === "PERCENT" ? Math.floor((total * d.value) / 100) : d.type === "EXEMPTION" ? total : d.value),
+    0,
+  );
+  const due = Math.max(0, total - disc);
+  const alreadyPaid = paidSum._sum.amount ?? 0;
+  const remainingDue = Math.max(0, due - alreadyPaid);
+  // Aucun mécanisme d'avance n'existe : un encaissement ne peut pas
+  // dépasser le solde restant dû. Vérifié dans la transaction, donc
+  // atomique face aux paiements concurrents.
+  if (input.amount > remainingDue) {
+    throw new Error("OVERPAYMENT");
+  }
+  // G3-D : répartition calculée dans la transaction (FIFO relue à
+  // chaque retry sérialisable — jamais de répartition périmée),
+  // puis plafond par échéance vérifié au moment de l'écriture.
+  const allocations: { installmentId: string; amount: number }[] = [
+    ...(input.explicitAllocations ?? []),
+  ];
+  if (allocations.length === 0) {
+    const open = await tx.feeInstallment.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        studentId: input.studentId,
+        academicYearId: input.academicYearId,
+        status: "ACTIVE",
+        charge: { status: "ACTIVE" },
+      },
+      include: {
+        allocations: {
+          where: { payment: { status: "VALIDATED" } },
+          select: { amount: true },
+        },
+      },
+      orderBy: { dueDate: "asc" },
+    });
+    let remaining = input.amount;
+    for (const inst of open) {
+      const instPaid = inst.allocations.reduce((s, a) => s + a.amount, 0);
+      const instDue = Math.max(0, inst.amount - instPaid);
+      if (instDue <= 0 || remaining <= 0) continue;
+      const part = Math.min(instDue, remaining);
+      allocations.push({ installmentId: inst.id, amount: part });
+      remaining -= part;
+    }
+  }
+  // Le contrôle global ci-dessus garantit le solde de l'élève, mais
+  // une allocation explicite peut encore dépasser le reste à payer
+  // de SON échéance — ex. guichet et Mobile Money simultanés sur la
+  // même ligne. SSI + retry forcent la seconde écriture à relire
+  // les allocations fraîches.
+  for (const a of allocations) {
+    const inst = await tx.feeInstallment.findFirst({
+      where: { id: a.installmentId, schoolId: ctx.schoolId, status: "ACTIVE" },
+      select: {
+        amount: true,
+        allocations: {
+          where: { payment: { status: "VALIDATED" } },
+          select: { amount: true },
+        },
+      },
+    });
+    const instPaid = inst?.allocations.reduce((s, x) => s + x.amount, 0) ?? 0;
+    if (!inst || a.amount > inst.amount - instPaid) {
+      throw new Error("OVERPAYMENT");
+    }
+  }
+  const balanceAfter = remainingDue - input.amount;
+
+  const receiptSnapshot = {
+    receiptNumber,
+    issuedAt: input.paidAt.toISOString(),
+    school: input.school ?? null,
+    student: {
+      matricule: input.student.matricule,
+      firstName: input.student.firstName,
+      lastName: input.student.lastName,
+      classroomName: input.student.enrollments[0]?.classroom?.name ?? null,
+    },
+    academicYear: input.yearName,
+    amount: input.amount,
+    currency: input.school?.currency ?? "XOF",
+    method: input.method,
+    reference: input.reference?.trim() || null,
+    observation: input.observation?.trim() || null,
+    agent: input.agent
+      ? `${input.agent.firstName ?? ""} ${input.agent.lastName ?? ""}`.trim() || input.agent.email
+      : null,
+    balanceAfter,
+    allocations: allocations.map((a) => ({
+      installmentId: a.installmentId,
+      amount: a.amount,
+    })),
+    ...(input.snapshotExtras ?? {}),
+  };
+
+  if (input.paymentId) {
+    // Validation d'un encaissement manuel PENDING : la ligne existe
+    // déjà — on la bascule VALIDATED avec reçu et allocations. Le
+    // updateMany conditionnel protège contre une double validation.
+    const guarded = await tx.payment.updateMany({
+      where: { id: input.paymentId, schoolId: ctx.schoolId, status: "PENDING" },
+      data: {
+        status: "VALIDATED",
+        receiptNumber,
+        receiptSnapshot,
+        verifiedById: input.verifiedById ?? null,
+        verifiedAt: new Date(),
+      },
+    });
+    if (guarded.count === 0) throw new Error("NOT_PENDING");
+    await tx.paymentAllocation.createMany({
+      data: allocations.map((a) => ({
+        paymentId: input.paymentId!,
+        installmentId: a.installmentId,
+        amount: a.amount,
+      })),
+    });
+    return { id: input.paymentId, receiptNumber };
+  }
+
+  const p = await tx.payment.create({
+    data: {
+      schoolId: ctx.schoolId,
+      studentId: input.studentId,
+      academicYearId: input.academicYearId,
+      amount: input.amount,
+      paidAt: input.paidAt,
+      method: input.method,
+      reference: input.reference?.trim() || null,
+      observation: input.observation?.trim() || null,
+      receivedById: ctx.userId,
+      receiptNumber,
+      idempotencyKey: input.idempotencyKey,
+      receiptSnapshot,
+      allocations: {
+        create: allocations.map((a) => ({
+          installmentId: a.installmentId,
+          amount: a.amount,
+        })),
+      },
+    },
+    select: { id: true, receiptNumber: true },
+  });
+  return { id: p.id, receiptNumber: p.receiptNumber! };
+}
+
 /**
  * Enregistre un encaissement avec répartition sur les échéances.
  * - Idempotent via `idempotencyKey` (unique par école) : un appel répété
@@ -124,162 +358,23 @@ export async function recordPayment(
 
   const runTransaction = () =>
     prisma.$transaction(
-      async (tx) => {
-        const seq = await tx.payment.count({
-          where: { schoolId: ctx.schoolId, receiptNumber: { not: null } },
-        });
-        const receiptNumber = `REC-${paidAt.getUTCFullYear()}-${String(seq + 1).padStart(5, "0")}`;
-
-        // Solde après paiement (snapshot reçu)
-        const [chargesSum, paidSum] = await Promise.all([
-          tx.studentFeeCharge.aggregate({
-            where: {
-              schoolId: ctx.schoolId,
-              studentId: input.studentId,
-              academicYearId: input.academicYearId,
-              status: "ACTIVE",
-            },
-            _sum: { amount: true },
-          }),
-          tx.payment.aggregate({
-            where: {
-              schoolId: ctx.schoolId,
-              studentId: input.studentId,
-              academicYearId: input.academicYearId,
-              status: "VALIDATED",
-            },
-            _sum: { amount: true },
-          }),
-        ]);
-        const discounts = await tx.feeDiscount.findMany({
-          where: {
-            schoolId: ctx.schoolId,
-            studentId: input.studentId,
-            academicYearId: input.academicYearId,
-            status: "ACTIVE",
-          },
-          select: { type: true, value: true },
-        });
-        const total = chargesSum._sum.amount ?? 0;
-        const disc = discounts.reduce(
-          (s, d) =>
-            s + (d.type === "PERCENT" ? Math.floor((total * d.value) / 100) : d.type === "EXEMPTION" ? total : d.value),
-          0,
-        );
-        const due = Math.max(0, total - disc);
-        const alreadyPaid = paidSum._sum.amount ?? 0;
-        const remainingDue = Math.max(0, due - alreadyPaid);
-        // Aucun mécanisme d'avance n'existe : un encaissement ne peut pas
-        // dépasser le solde restant dû. Vérifié dans la transaction, donc
-        // atomique face aux paiements concurrents.
-        if (input.amount > remainingDue) {
-          throw new Error("OVERPAYMENT");
-        }
-        // G3-D : répartition calculée dans la transaction (FIFO relue à
-        // chaque retry sérialisable — jamais de répartition périmée),
-        // puis plafond par échéance vérifié au moment de l'écriture.
-        const allocations: { installmentId: string; amount: number }[] = [
-          ...explicitAllocations,
-        ];
-        if (allocations.length === 0) {
-          const open = await tx.feeInstallment.findMany({
-            where: {
-              schoolId: ctx.schoolId,
-              studentId: input.studentId,
-              academicYearId: input.academicYearId,
-              status: "ACTIVE",
-              charge: { status: "ACTIVE" },
-            },
-            include: {
-              allocations: {
-                where: { payment: { status: "VALIDATED" } },
-                select: { amount: true },
-              },
-            },
-            orderBy: { dueDate: "asc" },
-          });
-          let remaining = input.amount;
-          for (const inst of open) {
-            const alreadyPaid = inst.allocations.reduce((s, a) => s + a.amount, 0);
-            const due = Math.max(0, inst.amount - alreadyPaid);
-            if (due <= 0 || remaining <= 0) continue;
-            const part = Math.min(due, remaining);
-            allocations.push({ installmentId: inst.id, amount: part });
-            remaining -= part;
-          }
-        }
-        // Le contrôle global ci-dessus garantit le solde de l'élève, mais
-        // une allocation explicite peut encore dépasser le reste à payer
-        // de SON échéance — ex. guichet et Mobile Money simultanés sur la
-        // même ligne. SSI + retry forcent la seconde écriture à relire
-        // les allocations fraîches.
-        for (const a of allocations) {
-          const inst = await tx.feeInstallment.findFirst({
-            where: { id: a.installmentId, schoolId: ctx.schoolId, status: "ACTIVE" },
-            select: {
-              amount: true,
-              allocations: {
-                where: { payment: { status: "VALIDATED" } },
-                select: { amount: true },
-              },
-            },
-          });
-          const instPaid = inst?.allocations.reduce((s, x) => s + x.amount, 0) ?? 0;
-          if (!inst || a.amount > inst.amount - instPaid) {
-            throw new Error("OVERPAYMENT");
-          }
-        }
-        const balanceAfter = remainingDue - input.amount;
-
-        const p = await tx.payment.create({
-          data: {
-            schoolId: ctx.schoolId,
-            studentId: input.studentId,
-            academicYearId: input.academicYearId,
-            amount: input.amount,
-            paidAt,
-            method: input.method,
-            reference: input.reference?.trim() || null,
-            observation: input.observation?.trim() || null,
-            receivedById: ctx.userId,
-            receiptNumber,
-            idempotencyKey,
-            receiptSnapshot: {
-              receiptNumber,
-              issuedAt: paidAt.toISOString(),
-              school: school ?? null,
-              student: {
-                matricule: student.matricule,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                classroomName: student.enrollments[0]?.classroom.name ?? null,
-              },
-              academicYear: year.name,
-              amount: input.amount,
-              currency: school?.currency ?? "XOF",
-              method: input.method,
-              reference: input.reference?.trim() || null,
-              observation: input.observation?.trim() || null,
-              agent: agent
-                ? `${agent.firstName ?? ""} ${agent.lastName ?? ""}`.trim() || agent.email
-                : null,
-              balanceAfter,
-              allocations: allocations.map((a) => ({
-                installmentId: a.installmentId,
-                amount: a.amount,
-              })),
-            },
-            allocations: {
-              create: allocations.map((a) => ({
-                installmentId: a.installmentId,
-                amount: a.amount,
-              })),
-            },
-          },
-          select: { id: true, receiptNumber: true },
-        });
-        return p;
-      },
+      (tx) =>
+        postPaymentTx(tx, {
+          ctx,
+          studentId: input.studentId,
+          academicYearId: input.academicYearId,
+          amount: input.amount,
+          paidAt,
+          method: input.method,
+          reference: input.reference,
+          observation: input.observation,
+          idempotencyKey,
+          explicitAllocations,
+          student,
+          yearName: year.name,
+          school: school ?? null,
+          agent: agent ?? null,
+        }),
       { isolationLevel: "Serializable" },
     );
 
