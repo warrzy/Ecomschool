@@ -10,11 +10,17 @@
  * - `PENDING` n'a aucun effet financier : tous les agrégats filtrent
  *   `VALIDATED`.
  * - Anti-doublon : index unique partiel (schoolId, opérateur,
- *   référence) hors CANCELLED + pré-contrôle applicatif.
+ *   référence). Une référence déjà comptabilisée reste occupée même
+ *   après annulation (`receiptNumber` non nul) — impossible de
+ *   comptabiliser deux fois la même transaction opérateur. Seul un
+ *   rejet avant validation libère la référence pour ressaisie.
+ * - Séparation des rôles : l'agent qui a saisi ne peut pas valider
+ *   (SELF_APPROVAL), sauf école mono-validateur — exception consignée
+ *   dans l'audit comme pour les remboursements.
  * - `MOBILE_MONEY_MANUAL` reste structurellement distinct de
  *   `MOBILE_MONEY` (prestataire vérifié) — jamais de confusion.
  * - Aucune prétention de vérification auprès d'Orange Money ou Moov :
- *   la confirmation est un acte humain, auditée.
+ *   la confirmation est un acte humain explicite, auditée.
  * - Aucun PIN, OTP ou secret de paiement n'est demandé ni stocké.
  */
 import { randomUUID } from "node:crypto";
@@ -34,7 +40,9 @@ type SchoolCtx = { userId: string; schoolId: string };
 export type ManualMomoError =
   | PaymentsError
   | "DUPLICATE_REFERENCE"
-  | "NOT_PENDING";
+  | "NOT_PENDING"
+  | "SELF_APPROVAL"
+  | "HUMAN_CHECK_REQUIRED";
 
 export type ManualMomoResult<T> =
   | { ok: true; result: T }
@@ -110,7 +118,10 @@ export async function recordManualMobileMoney(
         schoolId: ctx.schoolId,
         mobileMoneyOperator: input.operator,
         reference,
-        status: { not: "CANCELLED" },
+        OR: [
+          { status: { not: "CANCELLED" } },
+          { receiptNumber: { not: null } },
+        ],
       },
       select: { id: true },
     }),
@@ -175,10 +186,22 @@ export async function recordManualMobileMoney(
  * partagé (reçu + allocations + surpaiement + snapshot). Atomique :
  * updateMany conditionnel sur `PENDING` — une double validation est
  * impossible.
+ *
+ * `humanCheckConfirmed` matérialise l'acte humain de vérification :
+ * l'appelant (action serveur) ne le transmet à `true` que si l'agent
+ * a confirmé explicitement dans le formulaire.
+ *
+ * Séparation des rôles : l'agent qui a saisi l'encaissement ne peut
+ * pas le valider (SELF_APPROVAL). Exception documentée : école
+ * mono-validateur — si le saisisseur est le SEUL membre actif
+ * détenteur de `finance.payments.validate`, l'auto-validation est
+ * tolérée mais consignée dans l'audit (`selfApproval: true,
+ * exception: "MONO_VALIDATOR"`).
  */
 export async function validateManualPayment(
   ctx: SchoolCtx,
   paymentId: string,
+  opts: { humanCheckConfirmed: boolean },
 ): Promise<ManualMomoResult<{ id: string; receiptNumber: string }>> {
   if (
     !(await userHasSchoolPermission({
@@ -188,6 +211,9 @@ export async function validateManualPayment(
     }))
   ) {
     return { ok: false, error: "FORBIDDEN" };
+  }
+  if (!opts.humanCheckConfirmed) {
+    return { ok: false, error: "HUMAN_CHECK_REQUIRED" };
   }
 
   const pending = await prisma.payment.findFirst({
@@ -207,10 +233,31 @@ export async function validateManualPayment(
       reference: true,
       merchantAccount: true,
       observation: true,
+      receivedById: true,
     },
   });
   if (!pending) return { ok: false, error: "NOT_FOUND" };
   if (pending.status !== "PENDING") return { ok: false, error: "NOT_PENDING" };
+
+  let selfApproval = false;
+  if (pending.receivedById === ctx.userId) {
+    const validators = await prisma.schoolMembership.count({
+      where: {
+        schoolId: ctx.schoolId,
+        status: "ACTIVE",
+        user: { status: "ACTIVE" },
+        role: {
+          scope: "SCHOOL",
+          OR: [{ schoolId: null }, { schoolId: ctx.schoolId }],
+          rolePermissions: {
+            some: { permission: { key: "finance.payments.validate" } },
+          },
+        },
+      },
+    });
+    if (validators > 1) return { ok: false, error: "SELF_APPROVAL" };
+    selfApproval = true;
+  }
 
   const { start, end } = dayBounds(pending.paidAt);
   const [closure, student, year, school, agent] = await Promise.all([
@@ -301,6 +348,10 @@ export async function validateManualPayment(
         operator: pending.mobileMoneyOperator,
         reference: pending.reference,
         receiptNumber: posted.receiptNumber,
+        humanCheckConfirmed: true,
+        ...(selfApproval
+          ? { selfApproval: true, exception: "MONO_VALIDATOR" }
+          : {}),
       },
     });
     return { ok: true, result: posted };

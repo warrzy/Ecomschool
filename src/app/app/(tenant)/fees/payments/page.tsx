@@ -200,7 +200,15 @@ export default async function PaymentsJournalPage(props: {
           title="Confirmer la vérification manuelle"
           action={validateManualPaymentAction}
           fields={{ id: confirmPayment.id }}
-          inputs={[]}
+          inputs={[
+            {
+              name: "humanCheck",
+              label:
+                "Retapez VÉRIFIÉ après avoir contrôlé la transaction sur le compte marchand",
+              required: true,
+              placeholder: "VÉRIFIÉ",
+            },
+          ]}
           confirmLabel="Confirmer et comptabiliser"
           cancelHref={cancelHref}
         >

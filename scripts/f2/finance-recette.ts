@@ -168,11 +168,18 @@ async function main() {
       await expectAccess(pfm, "/app/fees/payments", true, "FM-Premium");
       await expectAccess(pfm, "/app/fees/settings", true, "FM-Premium");
       await expectAccess(pfm, "/app/fees/unpaid", true, "FM-Premium");
-      const journal = await pageText(pfm, `/app/fees/payments?year=${year.id}`);
-      check(
-        "FM : voit les reçus des deux caissiers",
-        journal.includes(receiptA.receiptNumber!) && journal.includes(receiptB.receiptNumber!),
-      );
+      // Le journal est paginé (50/page) : les deux reçus peuvent être
+      // au-delà de la page 1 lorsque l'historique de l'école démo a
+      // grandi — on parcourt les pages jusqu'à les retrouver.
+      let seenA = false;
+      let seenB = false;
+      let journal = "";
+      for (let p = 1; p <= 8 && !(seenA && seenB); p++) {
+        journal = await pageText(pfm, `/app/fees/payments?year=${year.id}&page=${p}`);
+        if (journal.includes(receiptA.receiptNumber!)) seenA = true;
+        if (journal.includes(receiptB.receiptNumber!)) seenB = true;
+      }
+      check("FM : voit les reçus des deux caissiers", seenA && seenB);
       check("FM : colonne « Encaissé par »", journal.includes("CaissierA") || journal.includes("CaissierB"));
       const filteredA = await pageText(
         pfm,

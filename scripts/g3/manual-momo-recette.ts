@@ -244,15 +244,23 @@ const validatedSum = (schoolId: string, studentId: string, yearId: string) =>
 
   // ---------- Permissions de validation ----------
   console.log("\n== Validation ==");
-  const valNoPerm = om.ok ? await validateManualPayment(ctxNoPerm, om.result.id) : null;
+  const valNoPerm = om.ok
+    ? await validateManualPayment(ctxNoPerm, om.result.id, { humanCheckConfirmed: true }) : null;
   check("validation sans permission → FORBIDDEN", !valNoPerm?.ok && valNoPerm?.error === "FORBIDDEN");
-  const valCashier = om.ok ? await validateManualPayment(ctxCash, om.result.id) : null;
+  const valCashier = om.ok
+    ? await validateManualPayment(ctxCash, om.result.id, { humanCheckConfirmed: true }) : null;
   check("validation par le saisisseur (sans perm validate) → FORBIDDEN",
     !valCashier?.ok && valCashier?.error === "FORBIDDEN");
-  const valCross = om.ok ? await validateManualPayment(ctxB, om.result.id) : null;
+  const valCross = om.ok
+    ? await validateManualPayment(ctxB, om.result.id, { humanCheckConfirmed: true }) : null;
   check("validation inter-écoles → NOT_FOUND", !valCross?.ok && valCross?.error === "NOT_FOUND");
+  const valNoHuman = om.ok
+    ? await validateManualPayment(ctxVal, om.result.id, { humanCheckConfirmed: false }) : null;
+  check("validation sans confirmation humaine → HUMAN_CHECK_REQUIRED",
+    !valNoHuman?.ok && valNoHuman?.error === "HUMAN_CHECK_REQUIRED");
 
-  const valOk = om.ok ? await validateManualPayment(ctxVal, om.result.id) : null;
+  const valOk = om.ok
+    ? await validateManualPayment(ctxVal, om.result.id, { humanCheckConfirmed: true }) : null;
   check("validation par agent habilité → OK", !!valOk?.ok);
   if (valOk?.ok) {
     const row = await prisma.payment.findUnique({
@@ -271,8 +279,46 @@ const validatedSum = (schoolId: string, studentId: string, yearId: string) =>
     check("snapshot : compte marchand", snap?.merchantAccount === "*144# OM 76XXXXXX");
   }
   check("solde validé = 25 000", (await validatedSum(A.school.id, A.student.id, A.year.id)) === 25_000);
-  const valAgain = om.ok ? await validateManualPayment(ctxVal, om.result.id) : null;
+  const valAgain = om.ok
+    ? await validateManualPayment(ctxVal, om.result.id, { humanCheckConfirmed: true }) : null;
   check("double validation → NOT_PENDING", !valAgain?.ok && valAgain?.error === "NOT_PENDING");
+
+  // ---------- Séparation saisisseur / validateur ----------
+  console.log("\n== Séparation saisisseur / validateur ==");
+  // École A : 2 détenteurs de finance.payments.validate (validator + both)
+  // → l'auto-validation est interdite.
+  const selfRec = await recordManualMobileMoney(ctxBoth, {
+    ...base, amount: 1_000, operator: "ORANGE_MONEY", reference: "OM-SELF-001",
+  });
+  check("saisie par agent bi-habilité → PENDING", selfRec.ok);
+  const selfVal = selfRec.ok
+    ? await validateManualPayment(ctxBoth, selfRec.result.id, { humanCheckConfirmed: true }) : null;
+  check("auto-validation (multi-validateurs) → SELF_APPROVAL",
+    !selfVal?.ok && selfVal?.error === "SELF_APPROVAL");
+  if (selfRec.ok) {
+    const row = await prisma.payment.findUnique({ where: { id: selfRec.result.id } });
+    check("bloqué → toujours PENDING", row?.status === "PENDING");
+    await rejectManualPayment(ctxVal, { paymentId: selfRec.result.id, reason: "nettoyage fixture" });
+  }
+  // École B : cashierB est le SEUL détenteur de la permission →
+  // exception mono-validateur tolérée mais consignée.
+  const monoRec = await recordManualMobileMoney(ctxB, {
+    studentId: B.student.id, academicYearId: B.year.id,
+    amount: 2_000, operator: "MOOV_MONEY", reference: "MOOV-MONO-001",
+  });
+  const monoVal = monoRec.ok
+    ? await validateManualPayment(ctxB, monoRec.result.id, { humanCheckConfirmed: true }) : null;
+  check("auto-validation mono-validateur → tolérée", !!monoVal?.ok);
+  const monoAudit = await prisma.auditLog.findFirst({
+    where: {
+      schoolId: B.school.id, action: "finance.payment_manual.validate",
+      entityId: monoRec.ok ? monoRec.result.id : "",
+    },
+    select: { metadata: true },
+  });
+  const monoMeta = monoAudit?.metadata as Record<string, unknown> | null;
+  check("exception MONO_VALIDATOR consignée dans l'audit",
+    monoMeta?.selfApproval === true && monoMeta?.exception === "MONO_VALIDATOR");
 
   // ---------- Surpaiement bloqué à la validation ----------
   console.log("\n== Surpaiement ==");
@@ -280,7 +326,8 @@ const validatedSum = (schoolId: string, studentId: string, yearId: string) =>
     ...base, amount: 200_000, operator: "ORANGE_MONEY", reference: "OM-OVER-001",
   });
   check("saisie montant > solde autorisée (PENDING)", tooMuch.ok);
-  const valOver = tooMuch.ok ? await validateManualPayment(ctxVal, tooMuch.result.id) : null;
+  const valOver = tooMuch.ok
+    ? await validateManualPayment(ctxVal, tooMuch.result.id, { humanCheckConfirmed: true }) : null;
   check("validation surpayée → OVERPAYMENT", !valOver?.ok && valOver?.error === "OVERPAYMENT");
   if (tooMuch.ok) {
     const row = await prisma.payment.findUnique({ where: { id: tooMuch.result.id } });
@@ -314,7 +361,8 @@ const validatedSum = (schoolId: string, studentId: string, yearId: string) =>
     ...base, amount: 15_000, operator: "MOOV_MONEY", reference: "MOOV-REF-001",
   });
   check("ressaisie de la référence après rejet → acceptée", reRecord.ok);
-  const valReRecord = reRecord.ok ? await validateManualPayment(ctxVal, reRecord.result.id) : null;
+  const valReRecord = reRecord.ok
+    ? await validateManualPayment(ctxVal, reRecord.result.id, { humanCheckConfirmed: true }) : null;
   check("ressaisie validée → OK", !!valReRecord?.ok);
   check("solde validé = 40 000", (await validatedSum(A.school.id, A.student.id, A.year.id)) === 40_000);
 
@@ -326,7 +374,16 @@ const validatedSum = (schoolId: string, studentId: string, yearId: string) =>
   if (om.ok) {
     const row = await prisma.payment.findUnique({ where: { id: om.result.id } });
     check("annulé → CANCELLED + motif", row?.status === "CANCELLED" && !!row?.cancelReason);
+    check("reçu conservé après annulation (traçabilité)", !!row?.receiptNumber);
   }
+  // Anti-double-comptabilisation : la référence d'un paiement VALIDÉ
+  // puis annulé reste occupée — ressaisie impossible, contrairement au
+  // rejet avant validation qui libère la référence.
+  const reAfterCancel = await recordManualMobileMoney(ctxCash, {
+    ...base, amount: 25_000, operator: "ORANGE_MONEY", reference: "OM-REF-001",
+  });
+  check("ressaisie d'une référence validée puis annulée → DUPLICATE_REFERENCE",
+    !reAfterCancel.ok && reAfterCancel.error === "DUPLICATE_REFERENCE");
 
   // ---------- Isolation ----------
   console.log("\n== Isolation inter-écoles ==");

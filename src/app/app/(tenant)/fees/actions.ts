@@ -308,7 +308,11 @@ export async function validateManualPaymentAction(formData: FormData) {
   const tenant = await requireSchoolPermission("finance.payments.validate");
   const parsed = z.object({ id: idField }).safeParse({ id: formData.get("id") });
   if (!parsed.success) return back("/app/fees/payments?error=INVALID_INPUT");
-  const res = await validateManualPayment(ctx(tenant), parsed.data.id);
+  const res = await validateManualPayment(ctx(tenant), parsed.data.id, {
+    humanCheckConfirmed:
+      String(formData.get("humanCheck") ?? "").trim().toUpperCase() ===
+      "VÉRIFIÉ",
+  });
   back(
     res.ok
       ? `/app/fees/payments?ok=payment_validated&receipt=${res.result.receiptNumber}`
