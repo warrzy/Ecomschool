@@ -132,6 +132,8 @@ const ERROR_LABELS: Record<string, string> = {
   // Délibérations (H5)
   NO_RESULTS: "Aucun résultat calculé pour cette classe — calculez d'abord les moyennes.",
   MISSING_DECISIONS: "Validation impossible : certains élèves n'ont pas de décision retenue.",
+  STALE_RESULTS: "Des moyennes ont été recalculées depuis la préparation — recalculez les propositions avant de continuer.",
+  DECISION_CONFLICT: "Publication bloquée : une décision déjà saisie (bulletin ou résultat annuel) diffère de la décision du conseil — levez-la explicitement avant de publier.",
 
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",

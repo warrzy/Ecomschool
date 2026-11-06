@@ -164,9 +164,15 @@ async function makeSchool(name: string, slug: string, code: string) {
   const spr1 = await spr(s1.id, 16, 1, true);
   const spr2 = await spr(s2.id, 8, 3, true);
   const spr3 = await spr(s3.id, 12, 2, false);
+  const spr1t2 = await prisma.studentPeriodResult.create({
+    data: {
+      schoolId: A.school.id, academicPeriodId: A.period2.id,
+      classroomId: A.classroom.id, studentId: s1.id,
+      generalAverage: 15, rank: 1, isComplete: true, status: "CALCULATED",
+    },
+  });
   await prisma.studentPeriodResult.createMany({
     data: [
-      { schoolId: A.school.id, academicPeriodId: A.period2.id, classroomId: A.classroom.id, studentId: s1.id, generalAverage: 15, rank: 1, isComplete: true, status: "CALCULATED" },
       { schoolId: A.school.id, academicPeriodId: A.period2.id, classroomId: A.classroom.id, studentId: s2.id, generalAverage: 9, rank: 3, isComplete: true, status: "CALCULATED" },
       { schoolId: A.school.id, academicPeriodId: A.period2.id, classroomId: A.classroom.id, studentId: s3.id, generalAverage: 13, rank: 2, isComplete: true, status: "CALCULATED" },
       { schoolId: A.school.id, academicPeriodId: A.period2.id, classroomId: A.classroom.id, studentId: s4.id, generalAverage: 10, rank: 4, isComplete: true, status: "CALCULATED" },
@@ -302,6 +308,18 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("ajustement s1 préservé au recalcul", d1.status === "ADJUSTED" && d1.finalLabel === "Ajournement");
   check("moyenne d'origine s2 bien modifiée (11) non réécrite", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr2.id } })).generalAverage === 11);
 
+  // ---------- Obsolescence à la validation ----------
+  console.log("\n== Obsolescence (validation) ==");
+  await prisma.studentPeriodResult.update({
+    where: { id: spr3.id },
+    data: { generalAverage: 13 },
+  });
+  check("validation sur données obsolètes → STALE_RESULTS", err(await validateSession(cVal, sid)) === "STALE_RESULTS");
+  check("reprepare rafraîchit s3", (await reprepareSession(cMan, sid)).ok);
+  det = await getSession(cMan, sid);
+  check("s3 snapshot rafraîchi à 13", det!.decisions.find((d) => d.studentId === s3.id)!.averageSnapshot === 13);
+  check("s3 proposition toujours Rattrapage (incomplet)", det!.decisions.find((d) => d.studentId === s3.id)!.proposedLabel === "Rattrapage");
+
   // ---------- Validation / verrouillage ----------
   console.log("\n== Validation ==");
   check("validation par habilité", (await validateSession(cVal, sid)).ok);
@@ -347,8 +365,22 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("session redevenue VALIDATED", (await getSession(cMan, sid))!.status === "VALIDATED");
   check("correction manuelle s1 préservée", (await sprAfter(spr1.id)) === "Correction manuelle direction");
   check("libellé s2 retiré", (await sprAfter(spr2.id)) == null);
-  check("republication", (await publishSession(cPub, sid)).ok);
-  check("councilDecision s1 resynchronisé à la republication", (await sprAfter(spr1.id)) === "Ajournement");
+
+  // Une décision saisie par ailleurs bloque la republication
+  await prisma.studentPeriodResult.update({
+    where: { id: spr2.id },
+    data: { councilDecision: "Saisie parallèle direction" },
+  });
+  check("écrasement silencieux bloqué → DECISION_CONFLICT", err(await publishSession(cPub, sid)) === "DECISION_CONFLICT");
+  check("session toujours VALIDATED", (await getSession(cMan, sid))!.status === "VALIDATED");
+  // Levée explicite des valeurs concurrentes (s1 et s2)
+  await prisma.studentPeriodResult.updateMany({
+    where: { id: { in: [spr1.id, spr2.id] } },
+    data: { councilDecision: null },
+  });
+  check("republication après levée du conflit", (await publishSession(cPub, sid)).ok);
+  check("councilDecision s1 resynchronisé", (await sprAfter(spr1.id)) === "Ajournement");
+  check("councilDecision s2 resynchronisé", (await sprAfter(spr2.id)) === "Admis");
 
   // ---------- Concurrence ----------
   console.log("\n== Concurrence ==");
@@ -362,6 +394,21 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("une seule validation gagne", [v1.ok, v2.ok].filter(Boolean).length === 1);
   check("perdante = INVALID_STATUS", (!v1.ok ? v1.error : !v2.ok ? v2.error : "") === "INVALID_STATUS");
 
+  // Obsolescence post-validation → publication bloquée jusqu'à
+  // déverrouillage motivé + recalcul + revalidation.
+  await prisma.studentPeriodResult.update({
+    where: { id: spr1t2.id },
+    data: { generalAverage: 16 },
+  });
+  check("publication sur données obsolètes → STALE_RESULTS", err(await publishSession(cPub, prep2.result.id)) === "STALE_RESULTS");
+  check("déverrouillage motivé T2", (await unlockSession(cVal, prep2.result.id, "Moyennes T2 recalculées par la direction")).ok);
+  check("reprepare T2", (await reprepareSession(cMan, prep2.result.id)).ok);
+  const det2 = await getSession(cMan, prep2.result.id);
+  check("s1 T2 rafraîchie → Félicitations", det2!.decisions.find((d) => d.studentId === s1.id)!.finalLabel === "Félicitations du conseil");
+  check("revalidation T2", (await validateSession(cVal, prep2.result.id)).ok);
+  check("publication T2", (await publishSession(cPub, prep2.result.id)).ok);
+  check("councilDecision T2 s1 = Félicitations", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr1t2.id } })).councilDecision === "Félicitations du conseil");
+
   // ---------- Délibération annuelle ----------
   console.log("\n== Annuelle ==");
   const prepA = await prepareSession(cMan, { scope: "ANNUAL", classroomId: A.classroom.id });
@@ -373,12 +420,29 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("annuel s2 → Redouble", dA(s2.id).proposedLabel === "Redouble");
   check("annuel s4 → sans proposition", dA(s4.id).proposedLabel == null);
   check("doublon annuel refusé", err(await prepareSession(cMan, { scope: "ANNUAL", classroomId: A.classroom.id })) === "ALREADY_EXISTS");
+  // Règle propre à l'année créée après la préparation : elle prime sur
+  // les générales, qui restent en repli pour les bandes non couvertes.
+  await upsertRule(cMan, {
+    scope: "ANNUAL", label: "Admis avec distinction",
+    minAverage: 14, order: 5, academicYearId: A.year.id,
+  });
+  check("reprepare annuel (règle ajoutée a posteriori)", (await reprepareSession(cMan, prepA.result.id)).ok);
+  const detA2 = await getSession(cMan, prepA.result.id);
+  const dA2 = (sid2: string) => detA2!.decisions.find((d) => d.studentId === sid2)!;
+  check("règle annuelle prime (s1 → Admis avec distinction)", dA2(s1.id).proposedLabel === "Admis avec distinction");
+  check("repli général conservé (s2 → Redouble)", dA2(s2.id).proposedLabel === "Redouble");
   // s4 annuelle : décision libre
-  await adjustDecision(cMan, { decisionId: dA(s4.id).id, customLabel: "Orientation vers autre établissement", reason: "Départ de la famille" });
+  await adjustDecision(cMan, { decisionId: dA2(s4.id).id, customLabel: "Orientation vers autre établissement", reason: "Départ de la famille" });
   check("validation annuelle", (await validateSession(cVal, prepA.result.id)).ok);
   check("publication annuelle", (await publishSession(cPub, prepA.result.id)).ok);
-  check("decision annuelle s1 synchronisée", (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar1.id } })).decision === "Passe en classe supérieure");
+  check("decision annuelle s1 synchronisée", (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar1.id } })).decision === "Admis avec distinction");
   check("decision annuelle s2 = Redouble", (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar2.id } })).decision === "Redouble");
+  // Cohérence G2 : les libellés publiés alimentent l'inférence
+  // existante ; le statut du résultat annuel n'est pas modifié par H5
+  // (la visibilité G2 reste conditionnée à sa publication propre).
+  check("G2 : « Admis avec distinction » infère PROMOTION", /admis|passe|sup[ée]rieur/.test("admis avec distinction"));
+  check("G2 : « Redouble » infère REPETITION", /redoubl/.test("redouble"));
+  check("statut annuel inchangé par H5 (gate G2 préservée)", (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar1.id } })).status === "CALCULATED");
 
   // ---------- Isolation inter-écoles ----------
   console.log("\n== Isolation ==");
@@ -414,7 +478,7 @@ async function makeSchool(name: string, slug: string, code: string) {
   // ---------- Intégrité des résultats ----------
   console.log("\n== Intégrité ==");
   check("moyenne s1 jamais modifiée", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr1.id } })).generalAverage === 16);
-  check("moyenne s3 jamais modifiée", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr3.id } })).generalAverage === 12);
+  check("moyenne s3 = valeur fixture (13), jamais réécrite par H5", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr3.id } })).generalAverage === 13);
   check("statut du résultat inchangé (CALCULATED)", (await prisma.studentPeriodResult.findUniqueOrThrow({ where: { id: spr1.id } })).status === "CALCULATED");
 
   console.log(`\n=== H5 recette : ${pass} PASS, ${fail} FAIL ===`);

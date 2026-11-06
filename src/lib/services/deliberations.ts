@@ -37,6 +37,8 @@ export type DeliberationError =
   | "NO_RESULTS"
   | "MISSING_DECISIONS"
   | "REASON_REQUIRED"
+  | "STALE_RESULTS"
+  | "DECISION_CONFLICT"
   | "ALREADY_EXISTS"
   | "UPDATE_FAILED";
 
@@ -212,23 +214,37 @@ type RuleRow = {
   requiresComplete: boolean;
 };
 
-/** Règles applicables : celles de l'année si définies, sinon les règles générales. */
+/**
+ * Règles applicables à une classe : les règles propres à l'année sont
+ * évaluées en premier, puis les règles générales en repli — une règle
+ * annuelle ne peut donc pas laisser de trou de couverture. Dans chaque
+ * groupe, les règles restreintes à un niveau ne s'appliquent qu'à la
+ * classe de ce niveau.
+ */
 async function rulesFor(
   ctx: SchoolCtx,
   scope: DeliberationScope,
   academicYearId: string,
+  levelId: string | null,
 ): Promise<RuleRow[]> {
-  const specific = await prisma.deliberationRule.findMany({
-    where: { schoolId: ctx.schoolId, scope, status: "ACTIVE", academicYearId },
-    select: { id: true, label: true, minAverage: true, maxAverage: true, requiresComplete: true },
-    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-  });
-  if (specific.length) return specific;
-  return prisma.deliberationRule.findMany({
-    where: { schoolId: ctx.schoolId, scope, status: "ACTIVE", academicYearId: null },
-    select: { id: true, label: true, minAverage: true, maxAverage: true, requiresComplete: true },
-    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
-  });
+  const cols = {
+    id: true, label: true, minAverage: true, maxAverage: true,
+    requiresComplete: true, levelId: true,
+  } as const;
+  const orderBy = [{ order: "asc" as const }, { createdAt: "asc" as const }];
+  const [specific, general] = await Promise.all([
+    prisma.deliberationRule.findMany({
+      where: { schoolId: ctx.schoolId, scope, status: "ACTIVE", academicYearId },
+      select: cols, orderBy,
+    }),
+    prisma.deliberationRule.findMany({
+      where: { schoolId: ctx.schoolId, scope, status: "ACTIVE", academicYearId: null },
+      select: cols, orderBy,
+    }),
+  ]);
+  const applicable = (r: { levelId: string | null }) =>
+    r.levelId == null || r.levelId === levelId;
+  return [...specific, ...general].filter(applicable);
 }
 
 function propose(
@@ -262,6 +278,62 @@ type SourceRow = {
   mention: string | null;
   complete: boolean;
 };
+
+/**
+ * Détecte les décisions dont la moyenne (ou la complétude, en conseil
+ * de période) a été recalculée depuis la préparation — comparaison
+ * entre le snapshot figé et la donnée persistée actuelle. Bloque
+ * validation et publication tant que les propositions ne sont pas
+ * rafraîchies.
+ */
+async function staleDecisionIds(
+  ctx: SchoolCtx,
+  session: {
+    scope: DeliberationScope;
+    academicPeriodId: string | null;
+    academicYearId: string;
+    decisions: { id: string; studentId: string; averageSnapshot: number | null; completeSnapshot: boolean }[];
+  },
+): Promise<Set<string>> {
+  const stale = new Set<string>();
+  const studentIds = session.decisions.map((d) => d.studentId);
+  if (session.scope === "PERIOD" && session.academicPeriodId) {
+    const current = await prisma.studentPeriodResult.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicPeriodId: session.academicPeriodId,
+        studentId: { in: studentIds },
+      },
+      select: { studentId: true, generalAverage: true, isComplete: true },
+    });
+    const byId = new Map(current.map((r) => [r.studentId, r]));
+    for (const d of session.decisions) {
+      const r = byId.get(d.studentId);
+      if (
+        (r?.generalAverage ?? null) !== d.averageSnapshot ||
+        (r?.isComplete ?? false) !== d.completeSnapshot
+      ) {
+        stale.add(d.id);
+      }
+    }
+  } else {
+    const current = await prisma.studentAnnualResult.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: session.academicYearId,
+        studentId: { in: studentIds },
+      },
+      select: { studentId: true, annualAverage: true },
+    });
+    const byId = new Map(current.map((r) => [r.studentId, r.annualAverage]));
+    for (const d of session.decisions) {
+      if ((byId.get(d.studentId) ?? null) !== d.averageSnapshot) {
+        stale.add(d.id);
+      }
+    }
+  }
+  return stale;
+}
 
 /**
  * Crée une session de délibération et calcule les propositions à
@@ -310,7 +382,12 @@ export async function prepareSession(
     return { ok: false, error: "INVALID_INPUT" };
   }
 
-  const rules = await rulesFor(ctx, input.scope, classroom.academicYearId);
+  const rules = await rulesFor(
+    ctx,
+    input.scope,
+    classroom.academicYearId,
+    classroom.levelId,
+  );
 
   // Élèves de la classe (même périmètre que le calcul des résultats).
   const enrollments = await prisma.enrollment.findMany({
@@ -450,12 +527,18 @@ export async function reprepareSession(
     select: {
       id: true, scope: true, classroomId: true,
       academicPeriodId: true, academicYearId: true, status: true,
+      classroom: { select: { levelId: true } },
     },
   });
   if (!session) return { ok: false, error: "NOT_FOUND" };
   if (session.status !== "OPEN") return { ok: false, error: "INVALID_STATUS" };
 
-  const rules = await rulesFor(ctx, session.scope, session.academicYearId);
+  const rules = await rulesFor(
+    ctx,
+    session.scope,
+    session.academicYearId,
+    session.classroom.levelId,
+  );
   const enrollments = await prisma.enrollment.findMany({
     where: { schoolId: ctx.schoolId, classroomId: session.classroomId, status: "ENROLLED" },
     select: { studentId: true },
@@ -601,35 +684,8 @@ export async function getSession(ctx: SchoolCtx, id: string) {
   if (!session) return null;
 
   // Dérive éventuelle : résultats recalculés depuis la préparation.
-  const staleIds = new Set<string>();
-  if (session.scope === "PERIOD" && session.academicPeriodId) {
-    const current = await prisma.studentPeriodResult.findMany({
-      where: {
-        schoolId: ctx.schoolId,
-        academicPeriodId: session.academicPeriodId,
-        studentId: { in: session.decisions.map((d) => d.studentId) },
-      },
-      select: { studentId: true, generalAverage: true },
-    });
-    const byId = new Map(current.map((r) => [r.studentId, r.generalAverage]));
-    for (const d of session.decisions) {
-      if ((byId.get(d.studentId) ?? null) !== d.averageSnapshot) staleIds.add(d.id);
-    }
-  } else if (session.scope === "ANNUAL") {
-    const current = await prisma.studentAnnualResult.findMany({
-      where: {
-        schoolId: ctx.schoolId,
-        academicYearId: session.academicYearId,
-        studentId: { in: session.decisions.map((d) => d.studentId) },
-      },
-      select: { studentId: true, annualAverage: true },
-    });
-    const byId = new Map(current.map((r) => [r.studentId, r.annualAverage]));
-    for (const d of session.decisions) {
-      if ((byId.get(d.studentId) ?? null) !== d.averageSnapshot) staleIds.add(d.id);
-    }
-  }
-  return { ...session, staleDecisionIds: staleIds };
+  const stale = await staleDecisionIds(ctx, session);
+  return { ...session, staleDecisionIds: stale };
 }
 
 // ---------- Ajustement ----------
@@ -729,10 +785,24 @@ export async function validateSession(
   }
   const session = await prisma.deliberationSession.findFirst({
     where: { id: sessionId, schoolId: ctx.schoolId },
-    select: { id: true, status: true, number: true },
+    select: {
+      id: true, status: true, number: true, scope: true,
+      academicPeriodId: true, academicYearId: true,
+      decisions: {
+        select: {
+          id: true, studentId: true,
+          averageSnapshot: true, completeSnapshot: true,
+        },
+      },
+    },
   });
   if (!session) return { ok: false, error: "NOT_FOUND" };
   if (session.status !== "OPEN") return { ok: false, error: "INVALID_STATUS" };
+
+  // Résultats recalculés depuis la préparation → validation interdite
+  // tant que les propositions n'ont pas été rafraîchies.
+  const stale = await staleDecisionIds(ctx, session);
+  if (stale.size > 0) return { ok: false, error: "STALE_RESULTS" };
 
   const undecided = await prisma.deliberationDecision.count({
     where: { sessionId: session.id, finalLabel: null },
@@ -776,25 +846,29 @@ export async function unlockSession(
   const r = reason.trim();
   if (!r) return { ok: false, error: "REASON_REQUIRED" };
 
-  const u = await prisma.deliberationSession.updateMany({
-    where: { id: sessionId, schoolId: ctx.schoolId, status: "VALIDATED" },
-    data: {
-      status: "OPEN",
-      unlockedById: ctx.userId,
-      unlockedAt: new Date(),
-      unlockReason: r,
-    },
+  const done = await prisma.$transaction(async (tx) => {
+    const u = await tx.deliberationSession.updateMany({
+      where: { id: sessionId, schoolId: ctx.schoolId, status: "VALIDATED" },
+      data: {
+        status: "OPEN",
+        unlockedById: ctx.userId,
+        unlockedAt: new Date(),
+        unlockReason: r,
+      },
+    });
+    if (!u.count) return false;
+    // Les décisions repassent à leur état d'avant validation.
+    await tx.deliberationDecision.updateMany({
+      where: { sessionId },
+      data: { status: "PROPOSED" },
+    });
+    await tx.deliberationDecision.updateMany({
+      where: { sessionId, adjustmentReason: { not: null } },
+      data: { status: "ADJUSTED" },
+    });
+    return true;
   });
-  if (!u.count) return { ok: false, error: "INVALID_STATUS" };
-  // Les décisions repassent à leur état d'avant validation.
-  await prisma.deliberationDecision.updateMany({
-    where: { sessionId },
-    data: { status: "PROPOSED" },
-  });
-  await prisma.deliberationDecision.updateMany({
-    where: { sessionId, adjustmentReason: { not: null } },
-    data: { status: "ADJUSTED" },
-  });
+  if (!done) return { ok: false, error: "INVALID_STATUS" };
   await logAudit({
     actorId: ctx.userId,
     schoolId: ctx.schoolId,
@@ -821,9 +895,64 @@ export async function publishSession(
   }
   const session = await prisma.deliberationSession.findFirst({
     where: { id: sessionId, schoolId: ctx.schoolId },
-    include: { decisions: { select: { studentId: true, finalLabel: true } } },
+    include: {
+      decisions: {
+        select: {
+          id: true, studentId: true, finalLabel: true,
+          averageSnapshot: true, completeSnapshot: true,
+        },
+      },
+    },
   });
   if (!session) return { ok: false, error: "NOT_FOUND" };
+  if (session.status !== "VALIDATED") {
+    return { ok: false, error: "INVALID_STATUS" };
+  }
+
+  // La diffusion ne doit pas porter des décisions basées sur des
+  // moyennes recalculées depuis la validation.
+  const stale = await staleDecisionIds(ctx, session);
+  if (stale.size > 0) return { ok: false, error: "STALE_RESULTS" };
+
+  // Aucun écrasement silencieux : une décision saisie par ailleurs
+  // (annotation de bulletin, décision annuelle) bloque la publication
+  // tant qu'elle n'a pas été levée explicitement.
+  const syncCandidates = session.decisions.filter((d) => d.finalLabel);
+  let conflicts = 0;
+  if (session.scope === "PERIOD") {
+    const sprs = await prisma.studentPeriodResult.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicPeriodId: session.academicPeriodId!,
+        studentId: { in: syncCandidates.map((d) => d.studentId) },
+        councilDecision: { not: null },
+      },
+      select: { studentId: true, councilDecision: true },
+    });
+    const finalByStudent = new Map(
+      syncCandidates.map((d) => [d.studentId, d.finalLabel]),
+    );
+    conflicts = sprs.filter(
+      (r) => r.councilDecision !== finalByStudent.get(r.studentId),
+    ).length;
+  } else {
+    const sars = await prisma.studentAnnualResult.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        academicYearId: session.academicYearId,
+        studentId: { in: syncCandidates.map((d) => d.studentId) },
+        decision: { not: null },
+      },
+      select: { studentId: true, decision: true },
+    });
+    const finalByStudent = new Map(
+      syncCandidates.map((d) => [d.studentId, d.finalLabel]),
+    );
+    conflicts = sars.filter(
+      (r) => r.decision !== finalByStudent.get(r.studentId),
+    ).length;
+  }
+  if (conflicts > 0) return { ok: false, error: "DECISION_CONFLICT" };
 
   const done = await prisma.$transaction(async (tx) => {
     const u = await tx.deliberationSession.updateMany({

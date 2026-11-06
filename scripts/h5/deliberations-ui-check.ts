@@ -211,6 +211,9 @@ async function cleanup(schoolId: string) {
     // ---------- PV PDF + CSV ----------
     const pvResp = await admin.request.get(`${BASE}/app/deliberations/${sid}/pv`, { timeout: 120000 });
     check("PV PDF 200", pvResp.status() === 200 && (pvResp.headers()["content-type"] ?? "").includes("pdf"));
+    const pvBuf = Buffer.from(await pvResp.body());
+    fs.writeFileSync(`${SHOTS}/pv-deliberation.pdf`, pvBuf);
+    check("PV : en-tête PDF + contenu non vide", pvBuf.subarray(0, 5).toString() === "%PDF-" && pvBuf.length > 2000);
     const csvResp = await admin.request.get(`${BASE}/app/deliberations/${sid}/export`, { timeout: 120000 });
     check("export CSV 200", csvResp.status() === 200 && (await csvResp.text()).includes("decision_retenue"));
   }
