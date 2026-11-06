@@ -367,6 +367,35 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("justificatif enfant non rattaché → NOT_FOUND",
     !justUnlinked.ok && justUnlinked.error === "NOT_FOUND");
 
+  // Anti-doublon : un seul justificatif ouvert par relevé.
+  const justDup = await submitAbsenceJustification(ctx2, {
+    attendanceRecordId: absence.id, body: "deuxième envoi",
+  });
+  check("justificatif en double → ALREADY_EXISTS",
+    !justDup.ok && justDup.error === "ALREADY_EXISTS");
+  // Course concurrente sur un autre relevé : l'index unique n'en garde qu'un.
+  const absence2 = await prisma.attendanceRecord.create({
+    data: {
+      schoolId: A.school.id, studentId: s1.id, date: new Date("2026-11-05"),
+      status: "ABSENT",
+    },
+  });
+  const [race1, race2] = await Promise.all([
+    submitAbsenceJustification(ctx2, { attendanceRecordId: absence2.id, body: "course 1" }),
+    submitAbsenceJustification(ctx2, { attendanceRecordId: absence2.id, body: "course 2" }),
+  ]);
+  const raceOk = [race1, race2].filter((r) => r.ok).length;
+  check("course concurrente → un seul justificatif créé", raceOk === 1);
+  check("perdant de la course → ALREADY_EXISTS",
+    [race1, race2].some((r) => !r.ok && r.error === "ALREADY_EXISTS"));
+  // Le parent retire son justificatif → nouvelle soumission autorisée.
+  const cancelJust = just.ok ? await cancelParentRequest(ctx2, just.result.id) : null;
+  check("retrait du justificatif → OK", !!cancelJust?.ok);
+  const justAgain = await submitAbsenceJustification(ctx2, {
+    attendanceRecordId: absence.id, body: "Justificatif définitif.",
+  });
+  check("ressoumission après retrait → OK", justAgain.ok);
+
   // ---------- Annulation ----------
   console.log("\n== Annulation parent ==");
   const cancelOk = r2.ok ? await cancelParentRequest(ctx2, r2.result.id) : null;
@@ -384,13 +413,14 @@ async function makeSchool(name: string, slug: string, code: string) {
   check("traitement sans permission → FORBIDDEN",
     !respNoPerm?.ok && respNoPerm?.error === "FORBIDDEN");
   const queue = await listSchoolRequests(ctxAdmin);
-  // r1 (ouverte) + r2 (annulée par le parent) + r0 + justificatif = 4
+  // r1 + r2 (annulée) + r0 + justificatif (annulé) + justificatif course
+  // + justificatif ressoumis = 6
   check("admin voit les demandes de son école",
-    queue.length === 4 && queue.every((r) => r.schoolId === A.school.id));
+    queue.length === 6 && queue.every((r) => r.schoolId === A.school.id));
   const queueOpen = await listSchoolRequests(ctxAdmin, { status: "SUBMITTED" });
-  // r1 + r0 + justificatif = 3 déposées (r2 est annulée)
+  // r1 + r0 + justificatif course + justificatif ressoumis = 4 déposées
   check("filtre statut SUBMITTED → seules les déposées",
-    queueOpen.length === 3 && queueOpen.every((r) => r.status === "SUBMITTED"));
+    queueOpen.length === 4 && queueOpen.every((r) => r.status === "SUBMITTED"));
   const crossDetail = r1.ok ? await getSchoolRequest(ctxBCross, r1.result.id) : null;
   check("détail inter-écoles → null", crossDetail === null);
   const rejNoReason = r1.ok

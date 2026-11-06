@@ -30,6 +30,7 @@ export type ParentRequestError =
   | "NOT_FOUND"
   | "INVALID_INPUT"
   | "NOT_OPEN"
+  | "ALREADY_EXISTS"
   | "UPDATE_FAILED";
 
 export type ParentRequestResult<T> =
@@ -172,18 +173,40 @@ export async function submitAbsenceJustification(
     return { ok: false, error: "NOT_FOUND" };
   }
 
-  const req = await prisma.administrativeRequest.create({
-    data: {
+  // Un seul justificatif ouvert par relevé de présence (l'index unique
+  // partiel h1_admin_req_open_justification couvre la course concurrente).
+  const existing = await prisma.administrativeRequest.findFirst({
+    where: {
       schoolId: ctx.schoolId,
-      guardianId: guardian.id,
-      studentId: record.studentId,
-      type: "ABSENCE_JUSTIFICATION",
-      subject: `Justificatif — ${record.status === "ABSENT" ? "absence" : "retard"} du ${record.date.toISOString().slice(0, 10)}`,
-      body,
       contextRef: input.attendanceRecordId,
+      type: "ABSENCE_JUSTIFICATION",
+      status: { in: OPEN_STATUSES },
     },
     select: { id: true },
   });
+  if (existing) return { ok: false, error: "ALREADY_EXISTS" };
+
+  let req: { id: string };
+  try {
+    req = await prisma.administrativeRequest.create({
+      data: {
+        schoolId: ctx.schoolId,
+        guardianId: guardian.id,
+        studentId: record.studentId,
+        type: "ABSENCE_JUSTIFICATION",
+        subject: `Justificatif — ${record.status === "ABSENT" ? "absence" : "retard"} du ${record.date.toISOString().slice(0, 10)}`,
+        body,
+        contextRef: input.attendanceRecordId,
+      },
+      select: { id: true },
+    });
+  } catch (e) {
+    // Course concurrente : l'index unique partiel a rejeté le doublon.
+    if ((e as { code?: string }).code === "P2002") {
+      return { ok: false, error: "ALREADY_EXISTS" };
+    }
+    throw e;
+  }
   await logAudit({
     actorId: ctx.userId,
     schoolId: ctx.schoolId,
@@ -388,6 +411,10 @@ export async function updateParentContact(
     return { ok: false, error: "INVALID_INPUT" };
   }
 
+  const before = await prisma.guardian.findUnique({
+    where: { id: guardian.id },
+    select: { phone: true, email: true, address: true },
+  });
   await prisma.guardian.update({
     where: { id: guardian.id },
     data: { phone, email, address },
@@ -399,9 +426,9 @@ export async function updateParentContact(
     entity: "Guardian",
     entityId: guardian.id,
     metadata: {
-      phoneChanged: true,
-      emailChanged: email !== null,
-      addressChanged: true,
+      phoneChanged: before?.phone !== phone,
+      emailChanged: before?.email !== email,
+      addressChanged: before?.address !== address,
     },
   });
   return { ok: true, result: undefined };
