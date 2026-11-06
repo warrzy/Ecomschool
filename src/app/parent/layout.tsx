@@ -40,10 +40,13 @@ export default async function ParentLayout({
         </form>
       </header>
       {unread > 0 ? (
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900">
+        <a
+          href="/parent?tab=notifications"
+          className="block border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 hover:bg-amber-100"
+        >
           {unread} notification{unread > 1 ? "s" : ""} non lue{unread > 1 ? "s" : ""}
           {notifications[0] ? ` — ${notifications[0].title}` : ""}
-        </div>
+        </a>
       ) : null}
       <main id="contenu" className="mx-auto w-full max-w-3xl p-4">{children}</main>
     </div>

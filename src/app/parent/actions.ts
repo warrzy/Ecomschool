@@ -13,6 +13,13 @@ import {
   createParentPaymentIntent,
   getParentIntent,
 } from "@/lib/services/portal/parentPayments";
+import {
+  cancelParentRequest,
+  createParentRequest,
+  submitAbsenceJustification,
+  updateParentContact,
+} from "@/lib/services/parent-requests";
+import type { AdminRequestType } from "@prisma/client";
 import { pollPaymentIntent } from "@/lib/services/payments/mobileIntents";
 
 const back = (path: string): never => redirect(path as never);
@@ -139,5 +146,84 @@ export async function cancelParentIntentAction(formData: FormData) {
   const res = await cancelParentIntent(ctx, intentId, "CANCELLED_BY_PARENT");
   return back(
     finUrl(studentId, res.ok ? "ok=cancelled" : `intent=${intentId}&error=${res.error}`),
+  );
+}
+
+// ─── H1 : demandes administratives, profil, justificatifs ──────────
+
+const reqSchema = z.object({
+  type: z.enum([
+    "DOCUMENT",
+    "ABSENCE_JUSTIFICATION",
+    "ACCOUNT_INFO",
+    "MEETING",
+    "OTHER",
+  ]),
+  subject: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(4000),
+  studentId: z.string().optional(),
+});
+
+const reqUrl = (extra: string) => `/parent?tab=demandes&${extra}`;
+
+export async function createParentRequestAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const p = reqSchema.safeParse(Object.fromEntries(formData));
+  if (!p.success) return back(reqUrl("error=INVALID_INPUT"));
+  const res = await createParentRequest(ctx, {
+    type: p.data.type as AdminRequestType,
+    subject: p.data.subject,
+    body: p.data.body,
+    studentId: p.data.studentId || undefined,
+  });
+  return back(
+    res.ok ? reqUrl("ok=request_created") : reqUrl(`error=${res.error}`),
+  );
+}
+
+export async function cancelParentRequestAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const id = String(formData.get("requestId") ?? "");
+  if (!id) return back(reqUrl("error=INVALID_INPUT"));
+  const res = await cancelParentRequest(ctx, id);
+  return back(
+    res.ok ? reqUrl("ok=request_cancelled") : reqUrl(`error=${res.error}`),
+  );
+}
+
+export async function submitJustificationAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const attendanceRecordId = String(formData.get("attendanceRecordId") ?? "");
+  const studentId = String(formData.get("studentId") ?? "");
+  const body = String(formData.get("body") ?? "");
+  const url = (extra: string) =>
+    `/parent?child=${studentId}&tab=absences&${extra}`;
+  if (!attendanceRecordId || !body.trim()) {
+    return back(url("error=INVALID_INPUT"));
+  }
+  const res = await submitAbsenceJustification(ctx, {
+    attendanceRecordId,
+    body,
+  });
+  return back(
+    res.ok ? url("ok=justification_sent") : url(`error=${res.error}`),
+  );
+}
+
+export async function updateParentContactAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const res = await updateParentContact(ctx, {
+    phone: String(formData.get("phone") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    address: String(formData.get("address") ?? ""),
+  });
+  return back(
+    res.ok
+      ? "/parent?tab=profil&ok=contact_saved"
+      : `/parent?tab=profil&error=${res.error}`,
   );
 }

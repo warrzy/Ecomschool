@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
@@ -8,8 +9,12 @@ import {
   parentReenrollmentView,
 } from "@/lib/services/reenrollment";
 import {
+  cancelParentRequestAction,
+  createParentRequestAction,
   replyReenrollAction,
+  submitJustificationAction,
   submitReenrollAction,
+  updateParentContactAction,
   uploadReenrollDocAction,
 } from "./actions";
 import {
@@ -30,6 +35,19 @@ import {
   listParentProviders,
   parentFinancesOverview,
 } from "@/lib/services/portal/parentPayments";
+import {
+  getParentProfile,
+  listParentRequests,
+  REQUEST_STATUS_LABELS,
+  REQUEST_STATUS_TONES,
+  REQUEST_TYPE_LABELS,
+} from "@/lib/services/parent-requests";
+import {
+  listNotifications,
+  markAllRead,
+  markNotificationRead,
+  unreadCount,
+} from "@/lib/services/notifications";
 import { prisma } from "@/lib/db/prisma";
 import {
   cancelParentIntentAction,
@@ -51,7 +69,8 @@ const DAY: Record<string, string> = {
 };
 const DAYS_ORDER = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
 
-const TABS = [
+/** Onglets rattachés à l'enfant sélectionné (lien revérifié côté serveur). */
+const CHILD_TABS = [
   ["apercu", "Aperçu"],
   ["edt", "Emploi du temps"],
   ["notes", "Notes"],
@@ -61,7 +80,14 @@ const TABS = [
   ["absences", "Absences"],
   ["finances", "Finances"],
   ["reinscription", "Réinscription"],
+] as const;
+
+/** Onglets au niveau du compte parent — accessibles même sans enfant. */
+const GLOBAL_TABS = [
   ["annonces", "Annonces"],
+  ["demandes", "Demandes"],
+  ["notifications", "Notifications"],
+  ["profil", "Profil"],
 ] as const;
 
 const INTENT_STATUS_LABELS: Record<string, string> = {
@@ -123,19 +149,25 @@ export default async function ParentPage(props: {
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
 
   const children = await listChildren(ctx);
-  if (children.length === 0) {
-    return (
-      <Card>
-        <p className="text-sm text-zinc-600">
-          Aucun enfant n&apos;est rattaché à votre compte. Contactez votre établissement.
-        </p>
-      </Card>
-    );
-  }
+  const tab = str("tab") ?? (children.length ? "apercu" : "annonces");
+  const isGlobal = GLOBAL_TABS.some(([k]) => k === tab);
+  const childId = children.length
+    ? (str("child") ?? children[0].student.id)
+    : undefined;
+  const allowed = childId ? await verifyChildAccess(ctx, childId) : null;
 
-  const childId = str("child") ?? children[0].student.id;
-  const allowed = await verifyChildAccess(ctx, childId);
-  const tab = str("tab") ?? "apercu";
+  // Marquage « lu » des notifications — même convention GET+redirect
+  // que la page /app/notifications.
+  if (tab === "notifications") {
+    if (str("allread") === "1") {
+      await markAllRead(ctx.userId);
+      redirect("/parent?tab=notifications" as never);
+    }
+    if (str("read")) {
+      await markNotificationRead(ctx.userId, String(str("read")));
+      redirect("/parent?tab=notifications" as never);
+    }
+  }
 
   const errCode = str("error");
   const okCode = str("ok");
@@ -152,31 +184,39 @@ export default async function ParentPage(props: {
           {okMessage(okCode)}
         </div>
       ) : null}
-      {/* Sélecteur d'enfant */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {children.map((c) => (
-          <Link
-            key={c.student.id}
-            href={`/parent?child=${c.student.id}&tab=${tab}`}
-            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
-              c.student.id === childId
-                ? "border-brand-600 bg-brand-600 text-white"
-                : "border-zinc-300 bg-white text-zinc-700"
-            }`}
-          >
-            {c.student.firstName} {c.student.lastName}
-          </Link>
-        ))}
-      </div>
 
-      {!allowed ? (
-        <Card>
-          <p className="text-sm text-red-700">Accès non autorisé à cet élève.</p>
-        </Card>
+      {/* Sélecteur d'enfant */}
+      {children.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {children.map((c) => (
+            <Link
+              key={c.student.id}
+              href={`/parent?child=${c.student.id}&tab=${isGlobal ? "apercu" : tab}`}
+              className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm ${
+                c.student.id === childId && !isGlobal
+                  ? "border-brand-600 bg-brand-600 text-white"
+                  : "border-zinc-300 bg-white text-zinc-700"
+              }`}
+            >
+              {c.student.firstName} {c.student.lastName}
+            </Link>
+          ))}
+        </div>
       ) : (
-        <>
-          <div className="flex gap-2 overflow-x-auto border-b border-zinc-200 pb-2">
-            {TABS.map(([key, label]) => (
+        <Card>
+          <p className="text-sm text-zinc-600">
+            Aucun enfant n&apos;est rattaché à votre compte. Les onglets de
+            suivi scolaire apparaîtront dès que l&apos;établissement aura
+            rattaché un élève — vous pouvez déjà déposer une demande.
+          </p>
+        </Card>
+      )}
+
+      {/* Barre d'onglets : suivi de l'enfant puis espace du compte parent.
+          flex-wrap — tous les onglets restent visibles sans scroll horizontal. */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-2">
+        {childId
+          ? CHILD_TABS.map(([key, label]) => (
               <Link
                 key={key}
                 href={`/parent?child=${childId}&tab=${key}`}
@@ -186,17 +226,45 @@ export default async function ParentPage(props: {
               >
                 {label}
               </Link>
-            ))}
-          </div>
-          <ParentTab
-            ctx={ctx}
-            studentId={childId}
-            tab={tab}
-            schoolId={tenant.schoolId}
-            pay={str("pay")}
-            intentId={str("intent")}
-          />
-        </>
+            ))
+          : null}
+        {childId ? (
+          <span aria-hidden className="mx-1 h-5 border-l border-zinc-300" />
+        ) : null}
+        {GLOBAL_TABS.map(([key, label]) => (
+          <Link
+            key={key}
+            href={`/parent?tab=${key}${childId ? `&child=${childId}` : ""}`}
+            className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm ${
+              tab === key
+                ? "bg-brand-600 text-white"
+                : "bg-zinc-50 text-zinc-600 hover:bg-mist"
+            }`}
+          >
+            {label}
+          </Link>
+        ))}
+      </div>
+
+      {isGlobal ? (
+        <GlobalTab
+          ctx={ctx}
+          tab={tab}
+          schoolId={tenant.schoolId}
+          childLinks={children}
+        />
+      ) : !allowed || !childId ? (
+        <Card>
+          <p className="text-sm text-red-700">Accès non autorisé à cet élève.</p>
+        </Card>
+      ) : (
+        <ParentTab
+          ctx={ctx}
+          studentId={childId}
+          tab={tab}
+          pay={str("pay")}
+          intentId={str("intent")}
+        />
       )}
     </div>
   );
@@ -206,14 +274,12 @@ async function ParentTab({
   ctx,
   studentId,
   tab,
-  schoolId,
   pay,
   intentId,
 }: {
   ctx: { userId: string; schoolId: string };
   studentId: string;
   tab: string;
-  schoolId: string;
   pay?: string;
   intentId?: string;
 }) {
@@ -395,14 +461,43 @@ async function ParentTab({
         {records && records.length > 0 ? (
           <ul className="space-y-2 text-sm">
             {records.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between">
-                <span>
-                  {r.date.toLocaleDateString("fr-FR")} —{" "}
-                  {r.status === "ABSENT" ? "Absence" : `Retard${r.durationMin ? ` (${r.durationMin} min)` : ""}`}
-                </span>
-                <span className={`text-xs ${r.justifiedAt ? "text-emerald-700" : "text-amber-700"}`}>
-                  {r.justifiedAt ? "Justifié" : "Non justifié"}
-                </span>
+              <li key={r.id}>
+                <div className="flex flex-wrap items-center justify-between">
+                  <span>
+                    {r.date.toLocaleDateString("fr-FR")} —{" "}
+                    {r.status === "ABSENT" ? "Absence" : `Retard${r.durationMin ? ` (${r.durationMin} min)` : ""}`}
+                  </span>
+                  <span className={`text-xs ${r.justifiedAt ? "text-emerald-700" : "text-amber-700"}`}>
+                    {r.justifiedAt ? "Justifié" : "Non justifié"}
+                  </span>
+                </div>
+                {!r.justifiedAt ? (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs text-brand-700 hover:underline">
+                      Transmettre un justificatif à l&apos;établissement
+                    </summary>
+                    <form action={submitJustificationAction} className="mt-1 flex items-end gap-2">
+                      <input type="hidden" name="attendanceRecordId" value={r.id} />
+                      <input type="hidden" name="studentId" value={studentId} />
+                      <label className="flex-1 text-xs font-medium text-zinc-600">
+                        Motif (ex. certificat médical, convocation…)
+                        <input
+                          aria-label="Motif du justificatif"
+                          name="body"
+                          required
+                          maxLength={2000}
+                          className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+                        />
+                      </label>
+                      <SubmitButton className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-700 hover:bg-mist">
+                        Envoyer
+                      </SubmitButton>
+                    </form>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      L&apos;établissement examine le justificatif avant de le valider.
+                    </p>
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -428,6 +523,36 @@ async function ParentTab({
     return <ReenrollTab ctx={ctx} studentId={studentId} />;
   }
 
+  return (
+    <Card>
+      <p className="text-sm text-zinc-600">Onglet inconnu.</p>
+    </Card>
+  );
+}
+
+/** Onglets au niveau du compte parent (indépendants de l'enfant). */
+async function GlobalTab({
+  ctx,
+  tab,
+  schoolId,
+  childLinks,
+}: {
+  ctx: { userId: string; schoolId: string };
+  tab: string;
+  schoolId: string;
+  childLinks: Awaited<ReturnType<typeof listChildren>>;
+}) {
+  if (tab === "demandes") {
+    return <RequestsTab ctx={ctx} childLinks={childLinks} />;
+  }
+  if (tab === "notifications") {
+    return <NotificationsTab userId={ctx.userId} />;
+  }
+  if (tab === "profil") {
+    return <ProfileTab ctx={ctx} />;
+  }
+
+  // annonces (défaut)
   const announcements = await listPublishedAnnouncements(schoolId, "PARENTS");
   return (
     <div className="space-y-3">
@@ -443,6 +568,275 @@ async function ParentTab({
       ) : (
         <Card><p className="text-sm text-zinc-600">Aucune annonce.</p></Card>
       )}
+    </div>
+  );
+}
+
+const NOTIF_TYPE_LABELS: Record<string, string> = {
+  REPORT_CARD_PUBLISHED: "Résultats",
+  ANNOUNCEMENT: "Annonce",
+  ABSENCE_UNJUSTIFIED: "Absence",
+  LATENESS: "Retard",
+  ADMIN_MESSAGE: "Message",
+  FINANCE_REMINDER: "Finances",
+};
+
+/** Demandes administratives déposées par le parent + suivi. */
+async function RequestsTab({
+  ctx,
+  childLinks,
+}: {
+  ctx: { userId: string; schoolId: string };
+  childLinks: Awaited<ReturnType<typeof listChildren>>;
+}) {
+  const requests = await listParentRequests(ctx);
+  return (
+    <div className="space-y-3">
+      <Card title="Nouvelle demande">
+        <form action={createParentRequestAction} className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="text-xs font-medium text-zinc-600">
+              Type de demande
+              <select
+                aria-label="Type de demande"
+                name="type"
+                required
+                className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+              >
+                {Object.entries(REQUEST_TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-medium text-zinc-600">
+              Enfant concerné (optionnel)
+              <select
+                aria-label="Enfant concerné"
+                name="studentId"
+                className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+              >
+                <option value="">— Aucun —</option>
+                {childLinks.map((c) => (
+                  <option key={c.student.id} value={c.student.id}>
+                    {c.student.firstName} {c.student.lastName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className="block text-xs font-medium text-zinc-600">
+            Objet
+            <input
+              aria-label="Objet de la demande"
+              name="subject"
+              required
+              maxLength={200}
+              className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+            />
+          </label>
+          <label className="block text-xs font-medium text-zinc-600">
+            Votre message
+            <textarea
+              aria-label="Message de la demande"
+              name="body"
+              required
+              rows={3}
+              maxLength={4000}
+              className="mt-1 block w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+            />
+          </label>
+          <SubmitButton className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            Envoyer la demande
+          </SubmitButton>
+        </form>
+      </Card>
+
+      <Card title="Mes demandes">
+        {requests.length > 0 ? (
+          <ul className="space-y-3 text-sm">
+            {requests.map((r) => (
+              <li key={r.id} className="rounded-xl border border-zinc-200 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{r.subject}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs ${REQUEST_STATUS_TONES[r.status]}`}>
+                    {REQUEST_STATUS_LABELS[r.status]}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {REQUEST_TYPE_LABELS[r.type]}
+                  {r.student
+                    ? ` — ${r.student.firstName} ${r.student.lastName}`
+                    : ""}
+                  {" · "}déposée le {r.createdAt.toLocaleDateString("fr-FR")}
+                </p>
+                <p className="mt-1 whitespace-pre-line text-sm text-zinc-700">{r.body}</p>
+                {r.response ? (
+                  <p className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                    <span className="font-medium">Réponse de l&apos;établissement :</span>{" "}
+                    {r.response}
+                  </p>
+                ) : null}
+                {r.status === "SUBMITTED" ? (
+                  <form action={cancelParentRequestAction} className="mt-2">
+                    <input type="hidden" name="requestId" value={r.id} />
+                    <SubmitButton className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs text-zinc-700 hover:bg-mist">
+                      Retirer la demande
+                    </SubmitButton>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-zinc-600">Aucune demande déposée.</p>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/** Centre de notifications internes du parent. */
+async function NotificationsTab({ userId }: { userId: string }) {
+  const [items, unread] = await Promise.all([
+    listNotifications(userId, { take: 50 }),
+    unreadCount(userId),
+  ]);
+  return (
+    <div className="space-y-3">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium">
+            {unread} notification{unread > 1 ? "s" : ""} non lue{unread > 1 ? "s" : ""}
+          </p>
+          {unread > 0 ? (
+            <a
+              href="/parent?tab=notifications&allread=1"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+            >
+              Tout marquer comme lu
+            </a>
+          ) : null}
+        </div>
+      </Card>
+      {items.length > 0 ? (
+        <ul className="space-y-2">
+          {items.map((n) => (
+            <li key={n.id}>
+              <Card>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      {!n.readAt ? (
+                        <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-brand-600" aria-label="Non lue" />
+                      ) : null}
+                      <span className="text-sm font-medium">{n.title}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {NOTIF_TYPE_LABELS[n.type] ?? n.type} — {n.createdAt.toLocaleDateString("fr-FR")}
+                    </p>
+                    {n.body ? (
+                      <p className="mt-1 whitespace-pre-line text-sm text-zinc-700">{n.body}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {n.link ? (
+                      <a href={n.link} className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist">
+                        Ouvrir
+                      </a>
+                    ) : null}
+                    {!n.readAt ? (
+                      <a
+                        href={`/parent?tab=notifications&read=${n.id}`}
+                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+                      >
+                        Marquer lu
+                      </a>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Card><p className="text-sm text-zinc-600">Aucune notification.</p></Card>
+      )}
+    </div>
+  );
+}
+
+/** Profil du compte + coordonnées du dossier parent. */
+async function ProfileTab({ ctx }: { ctx: { userId: string; schoolId: string } }) {
+  const { guardian, user } = await getParentProfile(ctx);
+  return (
+    <div className="space-y-3">
+      <Card title="Mon compte">
+        <dl className="space-y-1 text-sm">
+          <div className="flex flex-wrap justify-between">
+            <dt className="text-zinc-500">Nom</dt>
+            <dd>{user?.lastName} {user?.firstName}</dd>
+          </div>
+          <div className="flex flex-wrap justify-between">
+            <dt className="text-zinc-500">Identifiant de connexion</dt>
+            <dd className="font-mono text-xs">{user?.email}</dd>
+          </div>
+        </dl>
+        <p className="mt-2 text-xs text-zinc-500">
+          Pour changer votre mot de passe, utilisez «{" "}
+          <a href="/reset-password" className="text-brand-700 hover:underline">
+            mot de passe oublié
+          </a>{" "}
+          » depuis la page de connexion.
+        </p>
+      </Card>
+
+      <Card title="Mes coordonnées">
+        {guardian ? (
+          <form action={updateParentContactAction} className="space-y-2">
+            <label className="block text-xs font-medium text-zinc-600">
+              Téléphone
+              <input
+                aria-label="Téléphone"
+                name="phone"
+                type="tel"
+                maxLength={30}
+                defaultValue={guardian.phone ?? ""}
+                placeholder="+226 XX XX XX XX"
+                className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+              />
+            </label>
+            <label className="block text-xs font-medium text-zinc-600">
+              Email de contact
+              <input
+                aria-label="Email de contact"
+                name="email"
+                type="email"
+                maxLength={200}
+                defaultValue={guardian.email ?? ""}
+                className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+              />
+            </label>
+            <label className="block text-xs font-medium text-zinc-600">
+              Adresse
+              <input
+                aria-label="Adresse"
+                name="address"
+                maxLength={300}
+                defaultValue={guardian.address ?? ""}
+                className="mt-1 block h-9 w-full rounded-lg border border-zinc-300 px-2 text-sm"
+              />
+            </label>
+            <SubmitButton className="rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700">
+              Enregistrer mes coordonnées
+            </SubmitButton>
+          </form>
+        ) : (
+          <p className="text-sm text-zinc-600">
+            Aucun dossier parent n&apos;est lié à votre compte — contactez
+            l&apos;établissement.
+          </p>
+        )}
+      </Card>
     </div>
   );
 }

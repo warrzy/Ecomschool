@@ -85,6 +85,7 @@ const ERROR_LABELS: Record<string, string> = {
   OVERPAYMENT_BLOCKED: "Paiement confirmé non imputable : l'échéance a déjà été soldée (ex. au guichet). L'anomalie est enregistrée pour traitement.",
   DUPLICATE_REFERENCE: "Cette référence existe déjà pour cet opérateur ou ce prestataire.",
   NOT_PENDING: "Cet encaissement n'est plus en attente — il a déjà été traité.",
+  NOT_OPEN: "Cette demande a déjà été traitée ou retirée.",
   HUMAN_CHECK_REQUIRED:
     "Confirmation de vérification humaine manquante : retapez VÉRIFIÉ après contrôle du compte marchand.",
   NOTE_REQUIRED: "Un motif est obligatoire pour cette décision.",

@@ -223,6 +223,7 @@ model School {
   expenses            Expense[]
   documents           Document[]
   administrativeDocuments AdministrativeDocument[]
+  administrativeRequests AdministrativeRequest[]
   admissionCampaigns  AdmissionCampaign[]
   admissionApplications AdmissionApplication[]
   admissionEvents     AdmissionEvent[]
@@ -967,6 +968,7 @@ model Student {
   reenrollmentRequests  ReenrollmentRequest[]
   paymentIntents      PaymentIntent[]
   administrativeDocuments AdministrativeDocument[]
+  administrativeRequests AdministrativeRequest[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -996,6 +998,7 @@ model Guardian {
   students StudentGuardian[]
   admissionApplications AdmissionApplication[]
   reenrollmentRequests  ReenrollmentRequest[]
+  administrativeRequests AdministrativeRequest[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -2481,6 +2484,62 @@ enum AdminDocumentType {
 enum AdminDocumentStatus {
   ISSUED
   REVOKED
+}
+
+/**
+ * H1 — Demande administrative déposée par un parent (portail) auprès de
+ * l'établissement : pièce à établir, justificatif d'absence, question de
+ * compte, rendez-vous… File de traitement manuelle — une demande ne
+ * déclenche jamais automatiquement une modification sensible.
+ */
+model AdministrativeRequest {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  guardianId String
+  guardian   Guardian @relation(fields: [guardianId], references: [id], onDelete: Restrict)
+
+  /** Enfant concerné, le cas échéant (lien revérifié à chaque lecture). */
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  type    AdminRequestType
+  subject String
+  body    String
+
+  /** Référence métier optionnelle (ex. AttendanceRecord pour un justificatif). */
+  contextRef String?
+
+  status   AdminRequestStatus @default(SUBMITTED)
+  response String?
+
+  respondedById String?
+  respondedAt   DateTime?
+  cancelledAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, guardianId])
+  @@index([schoolId, status])
+  @@index([studentId])
+}
+
+enum AdminRequestType {
+  DOCUMENT
+  ABSENCE_JUSTIFICATION
+  ACCOUNT_INFO
+  MEETING
+  OTHER
+}
+
+enum AdminRequestStatus {
+  SUBMITTED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+  CANCELLED
 }
 
 /**

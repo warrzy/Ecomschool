@@ -123,6 +123,13 @@ const OK_LABELS: Record<string, string> = {
   posted: "Encaissement comptabilisé.",
   webhook_replayed: "Événement webhook relancé.",
   refreshed: "Statut de la demande actualisé.",
+
+  // Demandes administratives / profil (H1)
+  request_created: "Demande transmise à l'établissement.",
+  request_cancelled: "Demande retirée.",
+  justification_sent: "Justificatif transmis à l'établissement pour examen.",
+  contact_saved: "Coordonnées enregistrées.",
+  responded: "Réponse enregistrée — le parent a été notifié.",
   live: "Activation du mode réel mise à jour.",
   refunds: "Prise en charge des remboursements mise à jour.",
   rotated: "Rotation des identifiants consignée — pensez à mettre à jour les variables d'environnement.",
