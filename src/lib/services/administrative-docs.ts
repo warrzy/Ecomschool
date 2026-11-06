@@ -179,6 +179,43 @@ async function buildPayload(
  * verrou advisory par école dans la transaction + contrainte unique —
  * deux émissions simultanées obtiennent des numéros distincts.
  */
+type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
+/**
+ * Création d'une ligne document DANS une transaction appelante :
+ * verrou consultatif par école + séquence annuelle — la numérotation
+ * reste strictement séquentielle même sous concurrence.
+ */
+async function createDocRow(
+  tx: Tx,
+  ctx: SchoolCtx,
+  input: {
+    type: AdminDocumentType;
+    studentId: string;
+    academicYearId: string;
+    payload: object;
+  },
+) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"admindoc:" + ctx.schoolId}))`;
+  const yearTag = String(new Date().getUTCFullYear());
+  const seq = await tx.administrativeDocument.count({
+    where: { schoolId: ctx.schoolId, number: { startsWith: `DOC-${yearTag}-` } },
+  });
+  return tx.administrativeDocument.create({
+    data: {
+      schoolId: ctx.schoolId,
+      type: input.type,
+      number: `DOC-${yearTag}-${String(seq + 1).padStart(5, "0")}`,
+      studentId: input.studentId,
+      academicYearId: input.academicYearId,
+      publicCode: randomBytes(24).toString("base64url"),
+      payload: input.payload,
+      issuedById: ctx.userId,
+    },
+    select: { id: true, number: true },
+  });
+}
+
 export async function issueAdministrativeDocument(
   ctx: SchoolCtx,
   input: { studentId: string; type: AdminDocumentType; academicYearId?: string },
@@ -189,30 +226,15 @@ export async function issueAdministrativeDocument(
   const built = await buildPayload(ctx, input);
   if (!built) return { ok: false, error: "NOT_ENROLLED" };
 
-  const publicCode = randomBytes(24).toString("base64url");
-  const yearTag = String(new Date().getUTCFullYear());
-
   try {
-    const row = await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"admindoc:" + ctx.schoolId}))`;
-      const seq = await tx.administrativeDocument.count({
-        where: { schoolId: ctx.schoolId, number: { startsWith: `DOC-${yearTag}-` } },
-      });
-      const number = `DOC-${yearTag}-${String(seq + 1).padStart(5, "0")}`;
-      return tx.administrativeDocument.create({
-        data: {
-          schoolId: ctx.schoolId,
-          type: input.type,
-          number,
-          studentId: input.studentId,
-          academicYearId: built.academicYearId,
-          publicCode,
-          payload: built.payload as object,
-          issuedById: ctx.userId,
-        },
-        select: { id: true, number: true },
-      });
-    });
+    const row = await prisma.$transaction((tx) =>
+      createDocRow(tx, ctx, {
+        type: input.type,
+        studentId: input.studentId,
+        academicYearId: built.academicYearId,
+        payload: built.payload as object,
+      }),
+    );
     await logAudit({
       actorId: ctx.userId,
       schoolId: ctx.schoolId,
@@ -354,31 +376,48 @@ export async function reissueAdministrativeDocument(
     select: { id: true, type: true, studentId: true, academicYearId: true, number: true },
   });
   if (!old) return { ok: false, error: "INVALID_STATE" };
-  const issued = await issueAdministrativeDocument(ctx, {
+  const built = await buildPayload(ctx, {
     studentId: old.studentId,
-    type: old.type,
     academicYearId: old.academicYearId,
   });
-  if (!issued.ok) return issued;
-  await prisma.administrativeDocument.updateMany({
-    where: { id: old.id, status: "ISSUED" },
-    data: {
-      status: "REVOKED",
-      revokedAt: new Date(),
-      revokedById: ctx.userId,
-      revokeReason: `Remplacé par ${issued.data.number}`,
-      replacedById: issued.data.id,
-    },
-  });
-  await logAudit({
-    actorId: ctx.userId,
-    schoolId: ctx.schoolId,
-    action: "admin_doc.reissued",
-    entity: "AdministrativeDocument",
-    entityId: issued.data.id,
-    metadata: { previousId: old.id, previousNumber: old.number },
-  });
-  return issued;
+  if (!built) return { ok: false, error: "NOT_ENROLLED" };
+
+  try {
+    // Une seule transaction : nouveau document + révocation de l'ancien.
+    // La révocation conditionnelle (status ISSUED) échoue → rollback,
+    // jamais deux documents valides ni un remplaçant orphelin.
+    const row = await prisma.$transaction(async (tx) => {
+      const created = await createDocRow(tx, ctx, {
+        type: old.type,
+        studentId: old.studentId,
+        academicYearId: old.academicYearId,
+        payload: built.payload as object,
+      });
+      const revoked = await tx.administrativeDocument.updateMany({
+        where: { id: old.id, status: "ISSUED" },
+        data: {
+          status: "REVOKED",
+          revokedAt: new Date(),
+          revokedById: ctx.userId,
+          revokeReason: `Remplacé par ${created.number}`,
+          replacedById: created.id,
+        },
+      });
+      if (revoked.count === 0) throw new Error("REISSUE_RACE");
+      return created;
+    });
+    await logAudit({
+      actorId: ctx.userId,
+      schoolId: ctx.schoolId,
+      action: "admin_doc.reissued",
+      entity: "AdministrativeDocument",
+      entityId: row.id,
+      metadata: { previousId: old.id, previousNumber: old.number },
+    });
+    return { ok: true, data: row };
+  } catch {
+    return { ok: false, error: "INVALID_STATE" };
+  }
 }
 
 // ---------- Vérification publique ----------
