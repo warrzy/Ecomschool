@@ -224,6 +224,9 @@ model School {
   documents           Document[]
   administrativeDocuments AdministrativeDocument[]
   administrativeRequests AdministrativeRequest[]
+  deliberationRules   DeliberationRule[]
+  deliberationSessions DeliberationSession[]
+  deliberationDecisions DeliberationDecision[]
   admissionCampaigns  AdmissionCampaign[]
   admissionApplications AdmissionApplication[]
   admissionEvents     AdmissionEvent[]
@@ -739,6 +742,8 @@ model AcademicYear {
   paymentIntents            PaymentIntent[]
   paymentReconciliations    PaymentReconciliation[]
   administrativeDocuments   AdministrativeDocument[]
+  deliberationSessions      DeliberationSession[]
+  deliberationRules         DeliberationRule[]
 
   @@unique([schoolId, name])
   @@index([schoolId])
@@ -768,6 +773,7 @@ model AcademicPeriod {
   studentResults      StudentPeriodResult[]
   resultValidations   ResultValidation[]
   reportCards         ReportCard[]
+  deliberationSessions DeliberationSession[]
 
   @@unique([academicYearId, number])
   @@index([academicYearId])
@@ -791,6 +797,7 @@ model Level {
   subjects   LevelSubject[]
   gradingPolicies     GradingPolicy[]
   reportCardTemplates ReportCardTemplate[]
+  deliberationRules   DeliberationRule[]
   feeTariffs          FeeTariff[]
   admissionApplications AdmissionApplication[]
   reenrollmentRequestsDesired ReenrollmentRequest[] @relation("ReenrollDesiredLevel")
@@ -914,6 +921,7 @@ model Classroom {
   resultValidations ResultValidation[]
   reportCards       ReportCard[]
   feeTariffs        FeeTariff[]
+  deliberationSessions DeliberationSession[]
   admissionApplications AdmissionApplication[]
   reenrollmentRequestsDesired ReenrollmentRequest[] @relation("ReenrollDesiredClassroom")
   reenrollmentRequestsTarget  ReenrollmentRequest[] @relation("ReenrollTargetClassroom")
@@ -969,6 +977,7 @@ model Student {
   paymentIntents      PaymentIntent[]
   administrativeDocuments AdministrativeDocument[]
   administrativeRequests AdministrativeRequest[]
+  deliberationDecisions DeliberationDecision[]
 
   @@unique([schoolId, matricule])
   @@index([schoolId])
@@ -1643,6 +1652,172 @@ model ReportCardTemplate {
 
   @@unique([schoolId, key])
   @@index([schoolId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// H5 — Délibérations scolaires (conseils de classe / de fin d'année)
+// ─────────────────────────────────────────────────────────────
+
+/** Portée d'une délibération : période (conseil de classe) ou annuelle. */
+enum DeliberationScope {
+  PERIOD
+  ANNUAL
+}
+
+/**
+ * Cycle de vie d'une session : OPEN (propositions ajustables) →
+ * VALIDATED (verrouillée par le conseil) → PUBLISHED (décisions
+ * diffusées vers les surfaces existantes : bulletins, décision
+ * annuelle). Dépublication → VALIDATED ; déverrouillage motivé → OPEN.
+ */
+enum DeliberationStatus {
+  OPEN
+  VALIDATED
+  PUBLISHED
+}
+
+enum DeliberationDecisionStatus {
+  PROPOSED
+  ADJUSTED
+  VALIDATED
+}
+
+/**
+ * Règle de décision configurable par établissement (et optionnellement
+ * par année scolaire / niveau). Évaluées par `order` croissant : la
+ * première règle dont la bande [minAverage, maxAverage[ contient la
+ * moyenne de l'élève fait la proposition. `requiresComplete` n'applique
+ * la règle qu'aux dossiers complets. `progression` alimente le
+ * rapprochement avec les réinscriptions (G2).
+ */
+model DeliberationRule {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String?
+  academicYear   AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  levelId String?
+  level   Level? @relation(fields: [levelId], references: [id], onDelete: Restrict)
+
+  scope       DeliberationScope
+  label       String
+  progression ReenrollmentProgression?
+
+  minAverage       Float?
+  maxAverage       Float?
+  requiresComplete Boolean @default(false)
+
+  order  Int          @default(0)
+  status RecordStatus @default(ACTIVE)
+
+  proposedDecisions DeliberationDecision[] @relation("DeliberationProposedRule")
+  finalDecisions    DeliberationDecision[] @relation("DeliberationFinalRule")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId, scope, status])
+  @@index([academicYearId])
+  @@index([levelId])
+}
+
+/**
+ * Session de délibération : une classe, une période (conseil) ou une
+ * année (délibération annuelle). `number` = référence du procès-verbal
+ * `PV-YYYY-NNNNN`, attribuée à la création sous verrou advisory.
+ * Les décisions portent un snapshot des indicateurs au moment de la
+ * préparation — les moyennes d'origine ne sont jamais modifiées.
+ */
+model DeliberationSession {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  scope            DeliberationScope
+  academicPeriodId String?
+  academicPeriod   AcademicPeriod? @relation(fields: [academicPeriodId], references: [id], onDelete: Restrict)
+
+  classroomId String
+  classroom   Classroom @relation(fields: [classroomId], references: [id], onDelete: Restrict)
+
+  status DeliberationStatus @default(OPEN)
+  number String
+  note   String?
+
+  preparedById    String?
+  preparedAt      DateTime?
+  validatedById   String?
+  validatedAt     DateTime?
+  publishedById   String?
+  publishedAt     DateTime?
+  unlockedById    String?
+  unlockedAt      DateTime?
+  unlockReason    String?
+  depublishReason String?
+  depublishedAt   DateTime?
+
+  decisions DeliberationDecision[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Une session par classe et par période (les sessions annuelles,
+  // academicPeriodId = null, sont couvertes par un index unique partiel
+  // en migration — les NULL ne se comparent pas en contrainte unique).
+  @@unique([classroomId, academicPeriodId])
+  @@index([schoolId])
+  @@index([schoolId, status])
+  @@index([academicYearId])
+}
+
+/**
+ * Décision individuelle : proposition calculée (règle + libellé
+ * snapshot) vs décision retenue par le conseil. Tout écart exige
+ * `adjustmentReason`. Les libellés sont dupliqués pour figer le PV
+ * même si les règles évoluent ensuite.
+ */
+model DeliberationDecision {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  sessionId String
+  session   DeliberationSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  averageSnapshot   Float?
+  rankSnapshot      Int?
+  mentionSnapshot   String?
+  completeSnapshot  Boolean @default(true)
+
+  proposedRuleId String?
+  proposedRule   DeliberationRule? @relation("DeliberationProposedRule", fields: [proposedRuleId], references: [id], onDelete: SetNull)
+  proposedLabel  String?
+
+  finalRuleId String?
+  finalRule   DeliberationRule? @relation("DeliberationFinalRule", fields: [finalRuleId], references: [id], onDelete: SetNull)
+  finalLabel  String?
+
+  adjustmentReason String?
+  status           DeliberationDecisionStatus @default(PROPOSED)
+  adjustedById     String?
+  adjustedAt       DateTime?
+  validatedById    String?
+  validatedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, studentId])
+  @@index([schoolId])
+  @@index([studentId])
 }
 
 enum AnnouncementAudience {

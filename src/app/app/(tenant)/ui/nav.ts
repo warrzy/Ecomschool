@@ -74,6 +74,8 @@ export const appNav: NavItem[] = [
   { label: "Notes", href: "/app/grades", permission: "assessments.read", section: "Pédagogie", icon: I.pen },
   { label: "Moyennes", href: "/app/averages", permission: "results.read", section: "Pédagogie", icon: I.chart },
   { label: "Bulletins", href: "/app/report-cards", permission: "reportcards.read", section: "Pédagogie", icon: I.file },
+  // H5 : conseils et délibérations — propositions calculées ≠ décisions du conseil.
+  { label: "Délibérations", href: "/app/deliberations", permission: "deliberations.read", section: "Pédagogie", icon: I.clipboard },
   { label: "Règles de notation", href: "/app/grading-policy", permission: "gradingpolicy.manage", section: "Pédagogie", icon: I.sliders },
   { label: "Absences & retards", href: "/app/attendance", permission: "attendance.read", section: "Pédagogie", icon: I.alertClock },
 

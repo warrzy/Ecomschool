@@ -124,6 +124,17 @@ const OK_LABELS: Record<string, string> = {
   webhook_replayed: "Événement webhook relancé.",
   refreshed: "Statut de la demande actualisé.",
 
+  // Délibérations (H5)
+  deliberation: "Session de délibération préparée.",
+  deliberation_refreshed: "Propositions recalculées — les ajustements motivés sont préservés.",
+  deliberation_adjusted: "Décision retenue enregistrée.",
+  deliberation_validated: "Délibération validée et verrouillée.",
+  deliberation_unlocked: "Délibération déverrouillée pour correction.",
+  deliberation_published: "Décisions publiées — bulletins et résultats annuels mis à jour.",
+  deliberation_depublished: "Publication retirée — la session repasse en validée.",
+  rule: "Règle de décision enregistrée.",
+  rule_archived: "Règle archivée.",
+
   // Demandes administratives / profil (H1)
   request_created: "Demande transmise à l'établissement.",
   request_cancelled: "Demande retirée.",

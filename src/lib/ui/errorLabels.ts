@@ -129,6 +129,10 @@ const ERROR_LABELS: Record<string, string> = {
   UNPAID_BLOCKED: "Réinscription bloquée : des impayés subsistent sur l'année en cours (règle de la campagne).",
   CHARGES_FAILED: "L'inscription est créée mais la génération des créances a échoué — relancez la finalisation.",
 
+  // Délibérations (H5)
+  NO_RESULTS: "Aucun résultat calculé pour cette classe — calculez d'abord les moyennes.",
+  MISSING_DECISIONS: "Validation impossible : certains élèves n'ont pas de décision retenue.",
+
   // Documents (G2-A)
   FILE_TOO_LARGE: "Le fichier dépasse la taille maximale autorisée (5 Mo).",
   UNSUPPORTED_TYPE: "Ce type de fichier n'est pas accepté (PDF, JPEG ou PNG uniquement).",

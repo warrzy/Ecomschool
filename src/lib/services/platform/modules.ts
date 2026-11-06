@@ -68,6 +68,11 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "reportcards.publish": "REPORT_CARDS",
   "reportcards.print": "REPORT_CARDS",
   "gradingpolicy.manage": "REPORT_CARDS",
+  // H5 — délibérations
+  "deliberations.read": "REPORT_CARDS",
+  "deliberations.manage": "REPORT_CARDS",
+  "deliberations.validate": "REPORT_CARDS",
+  "deliberations.publish": "REPORT_CARDS",
   // Portails
   "portal.parent": "PARENT_PORTAL",
   "portal.student": "STUDENT_PORTAL",
@@ -191,6 +196,11 @@ export const PERMISSION_MODULE_V2: Record<string, string> = {
   "reportcards.publish": "REPORT_CARDS",
   "reportcards.print": "REPORT_CARDS",
   "gradingpolicy.manage": "REPORT_CARDS",
+  // H5 — délibérations
+  "deliberations.read": "REPORT_CARDS",
+  "deliberations.manage": "REPORT_CARDS",
+  "deliberations.validate": "REPORT_CARDS",
+  "deliberations.publish": "REPORT_CARDS",
   // Portails
   "portal.parent": "PARENT_PORTAL",
   "portal.student": "STUDENT_PORTAL",
