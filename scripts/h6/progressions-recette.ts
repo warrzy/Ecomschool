@@ -75,6 +75,7 @@ async function cleanupSchool(schoolId: string) {
   await prisma.deliberationRule.deleteMany({ where: { schoolId } });
   await prisma.studentAnnualResult.deleteMany({ where: { schoolId } });
   await prisma.studentPeriodResult.deleteMany({ where: { schoolId } });
+  await prisma.academicPeriod.deleteMany({ where: { schoolId } });
   await prisma.enrollment.deleteMany({ where: { schoolId } });
   await prisma.student.deleteMany({ where: { schoolId } });
   await prisma.classroom.deleteMany({ where: { schoolId } });
@@ -278,8 +279,38 @@ async function cleanupSchool(schoolId: string) {
 
   check("validation 6e", err(await validateSession(ctxA, s6Id)) == null);
   check("validation Tle", err(await validateSession(ctxA, sessT.ok ? sessT.result.id : "")) == null);
+
+  // Campagne G2 créée AVANT publication : la demande de s7 permet de
+  // vérifier que la transition déverrouillage seule (sans dépublication)
+  // lève aussi l'état de réconciliation.
+  const camp = await createReenrollmentCampaign(ctxA, {
+    name: "Réinscriptions 2027",
+    sourceYearId: y0.id,
+    targetYearId: y1.id,
+    opensAt: new Date("2027-04-01"),
+    closesAt: new Date("2027-09-30"),
+  });
+  check("campagne créée", camp.ok);
+  const campId = camp.ok ? camp.result.id : "";
+  const c5Id = c5y1.id;
+  const reqS7 = await prisma.reenrollmentRequest.create({
+    data: {
+      schoolId: A.id, campaignId: campId, targetYearId: y1.id,
+      studentId: e7.student.id, sourceEnrollmentId: e7.enrollment.id,
+      kind: "REENROLL", status: "APPROVED",
+      progression: "PROMOTION", targetClassroomId: c5Id,
+      decidedAt: new Date(),
+    },
+  });
+  const sessTId = sessT.ok ? sessT.result.id : "";
+  check("déverrouillage Tle motivé", err(await unlockSession(ctxA, sessTId, "Revue conseil")) == null);
+  check(
+    "unlock seul → reconciliationNeeded levé (demande ouverte)",
+    (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqS7.id } })).reconciliationNeeded === true,
+  );
+  check("revalidation Tle", err(await validateSession(ctxA, sessTId)) == null);
   check("publication 6e", err(await publishSession(ctxA, s6Id)) == null);
-  check("publication Tle", err(await publishSession(ctxA, sessT.ok ? sessT.result.id : "")) == null);
+  check("publication Tle", err(await publishSession(ctxA, sessTId)) == null);
 
   console.log("\n== Synchronisation StudentAnnualResult ==");
   const prog = async (id: string) =>
@@ -299,15 +330,6 @@ async function cleanupSchool(schoolId: string) {
 
   // ---------- Campagne G2 + suggestions ----------
   console.log("\n== Campagne G2 + suggestions structurées ==");
-  const camp = await createReenrollmentCampaign(ctxA, {
-    name: "Réinscriptions 2027",
-    sourceYearId: y0.id,
-    targetYearId: y1.id,
-    opensAt: new Date("2027-04-01"),
-    closesAt: new Date("2027-09-30"),
-  });
-  check("campagne créée", camp.ok);
-  const campId = camp.ok ? camp.result.id : "";
 
   const eligible = await listEligibleStudents(ctxA, campId);
   check("éligibles listés", eligible.ok && eligible.result.length === 8);
@@ -351,6 +373,60 @@ async function cleanupSchool(schoolId: string) {
   check("s3 : REMEDIAL → niveau surchargé 5e", row2(e3.student.id)?.suggestion.targetLevelId === l5.id);
   check("s8 : EXIT ignoré des surcharges", row2(e8.student.id)?.suggestion.targetLevelId == null);
 
+  // ---------- Décisions historiques en texte libre & terminaux ----------
+  console.log("\n== Décisions libres historiques & niveaux terminaux ==");
+  // Élèves inscrits après la délibération : libellés libres sans
+  // progression structurée (héritage pré-H6) — compatibilité exigée.
+  const sarFree = (studentId: string, avg: number, decision: string | null, status: "PUBLISHED" | "CALCULATED" = "PUBLISHED") =>
+    prisma.studentAnnualResult.create({
+      data: {
+        schoolId: A.id, academicYearId: y0.id, studentId,
+        annualAverage: avg, decision, status,
+      },
+    });
+  const e9 = await mkStudent("H6A-09", "Rokia", c6.id, y0.id);
+  const e10 = await mkStudent("H6A-10", "Ali", c6.id, y0.id);
+  const e11 = await mkStudent("H6A-11", "Mia", c6.id, y0.id);
+  const e12 = await mkStudent("H6A-12", "Tom", c6.id, y0.id);
+  const e13 = await mkStudent("H6A-13", "Eve", c6.id, y0.id);
+  const e15 = await mkStudent("H6A-15", "Ibo", cT.id, y0.id);
+  const e16 = await mkStudent("H6A-16", "Ana", cT.id, y0.id);
+  const sar9 = await sarFree(e9.student.id, 8, "Redouble");
+  await sarFree(e10.student.id, 14, "Admis en classe supérieure");
+  await sarFree(e11.student.id, 15, "Tableau d'honneur");
+  await sarFree(e12.student.id, 7, "Ajourné aux examens");
+  await sarFree(e13.student.id, 15, "Admis", "CALCULATED"); // non publié → gate
+  await sarFree(e15.student.id, 7, "Redouble");
+  await sarFree(e16.student.id, 9, "Transfert externe");
+
+  const eligLeg = await listEligibleStudents(ctxA, campId);
+  check("éligibles étendus (8 + 7 historiques)", eligLeg.ok && eligLeg.result.length === 15);
+  const rowL = (sid: string) =>
+    eligLeg.ok ? eligLeg.result.find((r) => r.studentId === sid)! : null;
+
+  check("legacy « Redouble » → REPETITION inférée → même niveau",
+    rowL(e9.student.id)?.suggestion.progression === "REPETITION"
+    && rowL(e9.student.id)?.suggestion.targetLevelId === l6.id);
+  check("legacy « Admis en classe supérieure » → PROMOTION → 5e",
+    rowL(e10.student.id)?.suggestion.progression === "PROMOTION"
+    && rowL(e10.student.id)?.suggestion.targetLevelId === l5.id);
+  check("legacy ambigu « Tableau d'honneur » → pas de progression structurée",
+    rowL(e11.student.id)?.annualProgression == null);
+  check("legacy ambigu → repli ordre des niveaux (suggestion seule)",
+    rowL(e11.student.id)?.suggestion.targetLevelId === l5.id);
+  check("legacy ambigu « Ajourné » → pas d'inférence forcée",
+    rowL(e12.student.id)?.annualProgression == null
+    && rowL(e12.student.id)?.suggestion.progression === "PROMOTION"); // suggestion LEVEL_ORDER
+  check("décision non publiée (CALCULATED) → gate ignorée",
+    rowL(e13.student.id)?.annualDecision == null
+    && rowL(e13.student.id)?.suggestion.progression === "PROMOTION");
+  check("terminal + REPETITION → même niveau, pas de flag terminal",
+    rowL(e15.student.id)?.suggestion.progression === "REPETITION"
+    && rowL(e15.student.id)?.suggestion.targetLevelId === lT.id
+    && rowL(e15.student.id)?.suggestion.terminal !== true);
+  check("terminal + décision ambiguë → aucune cible",
+    rowL(e16.student.id)?.suggestion.targetLevelId == null);
+
   // ---------- Réconciliation H5 → G2 ----------
   console.log("\n== Réconciliation H5 → G2 ==");
   // Demande décidée (ouverte) + demande finalisée (préservée).
@@ -363,12 +439,22 @@ async function cleanupSchool(schoolId: string) {
       decidedAt: new Date(),
     },
   });
+  // Demande finalisée avec inscription réelle sur l'année cible :
+  // décision administrative à préserver, même en cas de conflit
+  // d'affichage (ORIENTATION ≠ REMEDIAL publié).
+  const enY1 = await prisma.enrollment.create({
+    data: {
+      schoolId: A.id, studentId: e3.student.id,
+      classroomId: c5y1.id, academicYearId: y1.id, status: "ENROLLED",
+    },
+  });
   const reqDone = await prisma.reenrollmentRequest.create({
     data: {
       schoolId: A.id, campaignId: campId, targetYearId: y1.id,
       studentId: e3.student.id,
       kind: "REENROLL", status: "COMPLETED",
-      progression: "REMEDIAL", decidedAt: new Date(), completedAt: new Date(),
+      progression: "ORIENTATION", decidedAt: new Date(),
+      completedAt: new Date(), newEnrollmentId: enY1.id,
     },
   });
   const reqS4 = await prisma.reenrollmentRequest.create({
@@ -391,6 +477,12 @@ async function cleanupSchool(schoolId: string) {
       .catch((e) => e.code === "P2002"),
   );
 
+  // Progression administrative posée manuellement (hors H5) sur s5 :
+  // la dépublication ne doit pas l'effacer silencieusement.
+  await prisma.studentAnnualResult.update({
+    where: { id: sar5.id }, data: { progression: "REPETITION" },
+  });
+
   // Dépublication H5 → drapeau de réconciliation sur les demandes ouvertes.
   check("dépublication 6e motivée", err(await depublishSession(ctxA, s6Id, "Correction conseil")) == null);
   const flagged = await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqOpen.id } });
@@ -402,13 +494,54 @@ async function cleanupSchool(schoolId: string) {
   check("progression annuelle retirée (s1)", (await prog(sar1.id)) == null);
   check("libellé annuel retiré (s1)",
     (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar1.id } })).decision == null);
+  check("progression administrative manuelle préservée (s5 = REPETITION)",
+    (await prog(sar5.id)) === "REPETITION");
+  check("libellé s5 retiré mais progression admin conservée",
+    (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar5.id } })).decision == null);
 
   const eligDepub = await listEligibleStudents(ctxA, campId);
   const rowD = (sid: string) =>
     eligDepub.ok ? eligDepub.result.find((r) => r.studentId === sid)! : null;
   check("conflit RETRACTED affiché (s1)", rowD(e1.student.id)?.conflict === "RETRACTED"
     && rowD(e1.student.id)?.blockers.includes("conflit_h5") === true);
-  check("pas de conflit pour la demande finalisée (s3)", rowD(e3.student.id)?.conflict == null);
+  check("demande finalisée : aucun drapeau ni conflit à ce stade (s3)",
+    rowD(e3.student.id)?.conflict == null);
+
+  // Dépublication d'un conseil de PÉRIODE : aucun effet sur G2.
+  const p1 = await prisma.academicPeriod.create({
+    data: {
+      schoolId: A.id, academicYearId: y0.id, name: "T1", number: 1,
+      startDate: new Date("2026-09-01"), endDate: new Date("2026-12-31"),
+      type: "TRIMESTER",
+    },
+  });
+  await prisma.studentPeriodResult.createMany({
+    data: [
+      { schoolId: A.id, academicPeriodId: p1.id, classroomId: c6.id, studentId: e1.student.id, generalAverage: 16, rank: 1, isComplete: true, status: "CALCULATED" },
+      { schoolId: A.id, academicPeriodId: p1.id, classroomId: c6.id, studentId: e5.student.id, generalAverage: 9.5, rank: 5, isComplete: true, status: "CALCULATED" },
+    ],
+  });
+  const reqS5 = await prisma.reenrollmentRequest.create({
+    data: {
+      schoolId: A.id, campaignId: campId, targetYearId: y1.id,
+      studentId: e5.student.id, sourceEnrollmentId: e5.enrollment.id,
+      kind: "REENROLL", status: "UNDER_REVIEW",
+    },
+  });
+  const sessP = await prepareSession(ctxA, { scope: "PERIOD", classroomId: c6.id, academicPeriodId: p1.id });
+  check("session de période préparée", sessP.ok);
+  const sessPId = sessP.ok ? sessP.result.id : "";
+  await upsertRule(ctxA, { scope: "PERIOD", label: "Conseil T1", minAverage: 10, maxAverage: 21, order: 10 });
+  await prisma.deliberationDecision.updateMany({
+    where: { sessionId: sessPId, finalLabel: null },
+    data: { finalLabel: "Vu" },
+  });
+  check("validation période", err(await validateSession(ctxA, sessPId)) == null);
+  check("publication période", err(await publishSession(ctxA, sessPId)) == null);
+  check("dépublication période",
+    err(await depublishSession(ctxA, sessPId, "Correction T1")) == null);
+  check("dépublication PERIOD → aucun drapeau G2",
+    (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqS5.id } })).reconciliationNeeded === false);
 
   // Correction : déverrouillage → ajustement → revalidation → republication.
   check("déverrouillage motivé", err(await unlockSession(ctxA, s6Id, "Revue des cas particuliers")) == null);
@@ -423,8 +556,30 @@ async function cleanupSchool(schoolId: string) {
     })) == null,
   );
   check("revalidation 6e", err(await validateSession(ctxA, s6Id)) == null);
-  check("republication 6e", err(await publishSession(ctxA, s6Id)) == null);
+
+  // Conflits à la republication : progression administrative (s5) et
+  // libellé manuel (s4) doivent chacun bloquer l'écrasement silencieux.
+  check(
+    "republication → DECISION_CONFLICT (progression admin s5)",
+    err(await publishSession(ctxA, s6Id)) === "DECISION_CONFLICT",
+  );
+  await prisma.studentAnnualResult.update({
+    where: { id: sar4.id }, data: { decision: "Décision direction" },
+  });
+  check(
+    "republication → DECISION_CONFLICT (libellé manuel s4 aussi)",
+    err(await publishSession(ctxA, s6Id)) === "DECISION_CONFLICT",
+  );
+  await prisma.studentAnnualResult.updateMany({
+    where: { id: { in: [sar4.id, sar5.id] } },
+    data: { decision: null, progression: null },
+  });
+  check("republication 6e après levée des conflits",
+    err(await publishSession(ctxA, s6Id)) == null);
   check("s2 annual.progression corrigée = REPETITION", (await prog(sar2.id)) === "REPETITION");
+  check("s1 annual.progression resynchronisée = PROMOTION", (await prog(sar1.id)) === "PROMOTION");
+  check("décision hors session préservée (s9 « Redouble »)",
+    (await prisma.studentAnnualResult.findUniqueOrThrow({ where: { id: sar9.id } })).decision === "Redouble");
 
   // Demande décidée PROMOTION entre-temps → conflit MODIFIED.
   await prisma.reenrollmentRequest.create({
@@ -443,6 +598,29 @@ async function cleanupSchool(schoolId: string) {
     rowM(e2.student.id)?.conflict === "MODIFIED");
   check("conflit toujours RETRACTED pour s1 (drapeau non soldé)",
     rowM(e1.student.id)?.conflict === "RETRACTED");
+  check("conflit MODIFIED sur demande COMPLETED (s3, informatif)",
+    rowM(e3.student.id)?.conflict === "MODIFIED");
+  check("demande finalisée : progression et statut préservés",
+    (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqDone.id } })).progression === "ORIENTATION"
+    && (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqDone.id } })).status === "COMPLETED");
+  check("inscription finalisée intacte après correction H5",
+    (await prisma.enrollment.findUniqueOrThrow({ where: { id: enY1.id } })).status === "ENROLLED"
+    && (await prisma.enrollment.count({ where: { schoolId: A.id, academicYearId: y1.id } })) === 1);
+
+  // Re-décision de la demande s7 (flaggée au déverrouillage Tle) avec
+  // une nouvelle valeur de progression → drapeau soldé.
+  await prisma.reenrollmentRequest.update({
+    where: { id: reqS7.id }, data: { status: "UNDER_REVIEW" },
+  });
+  check(
+    "re-décision s7 avec ORIENTATION explicite",
+    err(await decideReenrollmentRequest(ctxA, reqS7.id, {
+      decision: "APPROVED", targetClassroomId: c5y1.id, progression: "ORIENTATION",
+    })) == null,
+  );
+  check("s7 : drapeau soldé + progression ORIENTATION enregistrée",
+    (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqS7.id } })).reconciliationNeeded === false
+    && (await prisma.reenrollmentRequest.findUniqueOrThrow({ where: { id: reqS7.id } })).progression === "ORIENTATION");
 
   // Re-décision → drapeau soldé.
   await prisma.reenrollmentRequest.update({
@@ -460,8 +638,14 @@ async function cleanupSchool(schoolId: string) {
   const rowF = (sid: string) =>
     eligFinal.ok ? eligFinal.result.find((r) => r.studentId === sid)! : null;
   check("conflit s1 résolu après re-décision", rowF(e1.student.id)?.conflict == null);
-  check("aucune inscription automatique sur l'année cible",
-    (await prisma.enrollment.count({ where: { schoolId: A.id, academicYearId: y1.id } })) === 0);
+  check("s7 : divergence affichée (ORIENTATION décidée ≠ PROMOTION publiée)",
+    rowF(e7.student.id)?.conflict === "MODIFIED");
+  check("aucune inscription automatique : y1 = la seule finalisée (fixture)",
+    (await prisma.enrollment.count({ where: { schoolId: A.id, academicYearId: y1.id } })) === 1);
+  check("aucune inscription source modifiée (y0 = 15 ENROLLED)",
+    (await prisma.enrollment.count({
+      where: { schoolId: A.id, academicYearId: y0.id, status: "ENROLLED" },
+    })) === 15);
 
   // ---------- Permissions & isolation ----------
   console.log("\n== Permissions & isolation ==");

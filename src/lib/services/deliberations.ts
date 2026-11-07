@@ -1000,7 +1000,7 @@ export async function publishSession(
         schoolId: ctx.schoolId,
         academicYearId: session.academicYearId,
         studentId: { in: syncCandidates.map((d) => d.studentId) },
-        decision: { not: null },
+        OR: [{ decision: { not: null } }, { progression: { not: null } }],
       },
       select: { studentId: true, decision: true, progression: true },
     });
@@ -1013,7 +1013,7 @@ export async function publishSession(
     conflicts = sars.filter((r) => {
       const f = finalByStudent.get(r.studentId);
       return (
-        r.decision !== f?.label ||
+        (r.decision != null && r.decision !== f?.label) ||
         (r.progression != null && r.progression !== f?.progression)
       );
     }).length;
