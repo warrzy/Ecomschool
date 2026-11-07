@@ -97,6 +97,9 @@ export const PERMISSION_MODULE: Record<string, string> = {
   "expenses.categories.manage": "FINANCE",
   // Trésorerie (F3)
   "treasury.read": "FINANCE",
+  "accounting.read": "FINANCE",
+  "accounting.manage": "FINANCE",
+  "accounting.export": "FINANCE",
   // Communication
   "announcements.read": "COMMUNICATION",
   "announcements.manage": "COMMUNICATION",
@@ -227,6 +230,9 @@ export const PERMISSION_MODULE_V2: Record<string, string> = {
   "expenses.categories.manage": "FINANCE_MGMT",
   // Trésorerie — supervision financière (F3)
   "treasury.read": "FINANCE_MGMT",
+  "accounting.read": "FINANCE_MGMT",
+  "accounting.manage": "FINANCE_MGMT",
+  "accounting.export": "FINANCE_MGMT",
   // Communication
   "announcements.read": "COMMUNICATION",
   "announcements.manage": "COMMUNICATION",

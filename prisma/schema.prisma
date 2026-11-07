@@ -3642,3 +3642,174 @@ model PaymentDiscrepancy {
   @@index([intentId])
   @@index([paymentId])
 }
+
+// ---------- H12 — Comptabilité SYSCOHADA ----------
+
+/** Statut d'exercice comptable : OPEN = écritures autorisées. */
+enum ExerciseStatus {
+  OPEN
+  CLOSED
+}
+
+enum AccountingEntryStatus {
+  /** Équilibrée et immuable. */
+  POSTED
+  /** Générée mais incomplète (compte non mappé) — à régulariser. */
+  INCOMPLETE
+}
+
+enum AccountingEntryOrigin {
+  /** Issue d'une opération réelle (paiement, dépense, remboursement). */
+  REAL
+  /** Simulation/saisie de test — exclue des exports par défaut. */
+  SIMULATION
+}
+
+/**
+ * Compte du plan comptable (SYSCOHADA ou autre référentiel — le plan
+ * est propre à chaque établissement et entièrement configurable).
+ */
+model AccountingAccount {
+  id       String @id @default(cuid())
+  schoolId String
+
+  code        String
+  name        String
+  classNumber Int
+  status      RecordStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines    AccountingEntryLine[]
+  mappings AccountingAccountMap[]
+  journals AccountingJournal[] @relation("DefaultDebitJournal")
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+/** Journal comptable : VE ventes, CA caisse, BQ banque, OD opérations diverses… */
+model AccountingJournal {
+  id       String @id @default(cuid())
+  schoolId String
+
+  code   String
+  label  String
+  status RecordStatus @default(ACTIVE)
+
+  /** Compte de trésorerie par défaut du journal (caisse/banque). */
+  defaultAccountId String?
+  defaultAccount   AccountingAccount? @relation("DefaultDebitJournal", fields: [defaultAccountId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries AccountingEntry[]
+
+  @@unique([schoolId, code])
+  @@index([schoolId])
+}
+
+/** Exercice comptable (année fiscale propre à l'établissement). */
+model AccountingExercise {
+  id       String @id @default(cuid())
+  schoolId String
+
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  status    ExerciseStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entries AccountingEntry[]
+
+  @@index([schoolId])
+}
+
+/**
+ * Écriture comptable — toujours équilibrée (Σ débit = Σ crédit,
+ * vérifiée au service). Une seule écriture par événement source
+ * (paiement, dépense, remboursement) via l'unicité sourceType/sourceId.
+ * POSTED = immuable ; les corrections passent par contre-passation
+ * (écriture inverse), jamais par modification.
+ */
+model AccountingEntry {
+  id       String @id @default(cuid())
+  schoolId String
+
+  journalId  String
+  journal    AccountingJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  exerciseId String
+  exercise   AccountingExercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict)
+
+  date        DateTime
+  reference   String
+  description String
+
+  /** Lien vers l'événement métier source — garantit l'absence de doublon. */
+  sourceType String?
+  sourceId   String?
+
+  status AccountingEntryStatus @default(POSTED)
+  origin AccountingEntryOrigin @default(REAL)
+
+  postedById String?
+  postedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines AccountingEntryLine[]
+
+  @@unique([schoolId, reference])
+  @@unique([schoolId, sourceType, sourceId])
+  @@index([schoolId])
+  @@index([exerciseId])
+  @@index([journalId])
+  @@index([date])
+}
+
+/** Ligne d'écriture : débit XOR crédit, en XOF (entier). */
+model AccountingEntryLine {
+  id      String @id @default(cuid())
+  entryId String
+  entry   AccountingEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  accountId String
+  account   AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  debit  Int @default(0)
+  credit Int @default(0)
+
+  label     String?
+  sortOrder Int @default(0)
+
+  @@index([entryId])
+  @@index([accountId])
+}
+
+/**
+ * Correspondance configurable entre opérations métier et comptes :
+ * clés `METHOD:<PaymentMethod>` (compte de trésorerie du débit),
+ * `CAT:<feeCategoryId>` (compte produit du crédit),
+ * `EXPCAT:<expenseCategoryId>` (compte charge du débit),
+ * `FALLBACK:*` comptes de régularisation si non mappé.
+ */
+model AccountingAccountMap {
+  id       String @id @default(cuid())
+  schoolId String
+
+  key       String
+  accountId String
+  account   AccountingAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  journalId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, key])
+  @@index([schoolId])
+}
