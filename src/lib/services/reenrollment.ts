@@ -143,8 +143,57 @@ async function studentYearBalance(
 }
 
 /**
- * Progression suggérée (jamais automatique) : décision annuelle publiée
- * si disponible, surcharge de campagne, sinon niveau d'ordre supérieur.
+ * Inférence de compatibilité sur un libellé de décision en texte libre
+ * (décisions antérieures à H6 sans progression structurée). Retourne
+ * null si le libellé est absent ou ambigu — jamais d'inférence forcée.
+ */
+function inferProgressionFromLabel(
+  label: string | null | undefined,
+): ReenrollmentProgression | null {
+  const t = (label ?? "").toLowerCase();
+  if (/redoubl/.test(t)) return "REPETITION";
+  if (/admis|passe|sup[ée]rieur/.test(t)) return "PROMOTION";
+  return null;
+}
+
+/**
+ * Conflit de réconciliation H5/G2, évalué à la lecture :
+ * - RETRACTED : demande décidée alors que la décision annuelle publiée
+ *   a été retirée depuis (dépublication/correction H5), ou le drapeau
+ *   explicite `reconciliationNeeded` est levé par H5 ;
+ * - MODIFIED : la progression décidée diffère de la progression
+ *   annuelle publiée actuelle (structurée ou inférée du libellé libre).
+ */
+function detectH5Conflict(
+  req:
+    | {
+        progression: ReenrollmentProgression | null;
+        decidedAt: Date | null;
+        reconciliationNeeded: boolean;
+      }
+    | undefined,
+  annual:
+    | { decision: string | null; progression: ReenrollmentProgression | null }
+    | undefined,
+): "MODIFIED" | "RETRACTED" | null {
+  if (!req) return null;
+  if (req.reconciliationNeeded) return "RETRACTED";
+  if (req.progression == null || req.decidedAt == null) return null;
+  if (!annual) return "RETRACTED";
+  const effective =
+    annual.progression ?? inferProgressionFromLabel(annual.decision);
+  if (effective != null && effective !== req.progression) return "MODIFIED";
+  return null;
+}
+
+/**
+ * Progression suggérée (jamais automatique) : la progression
+ * structurée H6 synchronisée par les délibérations annuelles est
+ * prioritaire ; à défaut, compatibilité avec les anciennes décisions
+ * en texte libre (inférence non ambiguë uniquement — « redouble » ou
+ * « admis/passe/supérieur » — sinon aucune suggestion automatique).
+ * REMEDIAL/DEFERRED/ORIENTATION/EXIT et niveau terminal sont marqués
+ * `manualCase` : cas particuliers à trancher par l'administration.
  */
 async function suggestProgression(
   campaign: {
@@ -159,6 +208,8 @@ async function suggestProgression(
   progression: ReenrollmentProgression | null;
   targetLevelId: string | null;
   basis: "ANNUAL_DECISION" | "OVERRIDE" | "LEVEL_ORDER" | "NONE";
+  terminal?: boolean;
+  manualCase?: boolean;
 }> {
   const overrides = progressionOverrides(campaign);
 
@@ -169,22 +220,49 @@ async function suggestProgression(
       academicYearId: campaign.sourceYearId,
       status: { in: ["PUBLISHED", "RECTIFIED"] },
     },
-    select: { decision: true },
+    select: { decision: true, progression: true },
   });
-  const decision = (annual?.decision ?? "").toLowerCase();
+  const hasDecision = annual?.decision != null || annual?.progression != null;
 
-  let progression: ReenrollmentProgression | null = null;
-  if (/redoubl/.test(decision)) progression = "REPETITION";
-  else if (/admis|passe|sup[ée]rieur/.test(decision)) progression = "PROMOTION";
+  let progression = annual?.progression ?? null;
+  if (progression == null) {
+    progression = inferProgressionFromLabel(annual?.decision);
+  }
 
+  // Cas particuliers : pas de résolution automatique du niveau cible.
+  if (progression === "EXIT" || progression === "DEFERRED") {
+    return {
+      progression,
+      targetLevelId: null,
+      basis: "ANNUAL_DECISION",
+      manualCase: true,
+    };
+  }
+  if (progression === "REMEDIAL" || progression === "ORIENTATION") {
+    const target =
+      (sourceLevelId && overrides[sourceLevelId]) || null;
+    return {
+      progression,
+      targetLevelId: target,
+      basis: target ? "OVERRIDE" : "ANNUAL_DECISION",
+      manualCase: true,
+    };
+  }
   if (progression === "REPETITION" && sourceLevelId) {
     return { progression, targetLevelId: sourceLevelId, basis: "ANNUAL_DECISION" };
+  }
+  if (progression === "SAME_LEVEL" || progression === "CLASS_CHANGE") {
+    return {
+      progression,
+      targetLevelId: sourceLevelId,
+      basis: "ANNUAL_DECISION",
+    };
   }
   if (sourceLevelId && overrides[sourceLevelId]) {
     return {
       progression: progression ?? "PROMOTION",
       targetLevelId: overrides[sourceLevelId],
-      basis: annual?.decision ? "ANNUAL_DECISION" : "OVERRIDE",
+      basis: hasDecision ? "ANNUAL_DECISION" : "OVERRIDE",
     };
   }
   if (sourceLevelId) {
@@ -202,14 +280,24 @@ async function suggestProgression(
         return {
           progression: progression ?? "PROMOTION",
           targetLevelId: next.id,
-          basis: annual?.decision ? "ANNUAL_DECISION" : "LEVEL_ORDER",
+          basis: hasDecision ? "ANNUAL_DECISION" : "LEVEL_ORDER",
+        };
+      }
+      // Pas de niveau supérieur : niveau terminal.
+      if (progression === "PROMOTION") {
+        return {
+          progression,
+          targetLevelId: null,
+          basis: "ANNUAL_DECISION",
+          terminal: true,
+          manualCase: true,
         };
       }
     }
   }
   return {
     progression,
-    targetLevelId: sourceLevelId,
+    targetLevelId: progression === "REPETITION" ? sourceLevelId : null,
     basis: progression ? "ANNUAL_DECISION" : "NONE",
   };
 }
@@ -426,13 +514,25 @@ export type EligibleStudent = {
   sourceLevelName: string | null;
   interrupted: boolean;
   annualDecision: string | null;
+  /** Progression structurée H5 synchronisée (hérite du libellé sinon). */
+  annualProgression: ReenrollmentProgression | null;
   suggestion: {
     progression: ReenrollmentProgression | null;
     targetLevelId: string | null;
     targetLevelName: string | null;
+    /** Niveau terminal — pas de niveau supérieur disponible. */
+    terminal?: boolean;
+    /** Cas particulier à trancher manuellement (REMEDIAL, ORIENTATION…). */
+    manualCase?: boolean;
   };
   unpaidBalance: number;
   request: { id: string; status: ReenrollmentRequestStatus } | null;
+  /**
+   * Conflit H5/G2 : la progression décidée sur la demande diffère de la
+   * décision annuelle publiée actuelle (MODIFIED), ou la décision a été
+   * retirée depuis (dépublication/correction H5 — RETRACTED).
+   */
+  conflict: "MODIFIED" | "RETRACTED" | null;
   blockers: string[];
 };
 
@@ -503,7 +603,10 @@ export async function listEligibleStudents(
   const [requests, annuals, levelNames] = await Promise.all([
     prisma.reenrollmentRequest.findMany({
       where: { schoolId: ctx.schoolId, targetYearId: campaign.targetYearId, studentId: { in: studentIds } },
-      select: { id: true, studentId: true, status: true },
+      select: {
+        id: true, studentId: true, status: true,
+        progression: true, decidedAt: true, reconciliationNeeded: true,
+      },
     }),
     prisma.studentAnnualResult.findMany({
       where: {
@@ -512,7 +615,7 @@ export async function listEligibleStudents(
         studentId: { in: studentIds },
         status: { in: ["PUBLISHED", "RECTIFIED"] },
       },
-      select: { studentId: true, decision: true },
+      select: { studentId: true, decision: true, progression: true },
     }),
     prisma.level.findMany({
       where: { schoolId: ctx.schoolId },
@@ -527,8 +630,12 @@ export async function listEligibleStudents(
   for (const e of sourceEnrollments) {
     const sug = await suggestProgression(campaign, e.studentId, e.classroom.levelId);
     const balance = await studentYearBalance(e.studentId, campaign.sourceYearId, ctx.schoolId);
+    const annual = annualByStudent.get(e.studentId);
+    const conflict = detectH5Conflict(reqByStudent.get(e.studentId), annual);
     const blockers: string[] = [];
     if (campaign.blockOnUnpaid && balance > 0) blockers.push("impayes");
+    if (sug.manualCase) blockers.push("cas_particulier");
+    if (conflict) blockers.push("conflit_h5");
     rows.push({
       studentId: e.studentId,
       matricule: e.student.matricule,
@@ -539,21 +646,28 @@ export async function listEligibleStudents(
       sourceLevelId: e.classroom.levelId,
       sourceLevelName: e.classroom.level.name,
       interrupted: false,
-      annualDecision: annualByStudent.get(e.studentId)?.decision ?? null,
+      annualDecision: annual?.decision ?? null,
+      annualProgression: annual?.progression ?? null,
       suggestion: {
         progression: sug.progression,
         targetLevelId: sug.targetLevelId,
         targetLevelName: sug.targetLevelId ? (levelName.get(sug.targetLevelId) ?? null) : null,
+        terminal: sug.terminal,
+        manualCase: sug.manualCase,
       },
       unpaidBalance: balance,
       request: reqByStudent.get(e.studentId) ?? null,
+      conflict,
       blockers,
     });
   }
   for (const s of interrupted) {
     const last = s.enrollments[0];
     const sug = await suggestProgression(campaign, s.id, last?.classroom.levelId ?? null);
+    const annual = annualByStudent.get(s.id);
+    const conflict = detectH5Conflict(reqByStudent.get(s.id), annual);
     const blockers: string[] = ["interruption"];
+    if (conflict) blockers.push("conflit_h5");
     rows.push({
       studentId: s.id,
       matricule: s.matricule,
@@ -564,14 +678,17 @@ export async function listEligibleStudents(
       sourceLevelId: last?.classroom.levelId ?? null,
       sourceLevelName: last?.classroom.level.name ?? null,
       interrupted: true,
-      annualDecision: annualByStudent.get(s.id)?.decision ?? null,
+      annualDecision: annual?.decision ?? null,
+      annualProgression: annual?.progression ?? null,
       suggestion: {
         progression: "RETURN",
         targetLevelId: sug.targetLevelId,
         targetLevelName: sug.targetLevelId ? (levelName.get(sug.targetLevelId) ?? null) : null,
+        manualCase: sug.manualCase,
       },
       unpaidBalance: 0,
       request: reqByStudent.get(s.id) ?? null,
+      conflict,
       blockers,
     });
   }
@@ -848,6 +965,7 @@ export async function decideReenrollmentRequest(
         completedById: ctx.userId,
         completedAt: new Date(),
         decisionReason: input.reason?.trim() || null,
+        reconciliationNeeded: false,
       },
     });
     await prisma.reenrollmentMessage.create({
@@ -878,6 +996,7 @@ export async function decideReenrollmentRequest(
         decisionReason: input.reason.trim(),
         decidedById: ctx.userId,
         decidedAt: new Date(),
+        reconciliationNeeded: false,
       },
     });
     if (!updated.count) return err("INVALID_STATE");
@@ -938,6 +1057,7 @@ export async function decideReenrollmentRequest(
       progression,
       decidedById: ctx.userId,
       decidedAt: new Date(),
+      reconciliationNeeded: false,
     },
   });
   if (!updated.count) return err("INVALID_STATE");
@@ -1115,6 +1235,7 @@ export async function finalizeReenrollment(
             newEnrollmentId: enrolledRes.result.id,
             completedById: ctx.userId,
             completedAt: new Date(),
+            reconciliationNeeded: false,
           },
         });
         await tx.reenrollmentMessage.create({

@@ -31,11 +31,17 @@ export async function reprepareAction(formData: FormData) {
   );
 }
 
+const PROGRESSIONS = [
+  "PROMOTION", "REPETITION", "SAME_LEVEL", "CLASS_CHANGE",
+  "CYCLE_CHANGE", "RETURN", "REMEDIAL", "DEFERRED", "ORIENTATION", "EXIT",
+] as const;
+
 const adjustSchema = z.object({
   decisionId: z.string().min(1),
   sessionId: z.string().min(1),
   ruleId: z.string().optional().or(z.literal("")),
   customLabel: z.string().trim().max(100).optional(),
+  progression: z.enum(PROGRESSIONS).optional().or(z.literal("")),
   reason: z.string().trim().max(1000).optional(),
 });
 
@@ -46,13 +52,15 @@ export async function adjustDecisionAction(formData: FormData) {
   if (!parsed.success) {
     return back("/app/deliberations?error=INVALID_INPUT");
   }
-  const { sessionId, decisionId, ruleId, customLabel, reason } = parsed.data;
+  const { sessionId, decisionId, ruleId, customLabel, progression, reason } =
+    parsed.data;
   const res = await adjustDecision(
     { userId: tenant.userId, schoolId: tenant.schoolId },
     {
       decisionId,
       ruleId: ruleId || undefined,
       customLabel: customLabel || undefined,
+      progression: progression ? progression : undefined,
       reason,
     },
   );

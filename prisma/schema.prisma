@@ -1541,6 +1541,8 @@ model StudentAnnualResult {
   rank          Int?
   mention       String?
   decision      String?
+  /** Progression structurée synchronisée par H5 (indépendante du libellé). */
+  progression   ReenrollmentProgression?
   status        ResultStatus @default(DRAFT)
 
   computedAt   DateTime?
@@ -1800,10 +1802,14 @@ model DeliberationDecision {
   proposedRuleId String?
   proposedRule   DeliberationRule? @relation("DeliberationProposedRule", fields: [proposedRuleId], references: [id], onDelete: SetNull)
   proposedLabel  String?
+  /** Progression proposée — snapshot de la règle au moment de la préparation. */
+  proposedProgression ReenrollmentProgression?
 
   finalRuleId String?
   finalRule   DeliberationRule? @relation("DeliberationFinalRule", fields: [finalRuleId], references: [id], onDelete: SetNull)
   finalLabel  String?
+  /** Progression structurée retenue par le conseil (H6). */
+  finalProgression  ReenrollmentProgression?
 
   adjustmentReason String?
   status           DeliberationDecisionStatus @default(PROPOSED)
@@ -2998,6 +3004,14 @@ enum ReenrollmentProgression {
   CLASS_CHANGE
   CYCLE_CHANGE
   RETURN
+  /** Rattrapage / remédiation — traitement manuel requis. */
+  REMEDIAL
+  /** Ajournement — pas de proposition pour l'année suivante. */
+  DEFERRED
+  /** Réorientation — niveau cible choisi manuellement. */
+  ORIENTATION
+  /** Sortie de l'établissement (transfert inclus). */
+  EXIT
 }
 
 /**
@@ -3101,6 +3115,13 @@ model ReenrollmentRequest {
   decidedById    String?
   decidedBy      User?     @relation("ReenrollDecider", fields: [decidedById], references: [id], onDelete: SetNull)
   decidedAt      DateTime?
+
+  /**
+   * Réconciliation H5/G2 : levé par une dépublication ou un
+   * déverrouillage de délibération annuelle tant que la demande reste
+   * ouverte — soldé à la prochaine décision ou finalisation.
+   */
+  reconciliationNeeded Boolean @default(false)
 
   newEnrollmentId String?
   newEnrollment   Enrollment? @relation("ReenrollNew", fields: [newEnrollmentId], references: [id], onDelete: SetNull)

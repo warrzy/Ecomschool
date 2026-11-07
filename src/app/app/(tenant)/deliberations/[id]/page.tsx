@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db/prisma";
 import {
   getSession,
   getSessionForPv,
+  PROGRESSION_LABELS,
   SCOPE_LABELS,
   SESSION_STATUS_LABELS,
   SESSION_STATUS_TONES,
@@ -350,10 +351,20 @@ export default async function DeliberationDetailPage(props: {
                       {d.proposedLabel ?? (
                         <span className="text-gray-400">aucune règle</span>
                       )}
+                      {d.proposedProgression && (
+                        <span className="block text-[10px] uppercase text-zinc-500">
+                          {PROGRESSION_LABELS[d.proposedProgression]}
+                        </span>
+                      )}
                     </td>
                     <td className="font-medium">
                       {d.finalLabel ?? (
                         <span className="text-red-600">à trancher</span>
+                      )}
+                      {d.finalProgression && (
+                        <span className="block text-[10px] uppercase text-zinc-500">
+                          {PROGRESSION_LABELS[d.finalProgression]}
+                        </span>
                       )}
                     </td>
                     <td>
@@ -404,6 +415,21 @@ export default async function DeliberationDetailPage(props: {
                             maxLength={100}
                             className="w-36 rounded border px-1.5 py-1 text-xs"
                           />
+                          {session.scope === "ANNUAL" && (
+                            <select
+                              name="progression"
+                              aria-label="Progression"
+                              className="rounded border px-1.5 py-1 text-xs"
+                              defaultValue=""
+                            >
+                              <option value="">— progression —</option>
+                              {Object.entries(PROGRESSION_LABELS).map(([k, l]) => (
+                                <option key={k} value={k}>
+                                  {l}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <input
                             name="reason"
                             placeholder="motif (requis si ≠ proposition)"

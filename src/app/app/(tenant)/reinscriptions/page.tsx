@@ -60,11 +60,17 @@ const PROGRESSION_LABELS: Record<string, string> = {
   CLASS_CHANGE: "Changement de classe",
   CYCLE_CHANGE: "Changement de cycle",
   RETURN: "Retour après interruption",
+  REMEDIAL: "Rattrapage / remédiation",
+  DEFERRED: "Ajournement",
+  ORIENTATION: "Réorientation",
+  EXIT: "Sortie de l'établissement",
 };
 const BLOCKER_LABELS: Record<string, string> = {
   pieces_manquantes: "Pièces obligatoires manquantes",
   impayes: "Impayés sur l'année source",
   interruption: "Retour après interruption",
+  cas_particulier: "Cas particulier à trancher",
+  conflit_h5: "Conflit décision annuelle",
 };
 
 export default async function ReinscriptionsPage(props: {
@@ -357,16 +363,37 @@ export default async function ReinscriptionsPage(props: {
                       {e.sourceClassroom ?? "—"}
                       {e.interrupted ? <span className="ml-1 text-amber-700">(interrompu)</span> : null}
                     </td>
-                    <td className="py-2 text-xs">{e.annualDecision ?? "—"}</td>
+                    <td className="py-2 text-xs">
+                      {e.annualDecision ?? "—"}
+                      {e.annualProgression ? (
+                        <div className="text-[10px] uppercase text-zinc-500">
+                          {PROGRESSION_LABELS[e.annualProgression]}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="py-2 text-xs">
                       {e.suggestion.progression ? PROGRESSION_LABELS[e.suggestion.progression] : "—"}
                       {e.suggestion.targetLevelName ? ` → ${e.suggestion.targetLevelName}` : ""}
+                      {e.suggestion.terminal ? (
+                        <div className="text-[10px] font-medium uppercase text-amber-700">
+                          Niveau terminal
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-2 text-xs">
                       {e.request ? (
-                        <Link href={`/app/reinscriptions?camp=${campaign.id}&req=${e.request.id}`} className="text-brand-700 underline">
-                          {STATUS_LABELS[e.request.status]}
-                        </Link>
+                        <>
+                          <Link href={`/app/reinscriptions?camp=${campaign.id}&req=${e.request.id}`} className="text-brand-700 underline">
+                            {STATUS_LABELS[e.request.status]}
+                          </Link>
+                          {e.conflict ? (
+                            <div className="mt-0.5 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium uppercase text-red-800">
+                              {e.conflict === "RETRACTED"
+                                ? "À réconcilier (décision retirée)"
+                                : "À réconcilier (décision modifiée)"}
+                            </div>
+                          ) : null}
+                        </>
                       ) : (
                         <span className="text-zinc-400">{STATUS_LABELS.NOT_STARTED}</span>
                       )}

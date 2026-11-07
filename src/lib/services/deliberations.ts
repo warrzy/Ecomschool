@@ -73,6 +73,10 @@ export const PROGRESSION_LABELS: Record<ReenrollmentProgression, string> = {
   CLASS_CHANGE: "Changement de classe",
   CYCLE_CHANGE: "Changement de cycle",
   RETURN: "Réintégration",
+  REMEDIAL: "Rattrapage / remédiation",
+  DEFERRED: "Ajournement",
+  ORIENTATION: "Réorientation",
+  EXIT: "Sortie de l'établissement",
 };
 
 async function hasPerm(ctx: SchoolCtx, key: string) {
@@ -212,6 +216,8 @@ type RuleRow = {
   minAverage: number | null;
   maxAverage: number | null;
   requiresComplete: boolean;
+  levelId?: string | null;
+  progression: ReenrollmentProgression | null;
 };
 
 /**
@@ -229,7 +235,7 @@ async function rulesFor(
 ): Promise<RuleRow[]> {
   const cols = {
     id: true, label: true, minAverage: true, maxAverage: true,
-    requiresComplete: true, levelId: true,
+    requiresComplete: true, levelId: true, progression: true,
   } as const;
   const orderBy = [{ order: "asc" as const }, { createdAt: "asc" as const }];
   const [specific, general] = await Promise.all([
@@ -251,15 +257,21 @@ function propose(
   average: number | null,
   complete: boolean,
   rules: RuleRow[],
-): { ruleId: string | null; label: string | null } {
-  if (average == null) return { ruleId: null, label: null };
+): {
+  ruleId: string | null;
+  label: string | null;
+  progression: ReenrollmentProgression | null;
+} {
+  if (average == null) return { ruleId: null, label: null, progression: null };
   const hit = rules.find(
     (r) =>
       (r.minAverage == null || average >= r.minAverage) &&
       (r.maxAverage == null || average < r.maxAverage) &&
       (!r.requiresComplete || complete),
   );
-  return hit ? { ruleId: hit.id, label: hit.label } : { ruleId: null, label: null };
+  return hit
+    ? { ruleId: hit.id, label: hit.label, progression: hit.progression }
+    : { ruleId: null, label: null, progression: null };
 }
 
 async function nextPvNumber(tx: Tx, schoolId: string) {
@@ -481,8 +493,10 @@ export async function prepareSession(
             completeSnapshot: r.complete,
             proposedRuleId: p.ruleId,
             proposedLabel: p.label,
+            proposedProgression: p.progression,
             finalRuleId: p.ruleId,
             finalLabel: p.label,
+            finalProgression: p.progression,
           };
         }),
       });
@@ -601,9 +615,14 @@ export async function reprepareSession(
           completeSnapshot: row.complete,
           proposedRuleId: p.ruleId,
           proposedLabel: p.label,
+          proposedProgression: p.progression,
           // Non ajustée → la décision suit la nouvelle proposition.
           ...(d.adjustmentReason == null
-            ? { finalRuleId: p.ruleId, finalLabel: p.label }
+            ? {
+                finalRuleId: p.ruleId,
+                finalLabel: p.label,
+                finalProgression: p.progression,
+              }
             : {}),
         },
       });
@@ -628,8 +647,10 @@ export async function reprepareSession(
             completeSnapshot: row.complete,
             proposedRuleId: p.ruleId,
             proposedLabel: p.label,
+            proposedProgression: p.progression,
             finalRuleId: p.ruleId,
             finalLabel: p.label,
+            finalProgression: p.progression,
           };
         }),
       });
@@ -701,6 +722,8 @@ export async function adjustDecision(
     decisionId: string;
     ruleId?: string;
     customLabel?: string;
+    /** Progression structurée explicite — jamais inférée du libellé. */
+    progression?: ReenrollmentProgression | null;
     reason?: string;
   },
 ): Promise<DeliberationResult> {
@@ -718,6 +741,7 @@ export async function adjustDecision(
 
   let finalRuleId: string | null = null;
   let finalLabel: string | null = null;
+  let ruleProgression: ReenrollmentProgression | null = null;
   if (input.ruleId) {
     const rule = await prisma.deliberationRule.findFirst({
       where: {
@@ -726,18 +750,26 @@ export async function adjustDecision(
         status: "ACTIVE",
         scope: decision.session.scope,
       },
-      select: { id: true, label: true },
+      select: { id: true, label: true, progression: true },
     });
     if (!rule) return { ok: false, error: "NOT_FOUND" };
     finalRuleId = rule.id;
     finalLabel = rule.label;
+    ruleProgression = rule.progression;
   } else if (input.customLabel?.trim()) {
     finalLabel = input.customLabel.trim().slice(0, 100);
   } else {
     return { ok: false, error: "INVALID_INPUT" };
   }
+  // Progression retenue : explicite si fournie, sinon celle de la règle
+  // choisie ; un libellé libre sans progression explicite reste
+  // indéterminé (jamais d'inférence à partir du texte).
+  const finalProgression =
+    input.progression !== undefined ? input.progression : ruleProgression;
 
-  const differs = finalLabel !== decision.proposedLabel;
+  const differs =
+    finalLabel !== decision.proposedLabel ||
+    finalProgression !== decision.proposedProgression;
   const reason = input.reason?.trim() || null;
   if (differs && !reason) return { ok: false, error: "REASON_REQUIRED" };
 
@@ -749,6 +781,7 @@ export async function adjustDecision(
     data: {
       finalRuleId,
       finalLabel,
+      finalProgression,
       adjustmentReason: differs ? reason : null,
       status: differs ? "ADJUSTED" : "PROPOSED",
       adjustedById: differs ? ctx.userId : decision.adjustedById,
@@ -767,6 +800,8 @@ export async function adjustDecision(
       sessionId: decision.session.id,
       proposed: decision.proposedLabel,
       final: finalLabel,
+      proposedProgression: decision.proposedProgression,
+      finalProgression,
       reason: differs ? reason : null,
     },
   });
@@ -846,6 +881,15 @@ export async function unlockSession(
   const r = reason.trim();
   if (!r) return { ok: false, error: "REASON_REQUIRED" };
 
+  const session = await prisma.deliberationSession.findFirst({
+    where: { id: sessionId, schoolId: ctx.schoolId },
+    select: {
+      scope: true,
+      decisions: { select: { studentId: true } },
+    },
+  });
+  if (!session) return { ok: false, error: "NOT_FOUND" };
+
   const done = await prisma.$transaction(async (tx) => {
     const u = await tx.deliberationSession.updateMany({
       where: { id: sessionId, schoolId: ctx.schoolId, status: "VALIDATED" },
@@ -866,6 +910,20 @@ export async function unlockSession(
       where: { sessionId, adjustmentReason: { not: null } },
       data: { status: "ADJUSTED" },
     });
+    // Réconciliation H5→G2 : les demandes de réinscription ouvertes
+    // des élèves concernés sont marquées pour revue.
+    if (session.scope === "ANNUAL") {
+      await tx.reenrollmentRequest.updateMany({
+        where: {
+          schoolId: ctx.schoolId,
+          studentId: { in: session.decisions.map((d) => d.studentId) },
+          status: {
+            in: ["SUBMITTED", "UNDER_REVIEW", "ADDITIONAL_INFO_REQUIRED", "APPROVED"],
+          },
+        },
+        data: { reconciliationNeeded: true },
+      });
+    }
     return true;
   });
   if (!done) return { ok: false, error: "INVALID_STATUS" };
@@ -899,6 +957,7 @@ export async function publishSession(
       decisions: {
         select: {
           id: true, studentId: true, finalLabel: true,
+          finalProgression: true,
           averageSnapshot: true, completeSnapshot: true,
         },
       },
@@ -943,14 +1002,21 @@ export async function publishSession(
         studentId: { in: syncCandidates.map((d) => d.studentId) },
         decision: { not: null },
       },
-      select: { studentId: true, decision: true },
+      select: { studentId: true, decision: true, progression: true },
     });
     const finalByStudent = new Map(
-      syncCandidates.map((d) => [d.studentId, d.finalLabel]),
+      syncCandidates.map((d) => [
+        d.studentId,
+        { label: d.finalLabel, progression: d.finalProgression },
+      ]),
     );
-    conflicts = sars.filter(
-      (r) => r.decision !== finalByStudent.get(r.studentId),
-    ).length;
+    conflicts = sars.filter((r) => {
+      const f = finalByStudent.get(r.studentId);
+      return (
+        r.decision !== f?.label ||
+        (r.progression != null && r.progression !== f?.progression)
+      );
+    }).length;
   }
   if (conflicts > 0) return { ok: false, error: "DECISION_CONFLICT" };
 
@@ -978,7 +1044,7 @@ export async function publishSession(
             academicYearId: session.academicYearId,
             studentId: d.studentId,
           },
-          data: { decision: d.finalLabel },
+          data: { decision: d.finalLabel, progression: d.finalProgression },
         });
       }
     }
@@ -1016,7 +1082,11 @@ export async function depublishSession(
 
   const session = await prisma.deliberationSession.findFirst({
     where: { id: sessionId, schoolId: ctx.schoolId, status: "PUBLISHED" },
-    include: { decisions: { select: { studentId: true, finalLabel: true } } },
+    include: {
+      decisions: {
+        select: { studentId: true, finalLabel: true, finalProgression: true },
+      },
+    },
   });
   if (!session) return { ok: false, error: "INVALID_STATUS" };
 
@@ -1052,7 +1122,33 @@ export async function depublishSession(
           },
           data: { decision: null },
         });
+        // La progression structurée est retirée indépendamment du
+        // libellé — uniquement si elle vaut encore la valeur publiée.
+        if (d.finalProgression) {
+          await tx.studentAnnualResult.updateMany({
+            where: {
+              schoolId: ctx.schoolId,
+              academicYearId: session.academicYearId,
+              studentId: d.studentId,
+              progression: d.finalProgression,
+            },
+            data: { progression: null },
+          });
+        }
       }
+    }
+    // Réconciliation H5→G2 : demandes ouvertes marquées pour revue.
+    if (session.scope === "ANNUAL") {
+      await tx.reenrollmentRequest.updateMany({
+        where: {
+          schoolId: ctx.schoolId,
+          studentId: { in: session.decisions.map((d) => d.studentId) },
+          status: {
+            in: ["SUBMITTED", "UNDER_REVIEW", "ADDITIONAL_INFO_REQUIRED", "APPROVED"],
+          },
+        },
+        data: { reconciliationNeeded: true },
+      });
     }
     return true;
   });
