@@ -169,6 +169,8 @@ async function main() {
   console.log("\n== Référentiel & permissions ==");
   check("install plan refusée en lecture seule", err(await installStarterPlan(ctxR)) === "FORBIDDEN");
   check("install plan OK", err(await installStarterPlan(ctxA)) == null);
+  check("aucune écriture créée par l'installation",
+    (await prisma.accountingEntry.count({ where: { schoolId: A.id } })) === 0);
   const accsR = await listAccounts(ctxA);
   const accs = accsR.ok ? accsR.result : [];
   check("10 comptes SYSCOHADA", accs.length === 10);
@@ -234,6 +236,23 @@ async function main() {
   const gen2 = await generateEntries(ctxA);
   check("idempotence : 0 nouvelle écriture", gen2.ok && gen2.result.payments === 0 && gen2.result.expenses === 0);
 
+  // Concurrence : deux comptabilisations simultanées sur un nouveau
+  // paiement → exactement une écriture, aucune erreur fatale.
+  const p7 = await mkPayment(7000, "CASH", "2027-04-01", "R-007");
+  const inst7 = await prisma.feeInstallment.create({
+    data: { schoolId: A.id, chargeId: charge.id, studentId: student.id, academicYearId: y0.id, dueDate: new Date("2027-04-01"), amount: 7000 },
+  });
+  await prisma.paymentAllocation.create({ data: { paymentId: p7.id, installmentId: inst7.id, amount: 7000 } });
+  const concurrent = await Promise.all([
+    generateEntries(ctxA), generateEntries(ctxA),
+  ]);
+  check("concurrence : aucune erreur fatale",
+    concurrent.every((g) => g.ok));
+  check("concurrence : exactement 1 écriture pour p7",
+    (await prisma.accountingEntry.count({
+      where: { schoolId: A.id, sourceType: "PAYMENT", sourceId: p7.id },
+    })) === 1);
+
   console.log("\n== Correspondances & régularisation ==");
   const acc701 = await prisma.accountingAccount.findFirstOrThrow({ where: { schoolId: A.id, code: "701" } });
   check("mapping CAT:scolarité → 701", err(await upsertMapping(ctxA, { key: `CAT:${cat.id}`, accountId: acc701.id })) == null);
@@ -289,8 +308,8 @@ async function main() {
   const tb = await trialBalance(ctxA, exId);
   check("balance équilibrée Σ D = Σ C", tb.ok && tb.result.totalDebit === tb.result.totalCredit);
   const r571 = tb.ok ? tb.result.balance.find((r) => r.code === "571") : null;
-  check("571 : +50000 +20000 −8000 −10000 = 52000",
-    r571?.debit === 70000 && r571?.credit === 18000);
+  check("571 : +50000 +20000 +7000 −8000 −10000 = 59000",
+    r571?.debit === 77000 && r571?.credit === 18000);
   const gl = await generalLedger(ctxA, exId, acc571Id(accs));
   check("grand livre 571 : mouvements triés", gl.ok && gl.result.lines.length >= 4);
   const eJournal = await exportCsv(ctxA, "journal", exId);
@@ -319,9 +338,23 @@ async function main() {
   const tbReal = await trialBalance(ctxA, exId);
   const tbSim = await trialBalance(ctxA, exId, true);
   check("simulation exclue de la balance par défaut",
-    tbReal.ok && tbReal.result.balance.find((r) => r.code === "571")?.debit === 70000);
+    tbReal.ok && tbReal.result.balance.find((r) => r.code === "571")?.debit === 77000);
   check("simulation incluse sur demande",
-    tbSim.ok && tbSim.result.balance.find((r) => r.code === "571")?.debit === 79999);
+    tbSim.ok && tbSim.result.balance.find((r) => r.code === "571")?.debit === 86999);
+  check("écriture manuelle hors période refusée",
+    err(await createManualEntry(ctxA, {
+      journalId: odId, exerciseId: exId, date: new Date("2025-01-10"),
+      description: "hors exercice",
+      lines: [{ accountId: acc571.id, debit: 1 }, { accountId: acc411.id, credit: 1 }],
+    })) === "INVALID_STATE");
+  check("écriture REAL description à formule", err(await createManualEntry(ctxA, {
+    journalId: odId, exerciseId: exId, date: new Date("2027-02-10"),
+    description: "=cmd|'/c calc'!A0",
+    lines: [{ accountId: acc571.id, debit: 5 }, { accountId: acc411.id, credit: 5 }],
+  })) == null);
+  const csvInj = await exportCsv(ctxA, "journal", exId);
+  check("CSV : formule neutralisée (préfixe apostrophe)",
+    csvInj.ok && csvInj.result.csv.includes(`"'=cmd`));
 
   console.log("\n== Clôture exercice ==");
   check("clôture exercice", err(await closeExercise(ctxA, exId)) == null);

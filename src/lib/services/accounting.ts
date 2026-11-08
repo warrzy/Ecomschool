@@ -20,7 +20,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type SchoolCtx = { userId: string; schoolId: string };
 export type AcctResult<T = undefined> =
@@ -277,9 +277,12 @@ async function createEntry(
   const c = input.lines.reduce((s, l) => s + (l.credit ?? 0), 0);
   if (d !== c || d === 0) throw new Error(`UNBALANCED:${d}/${c}`);
   const exercise = await tx.accountingExercise.findUniqueOrThrow({
-    where: { id: input.exerciseId }, select: { status: true },
+    where: { id: input.exerciseId },
+    select: { status: true, startDate: true, endDate: true },
   });
   if (exercise.status !== "OPEN") throw new Error("EXERCISE_CLOSED");
+  if (input.date < exercise.startDate || input.date > exercise.endDate)
+    throw new Error("EXERCISE_RANGE");
   const year = input.date.getFullYear();
   // Séquence de référence sous verrou transactionnel (aucun doublon).
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${"ECREF" + ctx.schoolId + year}))`;
@@ -310,6 +313,21 @@ async function createEntry(
     select: { id: true, status: true },
   });
   return entry;
+}
+
+/** Poste une écriture en transaction ; ignore le doublon concurrent (P2002). */
+async function postEntrySafe(
+  ctx: SchoolCtx,
+  input: Parameters<typeof createEntry>[2],
+): Promise<boolean> {
+  try {
+    await prisma.$transaction((tx) => createEntry(ctx, tx, input));
+    return true;
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
+      return false;
+    throw e;
+  }
 }
 
 async function mapsByKey(ctx: SchoolCtx) {
@@ -387,15 +405,13 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
       { accountId: mid.accountId, debit: p.amount, label: `Encaissement ${p.receiptNumber ?? ""}`.trim() },
       ...Array.from(credits).map(([accId, amt]) => ({ accountId: accId, credit: amt })),
     ];
-    await prisma.$transaction(async (tx) => {
-      await createEntry(ctx, tx, {
-        journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
-        date: p.paidAt,
-        description: `Encaissement ${p.receiptNumber ?? p.id} — ${p.method}`,
-        sourceType: "PAYMENT", sourceId: p.id, lines,
-      });
-    });
-    stats.payments++;
+    if (await postEntrySafe(ctx, {
+      journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
+      date: p.paidAt,
+      description: `Encaissement ${p.receiptNumber ?? p.id} — ${p.method}`,
+      sourceType: "PAYMENT", sourceId: p.id, lines,
+    })) stats.payments++;
+    else stats.skipped++;
   }
 
   // --- Paiements annulés → contre-passation ---
@@ -411,19 +427,17 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     });
     const ex = exerciseFor(exercises, p.cancelledAt ?? new Date());
     if (!orig || !ex) { stats.skipped++; continue; }
-    await prisma.$transaction(async (tx) => {
-      await createEntry(ctx, tx, {
-        journalId: orig.journalId, exerciseId: ex.id,
-        date: p.cancelledAt ?? new Date(),
-        description: `Contre-passation annulation ${p.receiptNumber ?? p.id}`,
-        sourceType: "PAYMENT_CANCEL", sourceId: p.id,
-        lines: orig.lines.map((l) => ({
-          accountId: l.accountId, debit: l.credit, credit: l.debit,
-          label: `Contre-passation ${l.label ?? ""}`.trim(),
-        })),
-      });
-    });
-    stats.cancels++;
+    if (await postEntrySafe(ctx, {
+      journalId: orig.journalId, exerciseId: ex.id,
+      date: p.cancelledAt ?? new Date(),
+      description: `Contre-passation annulation ${p.receiptNumber ?? p.id}`,
+      sourceType: "PAYMENT_CANCEL", sourceId: p.id,
+      lines: orig.lines.map((l) => ({
+        accountId: l.accountId, debit: l.credit, credit: l.debit,
+        label: `Contre-passation ${l.label ?? ""}`.trim(),
+      })),
+    })) stats.cancels++;
+    else stats.skipped++;
   }
 
   // --- Remboursements confirmés → reprise du produit ---
@@ -441,19 +455,17 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     const mid = maps.get(`METHOD:${r.payment!.method}`);
     const revenueAcc = orig?.lines.find((l) => l.credit > 0)?.accountId;
     if (!orig || !ex || !mid || !revenueAcc) { stats.skipped++; continue; }
-    await prisma.$transaction(async (tx) => {
-      await createEntry(ctx, tx, {
-        journalId: orig.journalId, exerciseId: ex.id,
-        date: r.confirmedAt ?? new Date(),
-        description: `Remboursement ${r.payment!.receiptNumber ?? r.id} — ${r.reason}`,
-        sourceType: "REFUND", sourceId: r.id,
-        lines: [
-          { accountId: revenueAcc, debit: r.amount, label: "Reversement" },
-          { accountId: mid.accountId, credit: r.amount },
-        ],
-      });
-    });
-    stats.refunds++;
+    if (await postEntrySafe(ctx, {
+      journalId: orig.journalId, exerciseId: ex.id,
+      date: r.confirmedAt ?? new Date(),
+      description: `Remboursement ${r.payment!.receiptNumber ?? r.id} — ${r.reason}`,
+      sourceType: "REFUND", sourceId: r.id,
+      lines: [
+        { accountId: revenueAcc, debit: r.amount, label: "Reversement" },
+        { accountId: mid.accountId, credit: r.amount },
+      ],
+    })) stats.refunds++;
+    else stats.skipped++;
   }
 
   // --- Dépenses payées ---
@@ -468,19 +480,17 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     const cat = maps.get(`EXPCAT:${e.categoryId}`) ?? maps.get("FALLBACK:EXPCAT");
     const mid = maps.get(`METHOD:${e.method ?? "CASH"}`) ?? maps.get("METHOD:CASH");
     if (!cat || !mid) { stats.incomplete++; continue; }
-    await prisma.$transaction(async (tx) => {
-      await createEntry(ctx, tx, {
-        journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
-        date: e.paidAt ?? e.expenseAt,
-        description: `Dépense ${e.label} — ${e.beneficiary}`,
-        sourceType: "EXPENSE", sourceId: e.id,
-        lines: [
-          { accountId: cat.accountId, debit: e.amount, label: e.label },
-          { accountId: mid.accountId, credit: e.amount },
-        ],
-      });
-    });
-    stats.expenses++;
+    if (await postEntrySafe(ctx, {
+      journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
+      date: e.paidAt ?? e.expenseAt,
+      description: `Dépense ${e.label} — ${e.beneficiary}`,
+      sourceType: "EXPENSE", sourceId: e.id,
+      lines: [
+        { accountId: cat.accountId, debit: e.amount, label: e.label },
+        { accountId: mid.accountId, credit: e.amount },
+      ],
+    })) stats.expenses++;
+    else stats.skipped++;
   }
 
   await logAudit({
@@ -653,7 +663,13 @@ export async function exportCsv(
   opts?: { journalId?: string; accountId?: string; includeSimulation?: boolean },
 ): Promise<AcctResult<{ csv: string; filename: string }>> {
   if (!(await hasPerm(ctx, "accounting.export"))) return err("FORBIDDEN");
-  const esc = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
+  // Protection injection de formules : une cellule commençant par
+  // = + - @ ou caractères de contrôle est préfixée d'une apostrophe.
+  const esc = (v: unknown) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return `"${s.replaceAll('"', '""')}"`;
+  };
   const rows: string[] = [];
   if (kind === "journal") {
     const entries = await listEntries(ctx, {
