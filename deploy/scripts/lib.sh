@@ -57,3 +57,19 @@ pg_url_for() {
   base=${base%/*}
   echo "$base/$db"
 }
+
+# Envoie une alerte vers ALERT_WEBHOOK_URL au format Discord {"content":..}.
+# $1=titre  $2=détail. Sans URL configurée : no-op (alerte loggée par l'appelant).
+send_alert_webhook() {
+  [ -n "${ALERT_WEBHOOK_URL:-}" ] || return 0
+  local clean_title clean_body host now
+  # Caractères JSON sensibles neutralisés (guillemets, antislash, newline).
+  clean_title=$(printf '%s' "$1" | tr '"\\n' '   ')
+  clean_body=$(printf '%s' "$2" | tr '"\\n' '   ')
+  host=$(hostname 2>/dev/null || echo '?')
+  now=$(ts)
+  curl -fsS -m 10 -X POST "$ALERT_WEBHOOK_URL" \
+    -H 'content-type: application/json' \
+    -d "{\"content\":\"⚠️ **$clean_title** — $clean_body\n$host · $now\"}" \
+    >/dev/null 2>&1
+}

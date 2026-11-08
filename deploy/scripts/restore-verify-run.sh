@@ -24,6 +24,11 @@
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
+# ALERT_WEBHOOK_URL et réglages depuis shared/.env (exportés pour cron).
+set -a
+[ -f "$APP_SHARED/.env" ] && . "$APP_SHARED/.env" || true
+set +a
+
 DRY_RUN=0; FORCE=0
 for a in "$@"; do case "$a" in
   --dry-run) DRY_RUN=1 ;; --force) FORCE=1 ;; esac; done
@@ -43,11 +48,8 @@ fail() { STATUS="FAIL"; DETAIL="$1"; log_line "restore-verify-run FAIL : $1"; fi
 finish() {
   # Alerte dédupliquée (clé stable → pas de spam) ou trace de succès.
   if [ "$STATUS" = "FAIL" ]; then
-    if declare -F alert >/dev/null 2>&1; then
-      alert "restore_verify" "RESTAURATION-VERIFY ÉCHEC" "$DETAIL"
-    else
-      log_line "restore-verify-run ALERTE (aucun canal) : $DETAIL"
-    fi
+    send_alert_webhook "restore_verify ÉCHEC" "$DETAIL" \
+      || log_line "restore-verify-run ALERTE (canal en échec) : $DETAIL"
   else
     log_line "restore-verify-run OK — rapport $REPORT"
   fi

@@ -57,8 +57,7 @@ alert() {
   fi
   echo "ALERTE $key — $title — $body" >&2
   if [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
-    curl -fsS -m 10 -X POST "$ALERT_WEBHOOK_URL" \
-      -H 'content-type: application/json' -d "$payload" >/dev/null 2>&1 \
+    send_alert_webhook "[$key] $title" "$body" \
       || log_line "monitor: envoi webhook en échec ($key)"
   elif [ -n "${EMAIL_PROVIDER_URL:-}" ]; then
     curl -fsS -m 10 -X POST "$EMAIL_PROVIDER_URL" \
@@ -78,10 +77,7 @@ resolved() {
     rm -f "$stamp"
     echo "RETABLI $key — $title" >&2
     if [ "$DRY_RUN" = 0 ] && [ -n "${ALERT_WEBHOOK_URL:-}" ]; then
-      curl -fsS -m 10 -X POST "$ALERT_WEBHOOK_URL" \
-        -H 'content-type: application/json' \
-        -d "{\"key\":\"$key\",\"title\":\"RÉTABLI : $title\",\"resolved\":true}" \
-        >/dev/null 2>&1 || true
+      send_alert_webhook "[$key] RÉTABLI" "$title" || true
     fi
   fi
 }
