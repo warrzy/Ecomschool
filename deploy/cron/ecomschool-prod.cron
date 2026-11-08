@@ -1,0 +1,18 @@
+# ECOM-SCHOOL PROD — ordonnanceur (/etc/cron.d/ecomschool-prod)
+# Secrets lus depuis shared/.env à l'exécution — jamais injectés ici.
+# Env par tâche : APP_ROOT/DB_NAME/BACKUP_DIR/LOG_DIR propres à la prod.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+*/10 * * * * deploy flock -n /tmp/ecomschool-prod-cron.lock sh -c 'curl -fsS -o /dev/null -m 300 -H "Authorization: Bearer $(sed -n "s/^CRON_SECRET=//p" /var/www/ecomschool-prod/shared/.env | tr -d "\"")" http://127.0.0.1:3002/api/cron' || echo "$(date -Is) ecomschool-prod cron failed" >> /var/log/ecomschool-prod/cron-errors.log
+
+# Sauvegardes quotidiennes (02:40/02:45 — décalées de la préprod).
+40 2 * * * deploy env APP_ROOT=/var/www/ecomschool-prod ECOMSCHOOL_DB_NAME=ecomschool_prod ECOMSCHOOL_BACKUP_DIR=/var/backups/ecomschool-prod ECOMSCHOOL_LOG_DIR=/var/log/ecomschool-prod bash /var/www/ecomschool-prod/current/deploy/scripts/backup.sh >> /var/log/ecomschool-prod/backup.log 2>&1
+45 2 * * * deploy env APP_ROOT=/var/www/ecomschool-prod ECOMSCHOOL_BACKUP_DIR=/var/backups/ecomschool-prod ECOMSCHOOL_LOG_DIR=/var/log/ecomschool-prod bash /var/www/ecomschool-prod/current/deploy/scripts/backup-uploads.sh >> /var/log/ecomschool-prod/backup-uploads.log 2>&1
+
+# Supervision toutes les 15 min — alertes Discord dédupliquées.
+*/15 * * * * deploy env APP_ROOT=/var/www/ecomschool-prod ECOMSCHOOL_DB_NAME=ecomschool_prod ECOMSCHOOL_BACKUP_DIR=/var/backups/ecomschool-prod ECOMSCHOOL_LOG_DIR=/var/log/ecomschool-prod bash /var/www/ecomschool-prod/current/deploy/scripts/monitor.sh >> /var/log/ecomschool-prod/monitor.log 2>&1
+
+# Vérification de restauration hebdomadaire (dimanche 04:20, base témoin isolée
+# ecomschool_prod_verify — distincte de la témoin preprod).
+20 4 * * 0 deploy env APP_ROOT=/var/www/ecomschool-prod ECOMSCHOOL_DB_NAME=ecomschool_prod ECOMSCHOOL_BACKUP_DIR=/var/backups/ecomschool-prod ECOMSCHOOL_LOG_DIR=/var/log/ecomschool-prod RESTORE_VERIFY_DB=ecomschool_prod_verify bash /var/www/ecomschool-prod/current/deploy/scripts/restore-verify-run.sh >> /var/log/ecomschool-prod/restore-verify.log 2>&1
