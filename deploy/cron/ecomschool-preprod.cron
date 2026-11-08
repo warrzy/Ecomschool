@@ -18,3 +18,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Supervision toutes les 15 min : sauvegardes, cron, jobs DEAD, dispo, disque.
 # Alertes dédupliquées vers ALERT_WEBHOOK_URL (ou e-mail provider).
 */15 * * * * deploy bash /var/www/ecomschool-preprod/current/deploy/scripts/monitor.sh >> /var/log/ecomschool/monitor.log 2>&1
+
+# Vérification de restauration hebdomadaire (dimanche 04:10) sur base témoin
+# isolée — jamais la base applicative. Verrou + timeout + rapport + alerte.
+10 4 * * 0 deploy bash /var/www/ecomschool-preprod/current/deploy/scripts/restore-verify-run.sh >> /var/log/ecomschool/restore-verify.log 2>&1
