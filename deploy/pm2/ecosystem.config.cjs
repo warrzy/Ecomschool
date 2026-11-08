@@ -27,5 +27,26 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+    {
+      name: "ecomschool-prod",
+      // Production ecomschool.fr — démarre uniquement via
+      // `pm2 start ... --only ecomschool-prod` (APP_ROOT=/var/www/ecomschool-prod).
+      cwd: "/var/www/ecomschool-prod/current",
+      script: "node_modules/next/dist/bin/next",
+      args: "start -p 3002 -H 127.0.0.1",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 10,
+      restart_delay: 5000,
+      max_memory_restart: "1500M",
+      env: {
+        NODE_ENV: "production",
+      },
+      out_file: "/var/log/ecomschool-prod/prod-out.log",
+      error_file: "/var/log/ecomschool-prod/prod-error.log",
+      merge_logs: true,
+      time: true,
+    },
   ],
 };

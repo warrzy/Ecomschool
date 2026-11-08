@@ -67,14 +67,15 @@ npm run build
 echo "== 7/8 Bascule atomique =="
 ln -sfn "$RELEASE" "$APP_CURRENT.tmp" && mv -T "$APP_CURRENT.tmp" "$APP_CURRENT"
 
-echo "== 8/8 Redémarrage PM2 (ecomschool-preprod uniquement) =="
+PM2_APP=${PM2_APP:-ecomschool-preprod}
+echo "== 8/8 Redémarrage PM2 ($PM2_APP uniquement) =="
 # delete+start : en mode fork, reload = restart équivalent, et delete+start
 # garantit que le cwd `current` est re-résolu vers la NOUVELLE release
 # (un reload peut conserver le chemin résolu précédemment).
 # Interruption : ~2 s, identique à un reload fork.
-pm2 delete ecomschool-preprod >/dev/null 2>&1 || true
+pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
 pm2 start "$APP_CURRENT/deploy/pm2/ecosystem.config.cjs" \
-  --only ecomschool-preprod
+  --only "$PM2_APP"
 pm2 save
 
 # Nettoyage : conserve les KEEP_RELEASES dernières releases.

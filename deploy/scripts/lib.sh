@@ -6,10 +6,13 @@
 
 _ECOMSCHOOL_ROOT=${ECOMSCHOOL_ROOT:-}
 
-APP_ROOT=${_ECOMSCHOOL_ROOT:+/ecomschool-preprod}
-APP_ROOT=${APP_ROOT:-/var/www/ecomschool-preprod}
-if [ -n "$_ECOMSCHOOL_ROOT" ]; then
+# APP_ROOT surchargable par l'environnement (ex. instance de production).
+if [ -n "${APP_ROOT:-}" ]; then
+  APP_ROOT="$APP_ROOT"
+elif [ -n "$_ECOMSCHOOL_ROOT" ]; then
   APP_ROOT="$_ECOMSCHOOL_ROOT/app"
+else
+  APP_ROOT=/var/www/ecomschool-preprod
 fi
 APP_REPO="$APP_ROOT/repo"          # clone git persistant (fetch + worktree)
 APP_RELEASES="$APP_ROOT/releases"  # builds versionnées
