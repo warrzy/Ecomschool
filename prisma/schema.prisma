@@ -3685,6 +3685,11 @@ model AccountingAccount {
   mappings AccountingAccountMap[]
   journals AccountingJournal[] @relation("DefaultDebitJournal")
 
+  thirdParties         AccountingThirdParty[]
+  assets               AccountingAsset[] @relation("AssetAccounts")
+  depreciationAssets   AccountingAsset[] @relation("DepreciationAccounts")
+  chargeAssets         AccountingAsset[] @relation("ChargeAccounts")
+
   @@unique([schoolId, code])
   @@index([schoolId])
 }
@@ -3705,7 +3710,8 @@ model AccountingJournal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  entries AccountingEntry[]
+  entries        AccountingEntry[]
+  bankStatements BankStatement[]
 
   @@unique([schoolId, code])
   @@index([schoolId])
@@ -3720,6 +3726,8 @@ model AccountingExercise {
   startDate DateTime
   endDate   DateTime
   status    ExerciseStatus @default(OPEN)
+  /** CG-B : comptabilité de caisse (historique) ou d'engagement (411/706). */
+  mode      ExerciseMode @default(CASH)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -3787,8 +3795,16 @@ model AccountingEntryLine {
   label     String?
   sortOrder Int @default(0)
 
+  /** Tiers auxiliaire (élève, fournisseur) — lettrage par partie. */
+  thirdPartyId String?
+  thirdParty   AccountingThirdParty? @relation(fields: [thirdPartyId], references: [id], onDelete: SetNull)
+
+  chargeAllocations  AccountingAllocation[] @relation("ChargeLines")
+  paymentAllocations AccountingAllocation[] @relation("PaymentLines")
+
   @@index([entryId])
   @@index([accountId])
+  @@index([thirdPartyId])
 }
 
 /**
@@ -3812,4 +3828,142 @@ model AccountingAccountMap {
 
   @@unique([schoolId, key])
   @@index([schoolId])
+}
+
+// ---------- CG : comptabilité générale (engagement, tiers, immo, banque) ----------
+
+enum ExerciseMode {
+  CASH
+  ACCRUAL
+}
+
+enum ThirdPartyKind {
+  STUDENT
+  SUPPLIER
+  STAFF
+  OTHER
+}
+
+enum DepreciationMethod {
+  LINEAR
+  DECLINING
+}
+
+enum AssetStatus {
+  ACTIVE
+  SOLD
+  SCRAPPED
+}
+
+/** Tiers auxiliaire — élève, fournisseur, personnel. Compte collectif 411/401/421. */
+model AccountingThirdParty {
+  id       String @id @default(cuid())
+  schoolId String
+
+  kind   ThirdPartyKind
+  refId  String?
+  name   String
+
+  collectiveAccountId String
+  collectiveAccount   AccountingAccount @relation(fields: [collectiveAccountId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines       AccountingEntryLine[]
+  allocations AccountingAllocation[]
+
+  @@unique([schoolId, kind, refId])
+  @@index([schoolId])
+}
+
+/** Lettrage partiel charge ↔ règlement (acomptes autorisés). */
+model AccountingAllocation {
+  id       String @id @default(cuid())
+  schoolId String
+
+  chargeLineId  String
+  chargeLine    AccountingEntryLine @relation("ChargeLines", fields: [chargeLineId], references: [id], onDelete: Restrict)
+  paymentLineId String
+  paymentLine   AccountingEntryLine @relation("PaymentLines", fields: [paymentLineId], references: [id], onDelete: Restrict)
+  amount        Int
+
+  thirdPartyId String?
+  thirdParty   AccountingThirdParty? @relation(fields: [thirdPartyId], references: [id], onDelete: SetNull)
+
+  allocatedAt DateTime @default(now())
+
+  @@unique([chargeLineId, paymentLineId])
+  @@index([schoolId])
+}
+
+/** Immobilisation avec plan d'amortissement. */
+model AccountingAsset {
+  id       String @id @default(cuid())
+  schoolId String
+
+  label           String
+  acquisitionDate DateTime
+  acquisitionCost Int
+  method          DepreciationMethod @default(LINEAR)
+  durationMonths  Int
+  status          AssetStatus @default(ACTIVE)
+
+  accountAssetId       String
+  accountAsset         AccountingAccount @relation("AssetAccounts", fields: [accountAssetId], references: [id], onDelete: Restrict)
+  accountDepreciationId String
+  accountDepreciation  AccountingAccount @relation("DepreciationAccounts", fields: [accountDepreciationId], references: [id], onDelete: Restrict)
+  accountChargeId      String
+  accountCharge        AccountingAccount @relation("ChargeAccounts", fields: [accountChargeId], references: [id], onDelete: Restrict)
+
+  entryId   String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  schedules AssetSchedule[]
+
+  @@index([schoolId])
+}
+
+/** Dotation périodique — une écriture par période (idempotente). */
+model AssetSchedule {
+  id      String @id @default(cuid())
+  assetId String
+  asset   AccountingAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime
+  amount      Int
+  entryId     String? @unique
+
+  @@index([assetId])
+}
+
+/** Relevé bancaire importé (rapprochement). */
+model BankStatement {
+  id       String @id @default(cuid())
+  schoolId String
+
+  journalId      String
+  journal        AccountingJournal @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  periodStart    DateTime
+  periodEnd      DateTime
+  closingBalance Int
+
+  lines BankStatementLine[]
+
+  @@index([schoolId])
+}
+
+model BankStatementLine {
+  id          String @id @default(cuid())
+  statementId String
+  statement   BankStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  date   DateTime
+  label  String
+  amount Int
+
+  matchedEntryLineId String?
+
+  @@index([statementId])
 }
