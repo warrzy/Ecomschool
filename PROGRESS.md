@@ -285,3 +285,9 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - `tools/docs/build.mjs` : MD → PDF (couverture, sommaire cliquable, légendes, pagination, identité ECOM) + DOCX modifiable — **16 PDF, ~200 pages, 48 captures intégrées**.
 - `tools/docs/package.mjs` : PPTX 11 diapositives + **ECOM-SCHOOL_DOCUMENTATION_v2026.11.zip (15,2 Mo, 126 fichiers)** organisé par profil + 6 documents commerciaux + captures.
 - Aucun identifiant dans les livrables ; paie réglementaire BF documentée comme désactivée/indicative.
+
+## INTERNATIONALISATION — AUDIT ET ARCHITECTURE (2026-11-15)
+
+- `docs/architecture/AUDIT_INTERNATIONALISATION.md` : inventaire des couplages BF/SYSCOHADA — School.country/currency/locale déjà présents ; moteur de paie déclaratif + isRegulatory déjà génériques ; couplages réels = ~60 littéraux "FCFA"/"fr-FR", codes paie "66/422/431/421" en dur (payrollPosting), états supposant classes 1-7, onboarding figé BF/XOF. Verdict : points d'injection, pas de réécriture.
+- `docs/architecture/ARCHITECTURE_MULTI_PAYS.md` : packs réglementaires versionnés (RegulatoryPack/PackVersion/SchoolPackActivation), statuts DRAFT→PUBLISHED + validation 4 yeux, règle dure countryCode === school.country, snapshot de provenance par bulletin, matrice BF/CI/SN/BJ/TG/GH/NG/FR (taux volontairement vides), plan en 4 phases (fondations → cadre packs → BF → nouveaux pays).
+- Aucune modification du code existant ; aucun taux inventé ; en attente de validation des choix structurants.
