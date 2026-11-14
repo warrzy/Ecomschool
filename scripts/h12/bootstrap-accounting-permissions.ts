@@ -31,6 +31,22 @@ async function main() {
     select: { id: true, key: true },
   });
   const idByKey = new Map(permissions.map((p) => [p.key, p.id]));
+  // AUD-040 : le rôle BURSAR (comptable) est référencé par ce script mais n'était
+  // créé par aucun bootstrap — on le crée global s'il est absent.
+  const bursar = await prisma.role.findFirst({
+    where: { name: "BURSAR", scope: "SCHOOL", schoolId: null },
+  });
+  if (!bursar) {
+    await prisma.role.create({
+      data: {
+        name: "BURSAR",
+        scope: "SCHOOL",
+        schoolId: null,
+        description: "Comptable de l'établissement — plan, journaux, écritures, exports.",
+      },
+    });
+    console.log("Rôle global BURSAR créé.");
+  }
   const report: Record<string, number> = {};
   for (const [roleName, keys] of Object.entries(ROLE_KEYS)) {
     const roles = await prisma.role.findMany({
