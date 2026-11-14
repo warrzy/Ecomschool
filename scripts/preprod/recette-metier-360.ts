@@ -12,7 +12,7 @@ import { prisma } from "@/lib/db/prisma";
 import { installStarterPlan, openExercise, generateEntries, trialBalance, closeExercise } from "@/lib/services/accounting";
 import { balanceSheet, incomeStatement } from "@/lib/services/accounting/statements";
 import { createEmployee, createContract } from "@/lib/services/hr/employees";
-import { requestLeave, decideLeave, markAttendance } from "@/lib/services/hr/leaves";
+import { requestLeave, decideLeave, markAttendance, setEntitlement } from "@/lib/services/hr/leaves";
 import { createRun, computeRun, validateRun } from "@/lib/services/hr/payroll";
 import { postPayrollToAccounting, rectifyRun } from "@/lib/services/hr/payrollPosting";
 import { grantAdvance } from "@/lib/services/hr/payroll";
@@ -92,6 +92,7 @@ async function main() {
 
   console.log("\n== S2 Salarié → congés → présence → paie → OD ==");
   const emp1 = await prisma.employee.findFirstOrThrow({ where: { schoolId: sid, matricule: "DEMO-E1" } });
+  await setEntitlement(rh, emp1.id, now.getFullYear(), "ANNUAL", 30);
   const leave = await requestLeave(rh, emp1.id, { type: "ANNUAL", startDate: new Date(now.getFullYear(), now.getMonth(), 20), endDate: new Date(now.getFullYear(), now.getMonth(), 22), days: 3, reason: "Congé démo" });
   check("demande de congé créée", leave.ok === true);
   if (leave.ok) {
@@ -134,8 +135,8 @@ async function main() {
     check("run N+1 calculé avec recouvrement", c.ok === true);
     const slip2 = await prisma.payslip.findFirst({ where: { runId: run2.id, employeeId: emp2.id } });
     const gross = slip2?.gross ?? 0;
-    check("recouvrement ≤ 30 % du net", slip2 !== null && slip2.deductions <= Math.floor((gross - 0) * 0.3) + gross * 0 + Math.floor(gross * 0.3));
-    const rec = await prisma.advanceRecovery.findFirst({ where: { advance: { employeeId: emp2.id }, payslip: { runId: run2.id } } });
+    check("recouvrement ≤ 30 % du brut (net protégé)", slip2 !== null && slip2.deductions <= Math.floor(gross * 0.3) && slip2.net > 0);
+    const rec = slip2 ? await prisma.advanceRecovery.findFirst({ where: { payslipId: slip2.id } }) : null;
     check("retenue d'avance tracée (AdvanceRecovery)", !!rec && rec.amount > 0 && rec.amount <= 20000);
     await validateRun(paie, run2.id);
     const p2 = await postPayrollToAccounting(paie, run2.id);
