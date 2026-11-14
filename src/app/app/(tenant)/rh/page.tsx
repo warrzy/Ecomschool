@@ -2,6 +2,7 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listEmployees, getEmployee } from "@/lib/services/hr/employees";
 import { listLeaves, balancesFor } from "@/lib/services/hr/leaves";
+import { hrDashboard } from "@/lib/services/hr/dashboard";
 import { createEmployeeAction, createContractAction, activateContractAction, departEmployeeAction, addDocumentAction,
   requestLeaveAction, decideLeaveAction, cancelLeaveAction, setEntitlementAction, markAttendanceAction } from "./actions";
 
@@ -21,12 +22,34 @@ export default async function RhPage(props: { searchParams: Promise<{ id?: strin
   const year = new Date().getFullYear();
   const leaves = sp.id ? await listLeaves(ctx, { employeeId: sp.id }) : null;
   const bals = sp.id ? await balancesFor(ctx, sp.id, year) : null;
+  const dash = await hrDashboard(ctx);
+  const d = dash.ok ? dash.result : null;
 
   return (
     <div className="space-y-6 p-6">
       <h1 className="text-xl font-semibold">Personnel</h1>
       {sp.err ? <p className="text-sm text-red-600">{sp.err}</p> : null}
       {sp.ok ? <p className="text-sm text-green-700">{sp.ok}</p> : null}
+
+      {d ? (
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Effectif actif</p><p className="text-2xl font-semibold">{d.headcount}</p>
+            <p className="text-xs text-slate-500">{d.byCategory.map((c) => `${c.count} ${c.category === "TEACHING" ? "ens." : "non ens."}`).join(" · ")}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Masse salariale (bases actives)</p><p className="text-2xl font-semibold">{fmt(d.payrollMass)} F</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Congés à valider</p><p className="text-2xl font-semibold">{d.pendingLeaves}</p></div>
+          <div className="rounded-lg border p-3"><p className="text-xs text-slate-500">Contrats expirant ≤ 30 j</p><p className="text-2xl font-semibold">{d.expiringContracts.length}</p></div>
+        </section>
+      ) : null}
+      {d && d.expiringContracts.length > 0 ? (
+        <section className="rounded-lg border border-orange-300 bg-orange-50 p-4">
+          <h2 className="mb-2 font-semibold">Alertes — fins de contrat proches</h2>
+          <ul className="space-y-1 text-sm">
+            {d.expiringContracts.map((c) => (
+              <li key={c.id}>• {c.employee.lastName} {c.employee.firstName} ({c.employee.matricule}) — {c.type} {c.position} : fin le {c.endDate?.toISOString().slice(0, 10)}{c.daysLeft !== null && c.daysLeft >= 0 ? ` (J-${c.daysLeft})` : " (échu)"}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <form method="get" className="flex gap-2">
         <input name="q" defaultValue={sp.q ?? ""} placeholder="Rechercher (nom, matricule)…" className={INP} />

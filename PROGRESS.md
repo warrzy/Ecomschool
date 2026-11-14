@@ -94,3 +94,20 @@ Clients/fournisseurs complets + règlements + rapprochement bancaire (`BankState
 ## PROCHAINE SESSION → RH-3
 
 Moteur paie : `SalaryComponent` (grammaire fixed/percent/rate_x_qty/table, bases nommées, pipeline ordonné, formulaSnapshot figé) + `PayrollRun`/`Payslip` + bulletin. **AUCUN taux BF non vérifié** — paramètres configurables inactifs. Puis RH-4 avances ≤30% net, RH-5 OD paie→compta (champ `postedEntryId` lu par la garde CG-6), RH-6 rectifications rectifiesRunId, RH-7 dashboard, RH-8 sortie+révocation+vacations.
+
+## RH/Paie — TERMINÉ (lots RH-1 → RH-8)
+
+| Lot | Livré | Recette |
+|---|---|---|
+| RH-1 | Référentiel employés, contrats, avenants chaînés, documents, sorties | 20/20 |
+| RH-2 | Congés (soldes, approbations), présences, calendrier absences | 16/16 |
+| RH-3 | Moteur de paie configurable (grammaire v2, snapshots, bulletins) | 23/23 |
+| RH-4 | Avances, recouvrement FIFO ≤30% net, recalcul idempotent | 17/17 |
+| RH-5 | OD paie D66/C422/C431, garde PAYROLL_UNPOSTED, M-5 dépenses | 14/14 |
+| RH-6 | Rectification : contre-passation, RECTIFIED, bulletins immuables | 15/15 |
+| RH-7 | Dashboard : effectifs, masse salariale, alertes contrats J-30 | 13/13 (RH-7/8) |
+| RH-8 | Sortie transactionnelle + révocation accès ; vacations = séances DONE vérifiées | idem |
+
+Non-régressions : H12 68/68, CG-1→6 84/84, RH-1→6 rejouées vertes.
+Paramètres CNSS/fiscaux BF : moteur configurable, aucun taux activé (isRegulatory exclu du calcul).
+Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi, paramètres réglementaires officiels.

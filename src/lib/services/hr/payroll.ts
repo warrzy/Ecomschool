@@ -150,9 +150,18 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
     for (const e of employees) {
       const contract = e.contracts[0];
       if (!contract) continue; // pas de contrat actif sur la période → signalé par absence de bulletin
-      const bases = new Map<string, number>([["base_salary", contract.baseSalary]]);
+      // RH-8 : vacationnaire → base = taux/séance × séances DONE vérifiées (CourseSession).
+      let base = contract.baseSalary;
       const lines: { code: string; label: string; kind: string; amount: number; formula: unknown }[] = [];
-      let gross = contract.baseSalary, deductions = 0, employerCost = 0;
+      if (contract.type === "VACATION" && e.teacherId) {
+        const sessions = await tx.courseSession.count({
+          where: { schoolId: ctx.schoolId, teacherId: e.teacherId, status: "DONE", date: { gte: run.periodStart, lte: run.periodEnd } },
+        });
+        base = contract.baseSalary * sessions;
+        lines.push({ code: "SEANCES", label: `Vacations : ${sessions} séance(s) assurée(s)`, kind: "EARNING", amount: base, formula: { type: "rate_x_qty", rate: contract.baseSalary, qty: sessions } });
+      }
+      const bases = new Map<string, number>([["base_salary", base]]);
+      let gross = base, deductions = 0, employerCost = 0;
       bases.set("gross", gross);
       for (const c of components) {
         const amount = evalFormula(c.formula as unknown as Formula, bases);
@@ -181,7 +190,7 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
       const slip = await tx.payslip.create({
         data: {
           runId: run.id, employeeId: e.id, contractId: contract.id,
-          baseSalary: contract.baseSalary, gross, deductions, employerCost, net,
+          baseSalary: base, gross, deductions, employerCost, net,
           lines: lines as unknown as Prisma.InputJsonValue,
           formulaSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         },

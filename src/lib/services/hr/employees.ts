@@ -129,7 +129,7 @@ export async function activateContract(ctx: Ctx, contractId: string) {
   return ok({ id: r.id });
 }
 
-/** Sortie : statut DEPARTED + date + fin des contrats actifs — transactionnel (RH-D : la révocation des accès arrive en RH-8). */
+/** Sortie (RH-8) : DEPARTED + fin des contrats + révocation des accès — une seule transaction. */
 export async function departEmployee(ctx: Ctx, id: string, departureDate: Date) {
   if (!(await has(ctx, "hr.manage"))) return err("FORBIDDEN");
   const r = await prisma.$transaction(async (tx) => {
@@ -142,6 +142,13 @@ export async function departEmployee(ctx: Ctx, id: string, departureDate: Date) 
       where: { employeeId: id, status: { in: ["ACTIVE", "DRAFT"] } },
       data: { status: "ENDED", endDate: departureDate },
     });
+    const emp = await tx.employee.findFirst({ where: { id }, select: { userId: true } });
+    if (emp?.userId) {
+      await tx.schoolMembership.updateMany({
+        where: { userId: emp.userId, schoolId: ctx.schoolId, status: "ACTIVE" },
+        data: { status: "INACTIVE" },
+      });
+    }
     return u;
   }).catch(() => null);
   if (!r) return err("NOT_FOUND");

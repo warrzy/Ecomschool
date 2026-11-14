@@ -63,7 +63,6 @@ async function main() {
   check("contre-passation équilibrée", !!rectifEntry && rectifEntry!.lines.reduce((s, l) => s + l.debit, 0) === rectifEntry!.lines.reduce((s, l) => s + l.credit, 0));
   check("contre-passation = C422/D66 (inversée)", rectifEntry?.lines.some((l) => l.debit === 100000) === true);
   const tb = await trialBalance(ctx, ex.result.id);
-  const a66 = (await prisma.accountingAccount.findFirstOrThrow({ where: { schoolId: A.id, code: "66" } })).id;
   check("effet net compte 66 = 0 (OD + contre-OD)", tb.ok === true &&
     (() => { const row = tb.result.balance.find((r: { code: string; debit: number; credit: number }) => r.code === "66"); return row !== undefined && row.debit - row.credit === 0; })());
   const run2After = await prisma.payrollRun.findUnique({ where: { id: newRunId } });

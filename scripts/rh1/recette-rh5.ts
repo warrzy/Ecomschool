@@ -44,7 +44,6 @@ async function main() {
   const entry = await prisma.accountingEntry.findFirst({ where: { schoolId: A.id, sourceType: "PAYROLL", sourceId: runId }, include: { lines: true } });
   const a66 = (await prisma.accountingAccount.findFirstOrThrow({ where: { schoolId: A.id, code: "66" } })).id;
   const a422 = (await prisma.accountingAccount.findFirstOrThrow({ where: { schoolId: A.id, code: "422" } })).id;
-  const a431 = (await prisma.accountingAccount.findFirstOrThrow({ where: { schoolId: A.id, code: "431" } })).id;
   check("D66 = brut 100000", entry?.lines.some((l) => l.accountId === a66 && l.debit === 100000) === true);
   check("C422 = net 100000", entry?.lines.some((l) => l.accountId === a422 && l.credit === 100000) === true);
   check("OD équilibrée", entry !== undefined && entry!.lines.reduce((s, l) => s + l.debit, 0) === entry!.lines.reduce((s, l) => s + l.credit, 0));
