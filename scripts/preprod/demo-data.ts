@@ -57,7 +57,7 @@ async function main() {
 
   const comp = await upsertComponent(paie, {
     code: "PRIME_DEMO", label: "Prime de démonstration (fictive)", kind: "EARNING",
-    formula: { type: "percent", base: "base_salary", rate: 10 }, order: 10, activeFrom: new Date("2020-01-01"),
+    formula: { type: "percent", base: "base_salary", rate: 0.1 }, order: 10, activeFrom: new Date("2020-01-01"),
   });
   if (!comp.ok) console.warn("  composant :", comp.error);
   const month = new Date(now.getFullYear(), now.getMonth(), 1);
