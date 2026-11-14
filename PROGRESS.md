@@ -199,3 +199,41 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - Tests ciblés `scripts/rh1/test-fixes-cibles.ts` : **34/34 PASS** (concurrence paiements, dotations auto, cap configurable, déterminisme).
 - Non-régressions RH : RH-2 16/16, RH-3 23/23, RH-4 17/17, RH-5 14/14, RH-6 15/15, RH-7/8 13/13.
 - Typecheck + lint propres. Production non touchée.
+
+## Registre des anomalies — état post-stabilisation (commit cbd51a4)
+
+| ID | Anomalie | Statut | Preuve |
+|----|----------|--------|--------|
+| B1 | Uploads > 1 Mo bloqués (bodySizeLimit) | ✅ CORRIGÉ | `experimental.serverActions.bodySizeLimit: "10mb"`, aligné nginx 10m |
+| B2 | generateEntries avorte sur source fautive | ✅ CORRIGÉ | `tryPost` par source + `stats.errors[]` ; Σ alloc = montant ; BELOW_ALLOCATED — S-A 11/11 |
+| B3 | postPayroll non atomique (crash → clôture bloquée) | ✅ CORRIGÉ | callback in-transaction `postEntrySafe` + rattrapage postedEntryId |
+| B4 | monitor.sh sondait la preprod | ✅ CORRIGÉ | `APP_PORT`/`PUBLIC_URL` dérivés de l'environnement |
+| B5 | rollback/healthcheck prod inopérants | ✅ CORRIGÉ | `PM2_APP`/`APP_PORT`/`PUBLIC_URL` paramétrés ; restore durci |
+| M1 | Clé idempotence réutilisée ≠ payload → faux succès | ✅ CORRIGÉ | `idempotencyHash` SHA-256 → `IDEMPOTENCY_CONFLICT` (S-G + ciblés) |
+| M2 | Bascule CASH→ACCRUAL double-produit | ✅ CORRIGÉ | cutoff `postedAt` MIGRATION_ACCRUAL dans generateEntries + clôture |
+| M3 | closeExercise sans garde hors paie | ✅ CORRIGÉ | `UNPOSTED_OPERATIONS` toutes sources (S-A) |
+| M4 | Immo non comptabilisée acquisition/sortie | ✅ CORRIGÉ | écritures D2xx/C481-404 et D28x+D81x/C2xx atomiques (S-B) |
+| M5 | Notifications non scopées schoolId | ✅ CORRIGÉ | filtres schoolId + plateforme null (S-C) |
+| M6 | Mots de passe démo dans le dépôt | ✅ CORRIGÉ | vars env `DEMO_*_PASSWORD` + garde anti-prod |
+| M7 | X-Forwarded-For forgé | ✅ CORRIGÉ | nginx `X-Forwarded-For $remote_addr` + dernier élément en secours |
+| M8 | Absences/UNPAID sans effet paie | ✅ CORRIGÉ | `workdaysPerMonth/prorate*` config → `ABS_NP`, `daysWorked/unpaidDays` (S-D) |
+| M9 | Pas d'UI avances ni bulletin détaillé | ✅ CORRIGÉ | `/app/rh/paie` : avances + `?slip=` + config assiduité |
+| M10 | /app/enrollments sans génération de créances | ✅ CORRIGÉ | `enrollStudent` → `generateStudentCharges` in-tx (S-E) |
+| M11 | createManualEntry non validé | ✅ CORRIGÉ | montants ≥ 0, XOR D/C, équilibre, périmètre école (S-F) |
+
+### Mineurs — traités
+- ✅ Oracle `validateRun` scopé schoolId ; mutations GET notifications/parent → server actions POST
+- ✅ `deleteDocumentAction` → `documents.upload` ; `remindAction` → `finance.fees.manage`
+- ✅ `allocate` : permission + plafond ; `cancelPayment` → `REFUNDED` si remboursement confirmé
+- ✅ `cancelExpense` : contre-passation `EXPENSE_CANCEL` atomique si postée ; guard clôture étendu
+- ✅ `rectifyRun` : repli sur exercice ouvert si origine clôturée ; avances ventilées 421 (pas 431)
+- ✅ Remboursements : débit prorata des crédits d'origine (plus la 1re ligne seule)
+- ✅ Tokens reset/invitation hashés SHA-256 au repos ; sweep throttle périodique
+- ✅ `restore.sh` : dump + checksum + `pg_restore -l` + confirm + pré-backup ; garde `ALLOW_RECETTE=1`
+- ✅ En-têtes sécurité nginx (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)
+
+### Mineurs — restants (résidu assumé, non bloquant)
+- ⏳ CSP stricte (nécessite nonces sur scripts inline Next) ; `limit_req_zone` nginx (contexte http hors site conf)
+- ⏳ `npm audit` en CI (9 vulnérabilités modérées transitives dev) ; logs structurés/APM
+- ⏳ Discipline, cantine/transport : modules absents (couverture fonctionnelle, pas anomalie)
+- ⏳ `restore.sh` ne rejoue pas les migrations post-restore (documenté dans le script)
