@@ -27,3 +27,14 @@
 ## Jalons
 
 - `main` aligné sur produit (`ec62b59`) ; docs architecture v2 publiés ; CI corrigée (Node 24, vars admin, bootstrap compta) ; nav+ BURSAR sur `lot0/nav-permissions`.
+
+## CG-1 TERMINÉ ✅ (merge `4da5b3c` → main, 15/11)
+
+- Recette `scripts/cg1/recette-cg1.ts` : **14/14 PASS** sur `ecomschool_verify` (migration 56/56)
+- H12 non-régression : **68/68 PASS** (mode CASH inchangé)
+- Vérifié : CHARGE D411/C706, règlement D571/C411 sans 706, lettrage partiel + OVER_ALLOCATED, solde tiers 60k, auxiliaire auto-provisionné, idempotence, isolation B, créance hors exercice → `skipped` (jamais perdue)
+- Correctif apporté : lignes d'écriture portent `thirdPartyId` ; passe CHARGE + règlement ACCRUAL provisionnent l'auxiliaire élève (upsert idempotent)
+
+## PROCHAINE SESSION → CG-2
+
+Tiers : référentiel CRUD (`AccountingThirdParty`), balance âgée 30/60/90 sur `dueDate` des échéances, page `/app/comptabilite/tiers` (liste+recherche+filtre kind+export CSV), soldes par tiers. Helpers dispo : `thirdPartyBalance`, `allocate`. Base isolée : tunnel `ssh -N -L 5433:127.0.0.1:5432 ecomschool-preprod` + URL `/tmp/vdb.txt` (reconstruire).
