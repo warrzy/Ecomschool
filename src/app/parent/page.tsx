@@ -44,13 +44,13 @@ import {
 } from "@/lib/services/parent-requests";
 import {
   listNotifications,
-  markAllRead,
-  markNotificationRead,
   unreadCount,
 } from "@/lib/services/notifications";
 import { prisma } from "@/lib/db/prisma";
 import {
   cancelParentIntentAction,
+  markAllNotificationsReadAction,
+  markNotificationReadAction,
   payInstallmentAction,
   refreshParentIntentAction,
 } from "./actions";
@@ -156,18 +156,6 @@ export default async function ParentPage(props: {
     : undefined;
   const allowed = childId ? await verifyChildAccess(ctx, childId) : null;
 
-  // Marquage « lu » des notifications — même convention GET+redirect
-  // que la page /app/notifications.
-  if (tab === "notifications") {
-    if (str("allread") === "1") {
-      await markAllRead(ctx.userId);
-      redirect("/parent?tab=notifications" as never);
-    }
-    if (str("read")) {
-      await markNotificationRead(ctx.userId, String(str("read")));
-      redirect("/parent?tab=notifications" as never);
-    }
-  }
 
   const errCode = str("error");
   const okCode = str("ok");
@@ -546,7 +534,7 @@ async function GlobalTab({
     return <RequestsTab ctx={ctx} childLinks={childLinks} />;
   }
   if (tab === "notifications") {
-    return <NotificationsTab userId={ctx.userId} />;
+    return <NotificationsTab userId={ctx.userId} schoolId={ctx.schoolId} />;
   }
   if (tab === "profil") {
     return <ProfileTab ctx={ctx} />;
@@ -696,10 +684,10 @@ async function RequestsTab({
 }
 
 /** Centre de notifications internes du parent. */
-async function NotificationsTab({ userId }: { userId: string }) {
+async function NotificationsTab({ userId, schoolId }: { userId: string; schoolId: string }) {
   const [items, unread] = await Promise.all([
-    listNotifications(userId, { take: 50 }),
-    unreadCount(userId),
+    listNotifications(userId, { take: 50, schoolId }),
+    unreadCount(userId, schoolId),
   ]);
   return (
     <div className="space-y-3">
@@ -709,12 +697,14 @@ async function NotificationsTab({ userId }: { userId: string }) {
             {unread} notification{unread > 1 ? "s" : ""} non lue{unread > 1 ? "s" : ""}
           </p>
           {unread > 0 ? (
-            <a
-              href="/parent?tab=notifications&allread=1"
-              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
-            >
-              Tout marquer comme lu
-            </a>
+            <form action={markAllNotificationsReadAction}>
+              <button
+                type="submit"
+                className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+              >
+                Tout marquer comme lu
+              </button>
+            </form>
           ) : null}
         </div>
       </Card>
@@ -745,12 +735,15 @@ async function NotificationsTab({ userId }: { userId: string }) {
                       </a>
                     ) : null}
                     {!n.readAt ? (
-                      <a
-                        href={`/parent?tab=notifications&read=${n.id}`}
-                        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
-                      >
-                        Marquer lu
-                      </a>
+                      <form action={markNotificationReadAction}>
+                        <input type="hidden" name="id" value={n.id} />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs hover:bg-mist"
+                        >
+                          Marquer lu
+                        </button>
+                      </form>
                     ) : null}
                   </div>
                 </div>

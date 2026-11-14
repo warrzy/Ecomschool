@@ -1,4 +1,7 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
+
+/** Tokens stockés en SHA-256 au repos — le lien porte le brut, la base ne connaît que l'empreinte (mineur). */
+const hashToken = (t: string) => createHash("sha256").update(t).digest("hex");
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword, passwordPolicyError } from "@/lib/auth/password";
 import { logAudit } from "@/lib/services/audit";
@@ -82,7 +85,7 @@ async function createInvitedUser(
           create: {
             schoolId: ctx.schoolId,
             email,
-            token,
+            token: hashToken(token),
             expiresAt: new Date(Date.now() + INVITE_TTL_MS),
             createdById: ctx.userId,
           },
@@ -202,7 +205,7 @@ export async function resendInvite(
         schoolId: ctx.schoolId,
         userId: user.id,
         email: user.email,
-        token,
+        token: hashToken(token),
         expiresAt: new Date(Date.now() + INVITE_TTL_MS),
         createdById: ctx.userId,
       },
@@ -260,7 +263,7 @@ export async function acceptInvite(
 ): Promise<PortalAccountsResult<{ schoolId: string | null }>> {
   if (passwordPolicyError(password)) return { ok: false, error: "INVALID_INPUT" };
   const invite = await prisma.accountInvite.findFirst({
-    where: { token, usedAt: null, expiresAt: { gt: new Date() } },
+    where: { token: hashToken(token), usedAt: null, expiresAt: { gt: new Date() } },
     select: { id: true, userId: true, schoolId: true },
   });
   if (!invite) return { ok: false, error: "INVALID_TOKEN" };
@@ -321,7 +324,7 @@ export async function requestPasswordReset(
         schoolId: ctx.schoolId,
         userId: user.id,
         email: user.email,
-        token,
+        token: hashToken(token),
         expiresAt: new Date(Date.now() + 24 * 3600_000),
         createdById: ctx.userId,
       },
@@ -374,7 +377,7 @@ export async function requestPasswordResetPublic(email: string) {
         schoolId,
         userId: user.id,
         email: emailNorm,
-        token,
+        token: hashToken(token),
         expiresAt: new Date(Date.now() + 24 * 3600_000),
       },
     }),

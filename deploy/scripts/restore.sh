@@ -28,8 +28,8 @@ read -rp "Restaurer $DUMP dans ${DB_NAME} (destructif) ? [o/N] " a
 
 DBURL=$(pg_url)
 
-echo "1) Arrêt de l'application (ecomschool-preprod uniquement)"
-pm2 stop ecomschool-preprod || true
+echo "1) Arrêt de l'application ($PM2_APP)"
+pm2 stop "$PM2_APP" || true
 
 echo "2) Sauvegarde de sécurité de l'état actuel"
 mkdir -p "$BACKUP_DIR"
@@ -47,12 +47,17 @@ echo "4) Restauration (--clean, objets sous ${DB_USER})"
 # --no-owner : les objets reviennent au rôle de connexion (DB_USER).
 pg_restore --clean --if-exists --no-owner -d "$DBURL" "$DUMP"
 
-echo "5) Redémarrage"
-pm2 delete ecomschool-preprod >/dev/null 2>&1 || true
+echo "5) Migrations Prisma (alignement du schéma restauré avec le code courant)"
+# Un dump antérieur peut manquer de migrations — migrate deploy est idempotent.
+(cd "$APP_CURRENT" && DATABASE_URL="$DBURL" npx prisma migrate deploy) \
+  || { echo "ÉCHEC migrate deploy — application non redémarrée."; exit 1; }
+
+echo "6) Redémarrage"
+pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
 pm2 start "$APP_CURRENT/deploy/pm2/ecosystem.config.cjs" \
-  --only ecomschool-preprod
+  --only "$PM2_APP"
 pm2 save
 
-echo "6) Vérification"
+echo "7) Vérification"
 sleep 3
 bash "$(dirname "$0")/healthcheck.sh"

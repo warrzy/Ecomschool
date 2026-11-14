@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3 manuel — encaissement Mobile Money au guichet
  * (vérification manuelle) :

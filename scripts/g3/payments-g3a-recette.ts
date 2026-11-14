@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-A — fondations Mobile Money : fournisseurs, intentions,
  * machine à états, simulateur sandbox (succès, échec, expiration,

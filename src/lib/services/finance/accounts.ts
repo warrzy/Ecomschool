@@ -6,6 +6,7 @@ export type AccountsError =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   | "NOT_ENROLLED"
+  | "BELOW_ALLOCATED"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
 
@@ -384,11 +385,21 @@ export async function updateInstallment(
 ): Promise<AccountsResult> {
   const inst = await prisma.feeInstallment.findFirst({
     where: { id, schoolId: ctx.schoolId },
-    select: { id: true },
+    select: {
+      id: true,
+      allocations: { where: { payment: { status: "VALIDATED" } }, select: { amount: true } },
+    },
   });
   if (!inst) return { ok: false, error: "NOT_FOUND" };
   if (input.amount !== undefined && (!Number.isInteger(input.amount) || input.amount < 0)) {
     return { ok: false, error: "INVALID_INPUT" };
+  }
+  // B2 : une échéance ne peut pas descendre sous le montant déjà alloué —
+  // sinon Σ allocations < montant du paiement → écriture déséquilibrée et
+  // blocage de toute la génération comptable.
+  if (input.amount !== undefined) {
+    const allocated = inst.allocations.reduce((s, a) => s + a.amount, 0);
+    if (input.amount < allocated) return { ok: false, error: "BELOW_ALLOCATED" };
   }
   await prisma.feeInstallment.update({
     where: { id },

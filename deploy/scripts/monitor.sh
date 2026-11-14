@@ -148,13 +148,13 @@ fi
 
 # ---- 5) Disponibilité applicative ----
 code=$(curl -fsS -o /dev/null -m 10 -w '%{http_code}' \
-  http://127.0.0.1:3001/api/auth/csrf 2>/dev/null || echo 000)
+  http://127.0.0.1:${APP_PORT}/api/auth/csrf 2>/dev/null || echo 000)
 [ "$code" = "200" ] && resolved app_down "Application injoignable" \
-  || alert app_down "Application injoignable" "127.0.0.1:3001 → HTTP $code."
+  || alert app_down "Application injoignable" "127.0.0.1:${APP_PORT} → HTTP $code."
 pub=$(curl -fsS -o /dev/null -m 15 -w '%{http_code}' \
-  https://preprod.ecomschool.fr/login 2>/dev/null || echo 000)
+  ${PUBLIC_URL}/login 2>/dev/null || echo 000)
 [ "$pub" = "200" ] && resolved app_public "HTTPS public injoignable" \
-  || alert app_public "HTTPS public injoignable" "preprod.ecomschool.fr → HTTP $pub."
+  || alert app_public "HTTPS public injoignable" "${PUBLIC_URL} → HTTP $pub."
 
 # ---- 6) Espace disque ----
 USE=$(df -P / | awk 'NR==2 {gsub("%","",$5); print $5}')

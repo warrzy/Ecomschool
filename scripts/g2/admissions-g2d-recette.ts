@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G2-D — conversion des candidatures en inscriptions définitives :
  * nouvel élève / rattachement, responsable existant / nouveau, candidat

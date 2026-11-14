@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G4 — documents administratifs scolaires :
  * émission (attestation, certificat, carte), numérotation atomique

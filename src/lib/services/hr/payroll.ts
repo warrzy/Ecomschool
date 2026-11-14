@@ -23,7 +23,7 @@ const has = (ctx: Ctx, k: string) => userHasSchoolPermission({ ...ctx, permissio
 type Formula =
   | { type: "fixed"; amount: number }
   | { type: "percent"; rate: number; base: string }
-  | { type: "rate_x_qty"; rate: number; qty: number }
+  | { type: "rate_x_qty"; rate: number; qty: number | "days_worked" }
   | { type: "table"; base: string; brackets: { upTo: number; rate: number }[] };
 
 function validateFormula(f: unknown): f is Formula {
@@ -31,7 +31,8 @@ function validateFormula(f: unknown): f is Formula {
   const x = f as Record<string, unknown>;
   if (x.type === "fixed") return typeof x.amount === "number" && x.amount >= 0;
   if (x.type === "percent") return typeof x.rate === "number" && x.rate >= 0 && x.rate <= 1 && typeof x.base === "string";
-  if (x.type === "rate_x_qty") return typeof x.rate === "number" && x.rate >= 0 && typeof x.qty === "number" && x.qty >= 0;
+  if (x.type === "rate_x_qty") return typeof x.rate === "number" && x.rate >= 0
+    && (x.qty === "days_worked" || (typeof x.qty === "number" && x.qty >= 0));
   if (x.type === "table") return typeof x.base === "string" && Array.isArray(x.brackets)
     && (x.brackets as unknown[]).every((b) => typeof (b as { upTo?: unknown }).upTo === "number" && typeof (b as { rate?: unknown }).rate === "number");
   return false;
@@ -42,7 +43,7 @@ export function evalFormula(f: Formula, bases: Map<string, number>): number {
   const base = (name: string) => bases.get(name) ?? 0;
   if (f.type === "fixed") return f.amount;
   if (f.type === "percent") return Math.round(base(f.base) * f.rate);
-  if (f.type === "rate_x_qty") return Math.round(f.rate * f.qty);
+  if (f.type === "rate_x_qty") return Math.round(f.rate * (f.qty === "days_worked" ? base("days_worked") : f.qty));
   // Progressif : chaque tranche s'applique à la part du revenu dans la tranche.
   let remaining = base(f.base), prev = 0, tax = 0;
   for (const b of [...f.brackets].sort((a, b2) => a.upTo - b2.upTo)) {
@@ -133,6 +134,13 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
     },
   });
   const snapshot = components.map((c) => ({ code: c.code, version: c.version, formula: c.formula }));
+  // M8 : configuration d'assiduité de l'établissement (toutes valeurs
+  // indicatives configurables — aucune règle légale présumée).
+  const cfg = await prisma.payrollConfig.findUnique({
+    where: { schoolId: ctx.schoolId },
+    select: { workdaysPerMonth: true, prorateUnpaidLeave: true, prorateAbsences: true, advanceCapBp: true },
+  });
+  const workdays = Math.max(1, cfg?.workdaysPerMonth ?? 30);
   await prisma.$transaction(async (tx) => {
     // Recalcul DRAFT : restaurer les avances déjà recouvrées par le calcul précédent.
     const oldSlips = await tx.payslip.findMany({ where: { runId: run.id }, select: { id: true } });
@@ -160,7 +168,36 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
         base = contract.baseSalary * sessions;
         lines.push({ code: "SEANCES", label: `Vacations : ${sessions} séance(s) assurée(s)`, kind: "EARNING", amount: base, formula: { type: "rate_x_qty", rate: contract.baseSalary, qty: sessions } });
       }
-      const bases = new Map<string, number>([["base_salary", base]]);
+      // M8 : jours non travaillés = congés UNPAID approuvés ∩ période
+      // (si prorateUnpaidLeave) + absences pointées (si prorateAbsences).
+      let unpaidDays = 0;
+      if (cfg?.prorateUnpaidLeave ?? true) {
+        const leaves = await tx.leaveRequest.findMany({
+          where: {
+            schoolId: ctx.schoolId, employeeId: e.id,
+            type: "UNPAID", status: "APPROVED",
+            startDate: { lte: run.periodEnd }, endDate: { gte: run.periodStart },
+          },
+          select: { startDate: true, endDate: true, days: true },
+        });
+        for (const l of leaves) {
+          const s = Math.max(+l.startDate, +run.periodStart);
+          const en = Math.min(+l.endDate, +run.periodEnd);
+          const overlap = en >= s ? Math.floor((en - s) / 86400000) + 1 : 0;
+          unpaidDays += Math.min(l.days, overlap);
+        }
+      }
+      if (cfg?.prorateAbsences ?? false) {
+        unpaidDays += await tx.staffAttendance.count({
+          where: {
+            schoolId: ctx.schoolId, employeeId: e.id, status: "ABSENT",
+            date: { gte: run.periodStart, lte: run.periodEnd },
+          },
+        });
+      }
+      unpaidDays = Math.min(unpaidDays, workdays);
+      const daysWorked = workdays - unpaidDays;
+      const bases = new Map<string, number>([["base_salary", base], ["days_worked", daysWorked]]);
       let gross = base, deductions = 0, employerCost = 0;
       bases.set("gross", gross);
       for (const c of components) {
@@ -171,9 +208,24 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
         if (c.kind === "DEDUCTION") deductions += amount;
         if (c.kind === "EMPLOYER_CHARGE") employerCost += amount;
       }
+      // M8 : retenue pour absences non payées — après les composants pour
+      // que le brut reste le salaire contractuel + gains (présentation
+      // classique : brut plein, retenue visible sur le bulletin).
+      if (unpaidDays > 0 && contract.type !== "VACATION") {
+        const absenceAmount = base - Math.round((base * daysWorked) / workdays);
+        if (absenceAmount > 0) {
+          lines.push({
+            code: "ABS_NP",
+            label: `Absences non payées : ${unpaidDays} j / ${workdays}`,
+            kind: "DEDUCTION", amount: absenceAmount,
+            formula: { type: "absence_prorata", unpaidDays, workdays },
+          });
+          deductions += absenceAmount;
+        }
+      }
       // RH-4 : recouvrement des avances — plafond configurable (PayrollConfig.advanceCapBp,
       // 3000 pb = 30 % par défaut, valeur indicative non réglementaire), FIFO par date.
-      const capBp = (await tx.payrollConfig.findUnique({ where: { schoolId: ctx.schoolId }, select: { advanceCapBp: true } }))?.advanceCapBp ?? 3000;
+      const capBp = cfg?.advanceCapBp ?? 3000;
       let net = gross - deductions;
       const cap = Math.floor((net * capBp) / 10000);
       let recovered = 0;
@@ -193,6 +245,7 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
         data: {
           runId: run.id, employeeId: e.id, contractId: contract.id,
           baseSalary: base, gross, deductions, employerCost, net,
+          daysWorked, unpaidDays,
           lines: lines as unknown as Prisma.InputJsonValue,
           formulaSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         },
@@ -217,7 +270,29 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
 export async function getPayrollConfig(ctx: Ctx) {
   if (!(await has(ctx, "payroll.read"))) return err("FORBIDDEN");
   const c = await prisma.payrollConfig.findUnique({ where: { schoolId: ctx.schoolId } });
-  return ok({ advanceCapBp: c?.advanceCapBp ?? 3000 });
+  return ok({
+    advanceCapBp: c?.advanceCapBp ?? 3000,
+    workdaysPerMonth: c?.workdaysPerMonth ?? 30,
+    prorateUnpaidLeave: c?.prorateUnpaidLeave ?? true,
+    prorateAbsences: c?.prorateAbsences ?? false,
+  });
+}
+
+/** M8 : configuration assiduité — valeurs indicatives, aucune règle légale présumée. */
+export async function setAttendanceConfig(
+  ctx: Ctx,
+  input: { workdaysPerMonth: number; prorateUnpaidLeave: boolean; prorateAbsences: boolean },
+) {
+  if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
+  if (!Number.isInteger(input.workdaysPerMonth) || input.workdaysPerMonth < 1 || input.workdaysPerMonth > 31)
+    return err("INVALID_INPUT");
+  await prisma.payrollConfig.upsert({
+    where: { schoolId: ctx.schoolId },
+    create: { schoolId: ctx.schoolId, ...input },
+    update: input,
+  });
+  await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "payroll.config.set_attendance", entity: "PayrollConfig", metadata: input });
+  return ok(input);
 }
 
 export async function setAdvanceCap(ctx: Ctx, advanceCapBp: number) {
@@ -249,7 +324,10 @@ export async function createRun(ctx: Ctx, input: { periodStart: Date; periodEnd:
 /** Validation : fige les bulletins — plus aucun recalcul possible. */
 export async function validateRun(ctx: Ctx, runId: string) {
   if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
-  const n = await prisma.payslip.count({ where: { runId } });
+  // Oracle scopé tenant : un runId d'une autre école ne doit jamais
+  // valider sur les bulletins d'ICI (runId est unique, la garde ci-dessous
+  // fait foi — le count scopé évite un oracle par timing).
+  const n = await prisma.payslip.count({ where: { runId, run: { schoolId: ctx.schoolId } } });
   if (n === 0) return err("NO_PAYSLIPS");
   const r = await prisma.payrollRun.updateMany({
     where: { id: runId, schoolId: ctx.schoolId, status: "DRAFT" },

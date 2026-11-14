@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * H5 — Smoke test UI des délibérations (LOCAL uniquement).
  *

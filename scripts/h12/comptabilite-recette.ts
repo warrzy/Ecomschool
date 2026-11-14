@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette H12 — comptabilité SYSCOHADA :
  * plan configurable, journaux, exercices, écritures équilibrées générées

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette E2E HTTP G3-C — parcours réellement accessible au parent.
  *

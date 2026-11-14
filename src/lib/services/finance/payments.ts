@@ -3,7 +3,7 @@ import { monthlySeries } from "@/lib/services/platform/dashboard";
 import { logAudit } from "@/lib/services/audit";
 import { notifyUsers } from "@/lib/services/notifications";
 import type { PaymentMethod, PaymentStatus } from "@prisma/client";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 
 export type PaymentsError =
   | "INVALID_INPUT"
@@ -12,6 +12,9 @@ export type PaymentsError =
   | "CLOSED_DAY"
   | "ALREADY_CANCELLED"
   | "OVERPAYMENT"
+  | "UNALLOCATED_AMOUNT"
+  | "REFUNDED"
+  | "IDEMPOTENCY_CONFLICT"
   | "CREATE_FAILED";
 
 export type PaymentsResult<T = undefined> =
@@ -24,6 +27,23 @@ function dayBounds(d: Date) {
   const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
+}
+
+/** Empreinte déterministe du payload métier d'un encaissement (M1).
+ *  `allocations` = répartition EXPLICITE uniquement (null en FIFO) —
+ *  un retry FIFO ne diverge jamais des allocations matérialisées. */
+function paymentPayloadHash(p: {
+  studentId: string; academicYearId: string; amount: number;
+  method: string; reference?: string | null;
+  allocations: { installmentId: string; amount: number }[] | null;
+}) {
+  return createHash("sha256").update(JSON.stringify({
+    s: p.studentId, y: p.academicYearId, a: p.amount, m: p.method,
+    r: p.reference ?? null,
+    al: p.allocations
+      ? [...p.allocations].map((a) => [a.installmentId, a.amount]).sort()
+      : null,
+  })).digest("hex");
 }
 
 // ---------- Encaissements ----------
@@ -55,6 +75,7 @@ export async function postPaymentTx(
     reference?: string | null;
     observation?: string | null;
     idempotencyKey?: string;
+    idempotencyHash?: string;
     explicitAllocations?: { installmentId: string; amount: number }[];
     student: {
       matricule: string;
@@ -160,6 +181,12 @@ export async function postPaymentTx(
       allocations.push({ installmentId: inst.id, amount: part });
       remaining -= part;
     }
+    // Σ allocations DOIT égaler le montant — sinon l'écriture D5xx/C411
+    // générée serait déséquilibrée et bloquerait tout le batch (B2).
+    // Arrive quand l'échéancier ne couvre pas la créance (ex. échéance
+    // réduite sous le déjà-facturé) : le paiement est refusé plutôt que
+    // d'enregistrer un encaissement comptablement incohérent.
+    if (remaining > 0) throw new Error("UNALLOCATED_AMOUNT");
   }
   // Le contrôle global ci-dessus garantit le solde de l'élève, mais
   // une allocation explicite peut encore dépasser le reste à payer
@@ -249,6 +276,7 @@ export async function postPaymentTx(
       receivedById: ctx.userId,
       receiptNumber,
       idempotencyKey: input.idempotencyKey,
+      idempotencyHash: input.idempotencyHash,
       receiptSnapshot,
       allocations: {
         create: allocations.map((a) => ({
@@ -310,14 +338,52 @@ export async function recordPayment(
   const paidAt = input.paidAt ?? new Date();
   const { start, end } = dayBounds(paidAt);
 
-  // Idempotence : une clé déjà consommée renvoie le paiement existant.
+  // Répartition explicite : la somme doit égaler le montant (vérifiée
+  // aussi en transaction pour la cohérence comptable).
+  const explicitAllocations = input.allocations ?? [];
+  if (explicitAllocations.length > 0) {
+    const sum = explicitAllocations.reduce((s, a) => s + a.amount, 0);
+    if (sum !== input.amount) return { ok: false, error: "INVALID_INPUT" };
+  }
+
+  // Idempotence : une clé déjà consommée renvoie le paiement existant
+  // SI et seulement si le payload est identique (M1) — même clé +
+  // paramètres différents = IDEMPOTENCY_CONFLICT, jamais un faux succès.
   const idempotencyKey = input.idempotencyKey ?? randomUUID();
+  const payloadHash = paymentPayloadHash({
+    studentId: input.studentId,
+    academicYearId: input.academicYearId,
+    amount: input.amount,
+    method: input.method,
+    reference: input.reference?.trim() || null,
+    allocations: explicitAllocations.length > 0 ? explicitAllocations : null,
+  });
+  const idemSelect = {
+    id: true, receiptNumber: true, idempotencyHash: true,
+    studentId: true, academicYearId: true, amount: true,
+    method: true, reference: true,
+  } as const;
+  // Les paiements antérieurs à M1 n'ont pas d'empreinte : comparaison
+  // sur les champs stockés (les allocations FIFO ne sont pas dans le
+  // hash explicite — la comparaison de champs suffit).
+  const conflicts = (p: {
+    idempotencyHash: string | null; studentId: string;
+    academicYearId: string; amount: number; method: string;
+    reference: string | null;
+  }) => p.idempotencyHash !== null
+    ? p.idempotencyHash !== payloadHash
+    : p.studentId !== input.studentId
+      || p.academicYearId !== input.academicYearId
+      || p.amount !== input.amount
+      || p.method !== input.method
+      || p.reference !== (input.reference?.trim() || null);
   if (input.idempotencyKey) {
     const existing = await prisma.payment.findFirst({
       where: { schoolId: ctx.schoolId, idempotencyKey: input.idempotencyKey },
-      select: { id: true, receiptNumber: true },
+      select: idemSelect,
     });
     if (existing?.receiptNumber) {
+      if (conflicts(existing)) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
       return { ok: true, result: { id: existing.id, receiptNumber: existing.receiptNumber } };
     }
   }
@@ -331,10 +397,7 @@ export async function recordPayment(
   // Répartition : explicite (somme = montant) ou FIFO sur les échéances
   // dues — la FIFO est recalculée DANS la transaction sérialisable pour
   // qu'aucun encaissement ne se base sur une répartition périmée.
-  const explicitAllocations = input.allocations ?? [];
   if (explicitAllocations.length > 0) {
-    const sum = explicitAllocations.reduce((s, a) => s + a.amount, 0);
-    if (sum !== input.amount) return { ok: false, error: "INVALID_INPUT" };
     const instIds = explicitAllocations.map((a) => a.installmentId);
     const count = await prisma.feeInstallment.count({
       where: {
@@ -369,6 +432,7 @@ export async function recordPayment(
           reference: input.reference,
           observation: input.observation,
           idempotencyKey,
+          idempotencyHash: payloadHash,
           explicitAllocations,
           student,
           yearName: year.name,
@@ -392,9 +456,10 @@ export async function recordPayment(
           // Course sur la même clé d'idempotence → le paiement concurrent a gagné
           const existing = await prisma.payment.findFirst({
             where: { schoolId: ctx.schoolId, idempotencyKey },
-            select: { id: true, receiptNumber: true },
+            select: idemSelect,
           });
           if (existing?.receiptNumber) {
+            if (conflicts(existing)) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
             payment = { id: existing.id, receiptNumber: existing.receiptNumber };
             break;
           }
@@ -411,9 +476,10 @@ export async function recordPayment(
       // clé d'idempotence avant de propager l'échec.
       const committed = await prisma.payment.findFirst({
         where: { schoolId: ctx.schoolId, idempotencyKey },
-        select: { id: true, receiptNumber: true },
+        select: idemSelect,
       });
       if (committed?.receiptNumber) {
+        if (conflicts(committed)) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
         payment = { id: committed.id, receiptNumber: committed.receiptNumber };
       } else {
         throw lastError;
@@ -437,14 +503,18 @@ export async function recordPayment(
     if ((e as Error)?.message === "OVERPAYMENT") {
       return { ok: false, error: "OVERPAYMENT" };
     }
+    if ((e as Error)?.message === "UNALLOCATED_AMOUNT") {
+      return { ok: false, error: "UNALLOCATED_AMOUNT" };
+    }
     // Dernier filet : une erreur non retriable (timeout, coupure réseau…) peut
     // survenir APRÈS le commit côté serveur. Si le paiement existe réellement
     // sous cette clé d'idempotence, on le renvoie — jamais de faux échec.
     const committed = await prisma.payment.findFirst({
       where: { schoolId: ctx.schoolId, idempotencyKey },
-      select: { id: true, receiptNumber: true },
+      select: idemSelect,
     });
     if (committed?.receiptNumber) {
+      if (conflicts(committed)) return { ok: false, error: "IDEMPOTENCY_CONFLICT" };
       return { ok: true, result: { id: committed.id, receiptNumber: committed.receiptNumber } };
     }
     return { ok: false, error: "CREATE_FAILED" };
@@ -463,6 +533,13 @@ export async function cancelPayment(
   });
   if (!p) return { ok: false, error: "NOT_FOUND" };
   if (p.status === "CANCELLED") return { ok: false, error: "ALREADY_CANCELLED" };
+  // Refus d'annuler un paiement ayant un remboursement CONFIRMÉ : la
+  // contre-passation d'annulation reprendrait la totalité du produit
+  // alors qu'une partie a déjà été restituée → produit net négatif.
+  const confirmedRefund = await prisma.paymentRefund.count({
+    where: { schoolId: ctx.schoolId, paymentId: p.id, status: "CONFIRMED" },
+  });
+  if (confirmedRefund > 0) return { ok: false, error: "REFUNDED" };
 
   const { start, end } = dayBounds(p.paidAt);
   const closure = await prisma.cashClosure.findFirst({

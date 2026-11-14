@@ -82,7 +82,9 @@ export async function replaceDocumentAction(formData: FormData) {
 }
 
 export async function deleteDocumentAction(formData: FormData) {
-  const tenant = await requireSchoolPermission("documents.read");
+  // Mutation : lecture seule ne suffit pas — le service re-vérifie
+  // documents.manage ou déposant+upload sur sa propre pièce.
+  const tenant = await requireSchoolPermission("documents.upload");
   const parsed = z
     .object({ id: idField, reason: requiredText.max(300) })
     .safeParse({ id: formData.get("id"), reason: formData.get("reason") });

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * G2-C — Recette préproduction : instruction + décisions d'admission.
  *

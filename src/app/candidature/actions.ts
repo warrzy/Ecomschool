@@ -17,7 +17,7 @@ import { errorMessage } from "@/lib/ui/errorLabels";
 
 async function clientIp() {
   return (
-    (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    (await headers()).get("x-forwarded-for")?.split(",").pop()?.trim() ??
     "unknown"
   );
 }

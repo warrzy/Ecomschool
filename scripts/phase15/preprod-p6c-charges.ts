@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * P6c — preuve métier sur la génération de créances (préprod, lecture/écriture
  * sur fixtures dédiées de l'école fictive LYC-RECETTE uniquement).

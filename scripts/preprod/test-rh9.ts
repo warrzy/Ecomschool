@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * TEST RH-9 — dotations de congés assistées + plafond avances configurable (préprod).
  * npx tsx scripts/preprod/test-rh9.ts

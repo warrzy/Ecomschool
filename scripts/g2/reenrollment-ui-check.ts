@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * G2-E — smoke test UI local : campagne → dépôt parent → instruction →
  * approbation → finalisation → suivi parent. Fixtures propres, nettoyées.

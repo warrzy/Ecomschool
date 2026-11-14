@@ -29,13 +29,19 @@ export async function notifyUsers(input: {
   return ids.length;
 }
 
+/** M5 : filtre tenant — notifications de l'école + globales (schoolId null),
+ *  jamais celles d'un autre établissement dont le user serait aussi membre. */
+const schoolScope = (schoolId?: string | null) =>
+  schoolId ? { OR: [{ schoolId }, { schoolId: null }] } : {};
+
 export async function listNotifications(
   userId: string,
-  opts: { take?: number; unreadOnly?: boolean; type?: NotificationType } = {},
+  opts: { take?: number; unreadOnly?: boolean; type?: NotificationType; schoolId?: string } = {},
 ) {
   return prisma.notification.findMany({
     where: {
       userId,
+      ...schoolScope(opts.schoolId),
       ...(opts.unreadOnly ? { readAt: null } : {}),
       ...(opts.type ? { type: opts.type } : {}),
     },
@@ -53,20 +59,20 @@ export async function listNotifications(
   });
 }
 
-export async function unreadCount(userId: string) {
-  return prisma.notification.count({ where: { userId, readAt: null } });
+export async function unreadCount(userId: string, schoolId?: string) {
+  return prisma.notification.count({ where: { userId, readAt: null, ...schoolScope(schoolId) } });
 }
 
-export async function markNotificationRead(userId: string, id: string) {
+export async function markNotificationRead(userId: string, id: string, schoolId?: string) {
   await prisma.notification.updateMany({
-    where: { id, userId, readAt: null },
+    where: { id, userId, readAt: null, ...schoolScope(schoolId) },
     data: { readAt: new Date() },
   });
 }
 
-export async function markAllRead(userId: string) {
+export async function markAllRead(userId: string, schoolId?: string) {
   await prisma.notification.updateMany({
-    where: { userId, readAt: null },
+    where: { userId, readAt: null, ...schoolScope(schoolId) },
     data: { readAt: new Date() },
   });
 }

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G2-B — candidatures publiques et suivi sécurisé :
  * campagnes, soumission valide/invalide/hors période, anti double-soumission,

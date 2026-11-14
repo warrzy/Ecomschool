@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * RECETTE MÉTIER 360° — préproduction, école « ÉCOLE DÉMO VALIDATION ».
  * Scénarios réels avec les comptes démo cloisonnés :

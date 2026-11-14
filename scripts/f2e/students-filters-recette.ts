@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F2-E — Filtres élèves (année/classe/statut/q) + export de la sélection.
  *

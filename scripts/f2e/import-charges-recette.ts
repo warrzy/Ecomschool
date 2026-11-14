@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F2-E1 — génération des créances après import d'élèves.
  * Flux réel : previewStudentsImport → commitStudentsImport (fingerprint

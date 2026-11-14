@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-E / Phase 3B — séparation SANDBOX interne / REMOTE TEST /
  * LIVE pour l'adaptateur PAYDUNYA.

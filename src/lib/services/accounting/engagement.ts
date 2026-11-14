@@ -7,11 +7,14 @@
  * l'unicité (schoolId, sourceType, sourceId) de AccountingEntry.
  */
 import { prisma } from "@/lib/db/prisma";
+import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { postEntrySafe, mapsByKey, openExercises, exerciseFor, type Line } from "@/lib/services/accounting";
 
 export type AcctResult<T> = { ok: true; result: T } | { ok: false; error: string };
 const ok = <T>(result: T): AcctResult<T> => ({ ok: true, result });
 const err = (error: string): AcctResult<never> => ({ ok: false, error });
+const hasPerm = (ctx: { userId: string; schoolId: string }, k: string) =>
+  userHasSchoolPermission({ ...ctx, permissionKey: k });
 
 /** Écriture d'engagement pour une créance scolaire (appelée à la facturation). */
 export async function postChargeEntry(
@@ -45,6 +48,7 @@ export async function allocate(
   ctx: { userId: string; schoolId: string },
   input: { chargeLineId: string; paymentLineId: string; amount: number; thirdPartyId?: string },
 ): Promise<AcctResult<{ allocated: number; balance: number }>> {
+  if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
   if (input.amount <= 0) return err("INVALID_AMOUNT");
   return prisma.$transaction(async (tx) => {
     const [charge, payment] = await Promise.all([
@@ -58,12 +62,20 @@ export async function allocate(
       }),
     ]);
     if (!charge?.debit || !payment?.credit) return err("LINES_NOT_FOUND");
-    const used = await tx.accountingAllocation.aggregate({
-      where: { chargeLineId: input.chargeLineId },
-      _sum: { amount: true },
-    });
+    const [used, usedPay] = await Promise.all([
+      tx.accountingAllocation.aggregate({
+        where: { chargeLineId: input.chargeLineId },
+        _sum: { amount: true },
+      }),
+      tx.accountingAllocation.aggregate({
+        where: { paymentLineId: input.paymentLineId },
+        _sum: { amount: true },
+      }),
+    ]);
     const balance = charge.debit - (used._sum.amount ?? 0);
-    if (input.amount > balance) return err("OVER_ALLOCATED");
+    // Le règlement ne peut pas être sur-consommé non plus.
+    const payBalance = payment.credit - (usedPay._sum.amount ?? 0);
+    if (input.amount > balance || input.amount > payBalance) return err("OVER_ALLOCATED");
     await tx.accountingAllocation.create({
       data: {
         schoolId: ctx.schoolId, chargeLineId: input.chargeLineId,

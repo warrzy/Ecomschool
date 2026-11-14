@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * G2-B — smoke test UI local : portail public /candidature + suivi +
  * back-office /app/admissions. Fixtures propres, nettoyées en fin de run.

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * G2-B — Recette préproduction : portail public + suivi + back-office.
  *

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette H1 — portail parent interactif :
  * rattachement multi-enfants, parent sans enfant, isolation

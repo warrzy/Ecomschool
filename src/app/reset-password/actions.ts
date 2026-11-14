@@ -8,7 +8,7 @@ import { headers } from "next/headers";
 export async function requestResetAction(formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const ip =
-    (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    (await headers()).get("x-forwarded-for")?.split(",").pop()?.trim() ??
     "unknown";
   // Throttle mémoire : max ~5 demandes/30 s par IP.
   if (throttleKey(`pwreset:${ip}`)) {

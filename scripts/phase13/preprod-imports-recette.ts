@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 import "dotenv/config";
 import { execSync } from "node:child_process";
 import crypto from "node:crypto";

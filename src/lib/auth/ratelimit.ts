@@ -17,6 +17,8 @@ const attempts = new Map<string, { count: number; windowStart: number }>();
 /** true si la tentative est autorisée côté throttle mémoire. */
 export function throttleKey(key: string) {
   const now = Date.now();
+  // Balayage opportuniste : borne la mémoire de la map (fuite sinon).
+  if (attempts.size > 1000) sweepThrottle();
   const a = attempts.get(key);
   if (!a || now - a.windowStart > WINDOW_MS) {
     attempts.set(key, { count: 1, windowStart: now });

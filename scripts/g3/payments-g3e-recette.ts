@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-E / Phase 1 — conformité du contrat d'adaptateur et des
  * barrières d'activation. Aucun appel réseau, aucun paiement réel.

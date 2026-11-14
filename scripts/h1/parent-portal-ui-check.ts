@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * H1 — Smoke test UI du portail parent interactif (LOCAL uniquement).
  *

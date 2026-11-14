@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F2-E2-A — gardes référentiels :
  * classe archivée (inscription, transfert, import), évaluations sur

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette transversale G2 — cycle complet sur données fictives :
  * campagne d'admission → dépôt public → pièces → instruction →

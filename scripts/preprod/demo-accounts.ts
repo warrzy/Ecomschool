@@ -10,14 +10,25 @@ import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";
 
 const SCHOOL = { name: "ÉCOLE DÉMO VALIDATION", code: "DEMO-VAL", slug: "demo-validation" };
-const ACCOUNTS: { email: string; password: string; perms: string[]; label: string }[] = [
-  { email: "demo-compta@demo.ecomschool.test", password: "Demo-Compta-2026!", label: "COMPTABLE_DEMO",
+
+// M6 : les mots de passe démo ne sont plus commités — ils proviennent de
+// l'environnement (DEMO_<LABEL>_PASSWORD ou DEMO_SEED_PASSWORD global).
+// La garde ci-dessous interdit toute exécution hors préproduction.
+function demoPassword(envSuffix: string): string {
+  const v = process.env[`DEMO_${envSuffix}_PASSWORD`] ?? process.env.DEMO_SEED_PASSWORD;
+  if (!v || v.length < 12)
+    throw new Error(`Mot de passe démo absent/faible : définir DEMO_${envSuffix}_PASSWORD ou DEMO_SEED_PASSWORD (≥12 car.)`);
+  return v;
+}
+
+const ACCOUNTS: { email: string; envSuffix: string; perms: string[]; label: string }[] = [
+  { email: "demo-compta@demo.ecomschool.test", envSuffix: "COMPTA", label: "COMPTABLE_DEMO",
     perms: ["accounting.read", "accounting.manage", "accounting.export", "expenses.read", "treasury.read"] },
-  { email: "demo-rh@demo.ecomschool.test", password: "Demo-Rh-2026!", label: "RH_DEMO",
+  { email: "demo-rh@demo.ecomschool.test", envSuffix: "RH", label: "RH_DEMO",
     perms: ["hr.read", "hr.manage"] },
-  { email: "demo-paie@demo.ecomschool.test", password: "Demo-Paie-2026!", label: "PAIE_DEMO",
+  { email: "demo-paie@demo.ecomschool.test", envSuffix: "PAIE", label: "PAIE_DEMO",
     perms: ["payroll.read", "payroll.manage", "hr.read"] },
-  { email: "demo-admin@demo.ecomschool.test", password: "Demo-Admin-2026!", label: "DEMO_ADMIN",
+  { email: "demo-admin@demo.ecomschool.test", envSuffix: "ADMIN", label: "DEMO_ADMIN",
     perms: [
       "academic.read", "academic.manage", "student.read", "student.manage", "enrollment.read", "enrollment.manage",
       "classroom.read", "classroom.manage", "finance.read", "finance.manage", "finance.configure",
@@ -28,6 +39,13 @@ const ACCOUNTS: { email: string; password: string; perms: string[]; label: strin
 ];
 
 async function main() {
+  // Garde anti-production : le provisioning démo exige un opt-in explicite
+  // et refuse toute base dont l'URL laisse soupçonner la production.
+  if (process.env.ALLOW_DEMO_SEED !== "1")
+    throw new Error("Provisioning démo refusé : définir ALLOW_DEMO_SEED=1 (préproduction/isolé uniquement)");
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  if (/prod/i.test(dbUrl) && !/preprod|verify/i.test(dbUrl))
+    throw new Error("DATABASE_URL semble pointer sur la production — arrêt.");
   const school = await prisma.school.upsert({
     where: { slug: SCHOOL.slug },
     update: {},
@@ -36,7 +54,7 @@ async function main() {
   console.log(`École : ${school.name} (${school.id})`);
 
   for (const acc of ACCOUNTS) {
-    const passwordHash = await hashPassword(acc.password);
+    const passwordHash = await hashPassword(demoPassword(acc.envSuffix));
     const user = await prisma.user.upsert({
       where: { email: acc.email },
       update: { passwordHash },

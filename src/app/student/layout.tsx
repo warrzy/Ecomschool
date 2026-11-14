@@ -15,8 +15,8 @@ export default async function StudentLayout({
       where: { id: tenant.schoolId },
       select: { name: true },
     }),
-    unreadCount(tenant.userId),
-    listNotifications(tenant.userId, { take: 5 }),
+    unreadCount(tenant.userId, tenant.schoolId),
+    listNotifications(tenant.userId, { take: 5, schoolId: tenant.schoolId }),
   ]);
 
   return (

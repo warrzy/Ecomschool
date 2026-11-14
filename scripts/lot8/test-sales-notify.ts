@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Lot 8 — notification WhatsApp aux commerciaux (tests sur base dev locale).
  *

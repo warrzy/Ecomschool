@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * TESTS CIBLÉS — 3 corrections post-recette 360° (base isolée).
  *   A. recordPayment : idempotence, appels concurrents, aucun doublon, pas de faux échec
@@ -59,12 +60,15 @@ async function main() {
   check("concurrence : 1 seul Payment en base", rows === 1);
   check("concurrence : 1 seule allocation", (await prisma.paymentAllocation.count({ where: { payment: { schoolId: ctxA.schoolId, idempotencyKey: "K-RACE" } } })) === 1);
 
-  // A4 — "commit malgré l'erreur" simulé : une clé déjà commitée en base puis réponse —
-  // le lookup post-échec doit retrouver le paiement plutôt que signaler un échec.
-  // (Vérifié : le paiement K-RACE existe ; un nouvel appel MÊME clé = chemin commité.)
+  // A4 — M1 : même clé + payload DIFFÉRENT = IDEMPOTENCY_CONFLICT (jamais
+  // le paiement d'origine présenté comme succès de l'appel divergent).
   const pLate = await recordPayment(ctxA, { ...payInput, amount: 99999, idempotencyKey: "K-RACE" });
-  check("commit connu renvoyé même si montant diffère (clé prime)", pLate.ok === true && pLate.result.id === [...ids][0]);
+  check("clé réutilisée + montant différent → IDEMPOTENCY_CONFLICT", !pLate.ok && pLate.error === "IDEMPOTENCY_CONFLICT");
+  const pLateSame = await recordPayment(ctxA, { ...payInput, idempotencyKey: "K-RACE" });
+  check("même clé + même payload → toujours le paiement d'origine", pLateSame.ok === true && pLateSame.result.id === [...ids][0]);
   check("toujours 1 seul Payment sous K-RACE", (await prisma.payment.count({ where: { schoolId: ctxA.schoolId, idempotencyKey: "K-RACE" } })) === 1);
+  const pOtherStudent = await recordPayment(ctxA, { ...payInput, studentId: (await prisma.student.create({ data: { schoolId: ctxA.schoolId, matricule: "FX2", firstName: "O", lastName: "S", birthDate: new Date("2012-01-01") } })).id, idempotencyKey: "K-RACE" });
+  check("clé réutilisée + élève différent → IDEMPOTENCY_CONFLICT", !pOtherStudent.ok && pOtherStudent.error === "IDEMPOTENCY_CONFLICT");
 
   // A5 — surpaiement réellement refusé (montant > reste dû), sans faux échec
   const over = await recordPayment(ctxA, { studentId: student.id, academicYearId: year.id, amount: 100000, method: "CASH" });

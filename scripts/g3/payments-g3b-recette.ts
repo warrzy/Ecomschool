@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-B — webhooks sécurisés, confirmation fiable, reprise auto.
  *

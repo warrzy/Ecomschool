@@ -1,11 +1,9 @@
 import { requireSchoolContext } from "@/lib/tenant/context";
 import {
   listNotifications,
-  markAllRead,
-  markNotificationRead,
   unreadCount,
 } from "@/lib/services/notifications";
-import { redirect } from "next/navigation";
+import { markAllReadAction, markReadAction } from "./actions";
 import type { NotificationType } from "@prisma/client";
 
 export const instant = false;
@@ -33,23 +31,15 @@ export default async function NotificationsPage(props: {
 }) {
   const tenant = await requireSchoolContext();
   const sp = (await props.searchParams) ?? {};
-  if (sp.all === "read") {
-    await markAllRead(tenant.userId);
-    redirect("/app/notifications" as never);
-  }
-  if (sp.read) {
-    await markNotificationRead(tenant.userId, String(sp.read));
-    const type = sp.type ? `?type=${sp.type}` : "";
-    redirect(`/app/notifications${type}` as never);
-  }
 
   const typeFilter = typeof sp.type === "string" && sp.type ? sp.type : undefined;
   const items = await listNotifications(tenant.userId, {
     take: 50,
+    schoolId: tenant.schoolId,
     unreadOnly: sp.unread === "1",
     type: typeFilter as NotificationType | undefined,
   });
-  const unread = await unreadCount(tenant.userId);
+  const unread = await unreadCount(tenant.userId, tenant.schoolId);
 
   const base = "/app/notifications";
   const q = (p: Record<string, string>) => {
@@ -73,12 +63,14 @@ export default async function NotificationsPage(props: {
           >
             Préférences
           </a>
-          <a
-            href={q({ all: "read" }) as never}
-            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-mist"
-          >
-            Tout marquer comme lu
-          </a>
+          <form action={markAllReadAction}>
+            <button
+              type="submit"
+              className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm hover:bg-mist"
+            >
+              Tout marquer comme lu
+            </button>
+          </form>
         </div>
       </div>
 
@@ -149,17 +141,12 @@ export default async function NotificationsPage(props: {
                   {!n.readAt ? (
                     <>
                       <br />
-                      <a
-                        href={
-                          q({
-                            read: n.id,
-                            ...(typeFilter ? { type: typeFilter } : {}),
-                          }) as never
-                        }
-                        className="text-zinc-600 underline"
-                      >
-                        Marquer lu
-                      </a>
+                      <form action={markReadAction} className="inline">
+                        <input type="hidden" name="id" value={n.id} />
+                        <button type="submit" className="text-zinc-600 underline">
+                          Marquer lu
+                        </button>
+                      </form>
                     </>
                   ) : null}
                 </div>

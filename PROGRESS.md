@@ -124,9 +124,10 @@ Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi,
 - Incident : `deploy.sh main` a résolu un `main` local obsolète (9811e0a) → service restauré sur release précédente, redéploié avec origin/main, script corrigé (origin/<ref> prioritaire).
 - Permissions : bootstrap RH exécuté (ADMIN_SCHOOL ×4, HR_MANAGER ×2) ; ajouté à bootstrap.sh.
 - Comptes démo (école ÉCOLE DÉMO VALIDATION, slug demo-validation) :
-  demo-compta@demo.ecomschool.test / Demo-Compta-2026! (accounting.*)
-  demo-rh@demo.ecomschool.test / Demo-Rh-2026! (hr.*)
-  demo-paie@demo.ecomschool.test / Demo-Paie-2026! (payroll.* + hr.read)
+  demo-compta@demo.ecomschool.test / <DEMO_COMPTA_PASSWORD> (accounting.*)
+  demo-rh@demo.ecomschool.test / <DEMO_RH_PASSWORD> (hr.*)
+  demo-paie@demo.ecomschool.test / <DEMO_PAIE_PASSWORD> (payroll.* + hr.read)
+  (M6 : mots de passe retirés du dépôt — variables d'environnement requises)
 - Données démo : 2 employés fictifs, run paie DRAFT non validé (prime fictive 10 %).
 - Recettes E2E rejouées sur preprod : CG-1 14/14, RH-1 20/20, RH-3 23/23, RH-5 14/14, RH-7/8 13/13.
 - Routes : /app/rh, /app/rh/paie, /app/comptabilite{,/tiers,/etats,/immobilisations,/rapprochement} → 200 ; modules scolaires OK.
@@ -140,7 +141,7 @@ Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi,
 - S3 : avance 20 000 → recouvrement ≤30 % → rectification POSTED → contre-passation → RECTIFIED.
 - S4 : RH⊄paie, paie⊄RH, compta⊄bulletins (confidentialité salaires), isolation inter-écoles.
 - Anomalie observée : recordPayment a renvoyé une erreur sur un appel dont le paiement a commité (retry → OVERPAYMENT correctement refusé, aucune donnée en double) — à investiguer en tâche de fond.
-- demo-admin@demo.ecomschool.test / Demo-Admin-2026! ajouté (rôle DEMO_ADMIN, 21 permissions).
+- demo-admin@demo.ecomschool.test ajouté (rôle DEMO_ADMIN, 21 permissions) — mot de passe via DEMO_ADMIN_PASSWORD.
 - Deploy durci : fusionné main (f39e09d) + présent dans la release courante — sera dans toute prochaine release.
 
 ## RH-9 — Corrections post-recette 360° (2026-11-22)
@@ -165,3 +166,36 @@ Correctifs des deux anomalies de la recette métier + cap avances configurable.
 - S2 : dotation via règles+provisionnement (plus de `setEntitlement` manuel).
 - S3 : période N+1 = lendemain du dernier run principal (anti-RUN_OVERLAP) + ouverture auto de l'exercice couvrant N+1 ; plafond lu depuis `PayrollConfig`.
 - Résultat preprod : **30/30 PASS** ; RH-9 isolé **11/11** ; non-régressions schéma vierge : RH-2 16/16, RH-3 23/23, RH-4 17/17, RH-5 14/14, RH-6 15/15, RH-7/8 13/13. Migration 63 appliquée sur preprod (additive).
+
+## STABILISATION POST-AUDIT — Bloquantes B1-B5 + Majeures M1-M11 (2026-11-23)
+
+Audit indépendant : NO-GO → phase de stabilisation complète autorisée en autonomie.
+
+### Bloquantes
+- **B1 uploads** : `experimental.serverActions.bodySizeLimit: "10mb"` (Next 16.4.1) aligné sur `client_max_body_size 10m` nginx ; plafonds métier (5/25 Mo) cohérents.
+- **B2 generateEntries** : `tryPost` par source — une source fautive est tracée dans `stats.errors[]` et ignorée au lieu d'avorter le batch ; `postPaymentTx` exige Σ allocations = montant (UNALLOCATED_AMOUNT) ; `updateInstallment` refuse un montant < déjà alloué (BELOW_ALLOCATED).
+- **B3 atomicité** : `postEntrySafe(ctx, input, inTx)` exécute l'effet de bord DANS la transaction de l'écriture — payroll POSTED+postedEntryId, dotations AssetSchedule+entryId, statut SOLD, contre-passations RECTIFIED, annulation dépense.
+- **B4 monitoring** : `monitor.sh` lit `APP_PORT`/`PUBLIC_URL` (dérivés de l'env : prod→3002/ecomschool.fr, preprod→3001) — la sonde prod ne vise plus la preprod.
+- **B5 rollback/healthcheck** : `rollback.sh`, `healthcheck.sh`, `restore.sh` paramétrés (`PM2_APP`/`APP_PORT`/`PUBLIC_URL`) + confirm explicite + backup pré-restore + SHA-256 optionnel.
+
+### Majeures
+- **M1 idempotence** : `Payment.idempotencyHash` (SHA-256 du payload canonique) ; même clé + payload divergent → `IDEMPOTENCY_CONFLICT` sur les 3 chemins de lookup ; repli comparaison de champs pour les paiements legacy sans hash.
+- **M2 bascule CASH→ACCRUAL** : les créances existant avant `postedAt` de l'écriture `MIGRATION_ACCRUAL` ne sont pas re-facturées en CHARGE (cutoff par exercice) — plus de produit doublé ni de 411 fantôme.
+- **M3 closeExercise** : refus `UNPOSTED_OPERATIONS` si paiements, dépenses, remboursements, annulations (à écriture d'origine existante), créances (ACCRUAL post-migration) ou runs VALIDATED de l'exercice ne sont pas postés.
+- **M4 immobilisations** : écriture d'acquisition D2xx/C481-404 atomique avec `createAsset` ; écriture de sortie D28x+D81x/C2xx atomique avec `disposeAsset` ; dotation + `AssetSchedule.entryId` dans une seule transaction.
+- **M5 notifications** : `schoolId` sur list/unread/markAll/markOne — un utilisateur multi-écoles ne voit ni ne marque les notifications de l'autre tenant (plateforme `null` incluse côté tenant).
+- **M6 secrets démo** : mots de passe hors du dépôt (`DEMO_*_PASSWORD`), garde anti-prod sur le script de seed.
+- **M7 IP forgée** : extraction `X-Forwarded-For` = **dernier** élément de liste (ajouté par nginx, non falsifiable client) ; sweep throttle périodique.
+- **M8 assiduité paie** : `PayrollConfig.workdaysPerMonth/prorateUnpaidLeave/prorateAbsences` ; `Payslip.daysWorked/unpaidDays` ; déduction `ABS_NP` = brut×jours non payés/base — configurée par l'établissement, aucune règle légale présumée ; UI `/app/rh/paie`.
+- **M9 UI** : section avances (octroi/annulation/liste) + fiche bulletin détaillée (`?slip=`) sur `/app/rh/paie`.
+- **M10 enrollments** : `enrollStudent` appelle `generateStudentCharges` dans la même transaction — `/app/enrollments` crée les créances comme les autres parcours.
+- **M11 createManualEntry** : montants entiers ≥ 0, XOR débit/crédit, ≥ 2 lignes, équilibre non nul, comptes/journal/exercice même école, exercice ouvert, date dans l'exercice.
+
+### Mineurs traités
+- Oracle `validateRun` scopé `schoolId` ; mutations GET notifications/parent → server actions POST ; `allocate` durcie (permission + plafond) ; `cancelPayment` refuse si remboursement confirmé (REFUNDED) ; `cancelExpense` → contre-passation `EXPENSE_CANCEL` atomique si déjà postée ; `rectifyRun` : contre-passation dans l'exercice ouvert courant si l'origine est clôturée ; avances ventilées 425 (pas 431) dans l'OD de paie ; tokens reset/invite hashés SHA-256 au repos ; `restore.sh` : existence dump + `pg_restore -l` + confirm + pré-backup ; garde `ALLOW_RECETTE=1` sur toutes les recettes destructives (`scripts/lib/recette-guard.ts`).
+
+### Validation (schéma isolé `stab2`, 64/64 migrations propres)
+- Recette stabilisation `scripts/preprod/test-stabilisation.ts` : **44/44 PASS** (7 scénarios : B2/B3/M1/M3/M4/M5/M8/M10/M11 + annulations + legacy).
+- Tests ciblés `scripts/rh1/test-fixes-cibles.ts` : **34/34 PASS** (concurrence paiements, dotations auto, cap configurable, déterminisme).
+- Non-régressions RH : RH-2 16/16, RH-3 23/23, RH-4 17/17, RH-5 14/14, RH-6 15/15, RH-7/8 13/13.
+- Typecheck + lint propres. Production non touchée.

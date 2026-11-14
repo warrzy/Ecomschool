@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
 import { checkLimit } from "@/lib/services/platform/modules";
+import { generateStudentCharges } from "@/lib/services/finance/accounts";
 import type { EnrollmentStatus, Prisma } from "@prisma/client";
 
 export type EnrollmentsError =
@@ -191,6 +192,19 @@ export async function enrollStudent(
       },
       tx,
     });
+
+    // M10 : facturation systématique — le parcours /app/enrollments
+    // génère les mêmes créances obligatoires que les parcours admission,
+    // registration et réinscription. Idempotent : les flux qui appellent
+    // déjà generateStudentCharges ne créent aucun doublon ; un échec ne
+    // fait jamais échouer l'inscription (régénération possible via
+    // « Régénérer les créances »).
+    try {
+      await generateStudentCharges(ctx, {
+        studentId: input.studentId,
+        academicYearId,
+      }, tx);
+    } catch { /* non bloquant — créances régénérables */ }
 
     return { ok: true, result: { id: enrollment.id } };
   } catch (e) {

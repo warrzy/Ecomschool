@@ -259,6 +259,75 @@ export async function closeExercise(ctx: SchoolCtx, exerciseId: string) {
       WHERE "schoolId" = ${ctx.schoolId} AND "status" = 'VALIDATED' AND "postedEntryId" IS NULL`;
     if (Number(rows[0]?.n ?? 0) > 0) return err("PAYROLL_UNPOSTED");
   } catch { /* PayrollRun absent → pas de garde */ }
+
+  // M3 : refus de clôturer tant que des opérations DE L'EXERCICE n'ont
+  // pas d'écriture — après clôture, createEntry refuse (EXERCISE_CLOSED)
+  // et ces opérations deviendraient incomptabilisables à jamais.
+  const ex = await prisma.accountingExercise.findFirst({
+    where: { id: exerciseId, schoolId: ctx.schoolId },
+    select: { status: true, startDate: true, endDate: true, mode: true },
+  });
+  if (!ex) return err("NOT_FOUND_OR_CLOSED");
+  if (ex.status !== "OPEN") return err("NOT_FOUND_OR_CLOSED");
+  const range = { gte: ex.startDate, lte: ex.endDate };
+  const posted = new Set(
+    (await prisma.accountingEntry.findMany({
+      where: { schoolId: ctx.schoolId, sourceId: { not: null } },
+      select: { sourceType: true, sourceId: true },
+    })).map((e) => `${e.sourceType}:${e.sourceId}`),
+  );
+  const [pays, exps, refs, cancels, expCancels] = await Promise.all([
+    prisma.payment.findMany({
+      where: { schoolId: ctx.schoolId, status: "VALIDATED", paidAt: range }, select: { id: true },
+    }),
+    prisma.expense.findMany({
+      where: {
+        schoolId: ctx.schoolId, status: "PAID", payrollRunId: null,
+        OR: [{ paidAt: range }, { paidAt: null, expenseAt: range }],
+      },
+      select: { id: true },
+    }),
+    prisma.paymentRefund.findMany({
+      where: { schoolId: ctx.schoolId, status: "CONFIRMED", paymentId: { not: null }, confirmedAt: range },
+      select: { id: true },
+    }),
+    prisma.payment.findMany({
+      where: { schoolId: ctx.schoolId, status: "CANCELLED", cancelledAt: range }, select: { id: true },
+    }),
+    prisma.expense.findMany({
+      where: { schoolId: ctx.schoolId, status: "CANCELLED", cancelledAt: range }, select: { id: true },
+    }),
+  ]);
+  const unposted = {
+    payments: pays.filter((p) => !posted.has(`PAYMENT:${p.id}`)).length,
+    expenses: exps.filter((e) => !posted.has(`EXPENSE:${e.id}`)).length,
+    refunds: refs.filter((r) => !posted.has(`REFUND:${r.id}`)).length,
+    // Une annulation n'exige une contre-passation que si l'écriture
+    // d'origine existe — annuler une opération jamais comptabilisée ne
+    // doit pas bloquer la clôture à jamais.
+    cancels: cancels.filter((p) => posted.has(`PAYMENT:${p.id}`) && !posted.has(`PAYMENT_CANCEL:${p.id}`)).length
+      + expCancels.filter((e) => posted.has(`EXPENSE:${e.id}`) && !posted.has(`EXPENSE_CANCEL:${e.id}`)).length,
+    charges: 0,
+  };
+  if (ex.mode === "ACCRUAL") {
+    // Même règle que generateEntries (M2) : les créances reprises par la
+    // bascule n'attendent pas d'écriture CHARGE propre.
+    const migration = await prisma.accountingEntry.findFirst({
+      where: { schoolId: ctx.schoolId, exerciseId, sourceType: "MIGRATION_ACCRUAL" },
+      select: { postedAt: true },
+    });
+    const charges = await prisma.studentFeeCharge.findMany({
+      where: {
+        schoolId: ctx.schoolId,
+        createdAt: { ...range, ...(migration?.postedAt ? { gt: migration.postedAt } : {}) },
+      },
+      select: { id: true },
+    });
+    unposted.charges = charges.filter((c) => !posted.has(`CHARGE:${c.id}`)).length;
+  }
+  const totalUnposted = unposted.payments + unposted.expenses + unposted.refunds + unposted.cancels + unposted.charges;
+  if (totalUnposted > 0) return err("UNPOSTED_OPERATIONS");
+
   const r = await prisma.accountingExercise.updateMany({
     where: { id: exerciseId, schoolId: ctx.schoolId, status: "OPEN" },
     data: { status: "CLOSED" },
@@ -280,7 +349,7 @@ function nextEntryRef(seq: number, year: number) {
   return `EC-${year}-${String(seq).padStart(5, "0")}`;
 }
 
-async function createEntry(
+export async function createEntry(
   ctx: SchoolCtx,
   tx: Prisma.TransactionClient,
   input: {
@@ -332,13 +401,20 @@ async function createEntry(
   return entry;
 }
 
-/** Poste une écriture en transaction ; ignore le doublon concurrent (P2002). */
+/** Poste une écriture en transaction ; ignore le doublon concurrent (P2002).
+ *  `inTx` exécute un effet de bord DANS la même transaction (B3 : écriture
+ *  et mise à jour métier committent ou échouent ensemble — plus d'état
+ *  "écriture postée, marqueur absent"). */
 export async function postEntrySafe(
   ctx: SchoolCtx,
   input: Parameters<typeof createEntry>[2],
+  inTx?: (tx: Prisma.TransactionClient, entry: { id: string; status: string }) => Promise<void>,
 ): Promise<boolean> {
   try {
-    await prisma.$transaction((tx) => createEntry(ctx, tx, input));
+    await prisma.$transaction(async (tx) => {
+      const entry = await createEntry(ctx, tx, input);
+      if (inTx) await inTx(tx, entry);
+    });
     return true;
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
@@ -365,6 +441,7 @@ export function exerciseFor(
 type GenStats = {
   payments: number; cancels: number; refunds: number;
   expenses: number; charges: number; incomplete: number; skipped: number;
+  errors: { sourceType: string; sourceId: string; error: string }[];
 };
 
 /**
@@ -383,7 +460,17 @@ export async function openExercises(schoolId: string) {
 
 export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenStats>> {
   if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
-  const stats: GenStats = { payments: 0, cancels: 0, refunds: 0, expenses: 0, charges: 0, incomplete: 0, skipped: 0 };
+  const stats: GenStats = { payments: 0, cancels: 0, refunds: 0, expenses: 0, charges: 0, incomplete: 0, skipped: 0, errors: [] };
+  // B2 : une source fautive n'avorte jamais le batch — erreur tracée,
+  // source ignorée, retraitable après correction.
+  const tryPost = async (sourceType: string, sourceId: string, input: Parameters<typeof postEntrySafe>[1]) => {
+    try {
+      return await postEntrySafe(ctx, input);
+    } catch (e) {
+      stats.errors.push({ sourceType, sourceId, error: e instanceof Error ? e.message : String(e) });
+      return false;
+    }
+  };
   const exercises = await openExercises(ctx.schoolId);
   if (exercises.length === 0) return err("NO_OPEN_EXERCISE");
   const maps = await mapsByKey(ctx);
@@ -448,13 +535,20 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
       { accountId: mid.accountId, debit: p.amount, label: `Encaissement ${p.receiptNumber ?? ""}`.trim() },
       ...Array.from(credits).map(([accId, amt]) => ({ accountId: accId, credit: amt, thirdPartyId: paymentThirdParty })),
     ];
-    if (await postEntrySafe(ctx, {
-      journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
-      date: p.paidAt,
-      description: `Encaissement ${p.receiptNumber ?? p.id} — ${p.method}`,
-      sourceType: "PAYMENT", sourceId: p.id, lines,
-    })) stats.payments++;
-    else stats.skipped++;
+    // B2 : une source fautive (ex. données incohérentes) ne doit pas
+    // avorter tout le batch — l'erreur est tracée et la source ignorée,
+    // pour retraitement après correction.
+    try {
+      if (await postEntrySafe(ctx, {
+        journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
+        date: p.paidAt,
+        description: `Encaissement ${p.receiptNumber ?? p.id} — ${p.method}`,
+        sourceType: "PAYMENT", sourceId: p.id, lines,
+      })) stats.payments++;
+      else stats.skipped++;
+    } catch (e) {
+      stats.errors.push({ sourceType: "PAYMENT", sourceId: p.id, error: e instanceof Error ? e.message : String(e) });
+    }
   }
 
   // --- Paiements annulés → contre-passation ---
@@ -470,7 +564,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     });
     const ex = exerciseFor(exercises, p.cancelledAt ?? new Date());
     if (!orig || !ex) { stats.skipped++; continue; }
-    if (await postEntrySafe(ctx, {
+    if (await tryPost("PAYMENT_CANCEL", p.id, {
       journalId: orig.journalId, exerciseId: ex.id,
       date: p.cancelledAt ?? new Date(),
       description: `Contre-passation annulation ${p.receiptNumber ?? p.id}`,
@@ -498,7 +592,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     const mid = maps.get(`METHOD:${r.payment!.method}`);
     const revenueAcc = orig?.lines.find((l) => l.credit > 0)?.accountId;
     if (!orig || !ex || !mid || !revenueAcc) { stats.skipped++; continue; }
-    if (await postEntrySafe(ctx, {
+    if (await tryPost("REFUND", r.id, {
       journalId: orig.journalId, exerciseId: ex.id,
       date: r.confirmedAt ?? new Date(),
       description: `Remboursement ${r.payment!.receiptNumber ?? r.id} — ${r.reason}`,
@@ -523,7 +617,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     const cat = maps.get(`EXPCAT:${e.categoryId}`) ?? maps.get("FALLBACK:EXPCAT");
     const mid = maps.get(`METHOD:${e.method ?? "CASH"}`) ?? maps.get("METHOD:CASH");
     if (!cat || !mid) { stats.incomplete++; continue; }
-    if (await postEntrySafe(ctx, {
+    if (await tryPost("EXPENSE", e.id, {
       journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
       date: e.paidAt ?? e.expenseAt,
       description: `Dépense ${e.label} — ${e.beneficiary}`,
@@ -540,6 +634,16 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
   const hasAccrual = exercises.some((e) => e.mode === "ACCRUAL");
   if (hasAccrual) {
     const receivable = maps.get("FALLBACK:RECEIVABLE");
+    // M2 : les écritures MIGRATION_ACCRUAL reprennent déjà les créances
+    // impayées existantes à la bascule — toute charge créée AVANT cet
+    // instant a son solde soit encaissé (produit déjà en C7xx via les
+    // écritures PAYMENT), soit repris en D411/C12 : la re-facturer en
+    // D411/C7xx doublerait le produit et créerait une créance fantôme.
+    const migrations = await prisma.accountingEntry.findMany({
+      where: { schoolId: ctx.schoolId, sourceType: "MIGRATION_ACCRUAL" },
+      select: { exerciseId: true, postedAt: true },
+    });
+    const migratedAt = new Map(migrations.map((m) => [m.exerciseId, m.postedAt]));
     const charges = await prisma.studentFeeCharge.findMany({
       where: { schoolId: ctx.schoolId },
       select: { id: true, amount: true, createdAt: true, categoryId: true, studentId: true, student: { select: { firstName: true, lastName: true } } },
@@ -548,6 +652,8 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
       if (posted.has(`CHARGE:${c.id}`)) continue;
       const ex = exerciseFor(exercises, c.createdAt);
       if (!ex || ex.mode !== "ACCRUAL") { stats.skipped++; continue; }
+      const cutoff = migratedAt.get(ex.id);
+      if (cutoff && c.createdAt <= cutoff) { stats.skipped++; continue; }
       const product = maps.get(`CAT:${c.categoryId}`) ?? maps.get("FALLBACK:CAT");
       if (!receivable || !product) { stats.incomplete++; continue; }
       // Auxiliaire élève : provisionné automatiquement (idempotent).
@@ -564,13 +670,17 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
         { accountId: receivable.accountId, debit: c.amount, label: `Créance ${c.id}`, thirdPartyId: tp.id },
         { accountId: product.accountId, credit: c.amount },
       ];
-      if (await postEntrySafe(ctx, {
-        journalId: receivable.journalId ?? product.journalId ?? odd.id,
-        exerciseId: ex.id, date: c.createdAt,
-        description: `Facturation — créance scolaire ${c.id}`,
-        sourceType: "CHARGE", sourceId: c.id, lines,
-      })) stats.charges++;
-      else stats.skipped++;
+      try {
+        if (await postEntrySafe(ctx, {
+          journalId: receivable.journalId ?? product.journalId ?? odd.id,
+          exerciseId: ex.id, date: c.createdAt,
+          description: `Facturation — créance scolaire ${c.id}`,
+          sourceType: "CHARGE", sourceId: c.id, lines,
+        })) stats.charges++;
+        else stats.skipped++;
+      } catch (e) {
+        stats.errors.push({ sourceType: "CHARGE", sourceId: c.id, error: e instanceof Error ? e.message : String(e) });
+      }
     }
   }
 
@@ -626,6 +736,15 @@ export async function createManualEntry(
   },
 ): Promise<AcctResult<{ id: string }>> {
   if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
+  // M11 : chaque ligne doit porter un débit OU un crédit entier positif —
+  // jamais les deux, jamais aucun, jamais de montant négatif ou non entier.
+  if (input.lines.length < 2) return err("INVALID_INPUT");
+  for (const l of input.lines) {
+    const d = l.debit ?? 0;
+    const c = l.credit ?? 0;
+    if (!Number.isInteger(d) || !Number.isInteger(c) || d < 0 || c < 0) return err("INVALID_INPUT");
+    if ((d > 0) === (c > 0)) return err("INVALID_INPUT"); // XOR obligatoire
+  }
   const jour = await prisma.accountingJournal.findFirst({
     where: { id: input.journalId, schoolId: ctx.schoolId },
   });

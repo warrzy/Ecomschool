@@ -5,7 +5,7 @@
  */
 import { prisma } from "@/lib/db/prisma";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import { postEntrySafe, openExercises, exerciseFor } from "@/lib/services/accounting";
+import { postEntrySafe, createEntry, openExercises, exerciseFor } from "@/lib/services/accounting";
 import { logAudit } from "@/lib/services/audit";
 
 type Ctx = { userId: string; schoolId: string };
@@ -14,10 +14,20 @@ const ok = <T>(r: T): Res<T> => ({ ok: true, result: r });
 const err = (e: string): Res<never> => ({ ok: false, error: e });
 const has = (ctx: Ctx, k: string) => userHasSchoolPermission({ ...ctx, permissionKey: k });
 
+/** Contrepartie d'acquisition : SYSCOHADA 481/404, sinon trésorerie. */
+async function assetCounterpart(schoolId: string) {
+  return prisma.accountingAccount.findFirst({
+    where: { schoolId, code: { in: ["481", "4811", "404", "521", "571"] } },
+    orderBy: { code: "asc" },
+    select: { id: true, code: true },
+  });
+}
+
 export async function createAsset(ctx: Ctx, input: {
   label: string; acquisitionDate: Date; acquisitionCost: number;
   durationMonths: number; accountAssetId: string;
   accountDepreciationId: string; accountChargeId: string;
+  counterpartAccountId?: string;
 }): Promise<Res<{ id: string }>> {
   if (!(await has(ctx, "accounting.manage"))) return err("FORBIDDEN");
   if (!input.label.trim() || input.acquisitionCost <= 0 || input.durationMonths <= 0)
@@ -29,7 +39,36 @@ export async function createAsset(ctx: Ctx, input: {
     },
   });
   if (accs !== 3) return err("NOT_FOUND");
-  const a = await prisma.accountingAsset.create({ data: { schoolId: ctx.schoolId, ...input } });
+  // M4 : l'acquisition DOIT être comptabilisée (D2xx/C481x) dans la même
+  // transaction — sinon l'actif immobilisé sort négatif au bilan.
+  const counterpart = input.counterpartAccountId
+    ? await prisma.accountingAccount.findFirst({
+        where: { id: input.counterpartAccountId, schoolId: ctx.schoolId }, select: { id: true, code: true },
+      })
+    : await assetCounterpart(ctx.schoolId);
+  if (!counterpart) return err("MISSING_ACCOUNTS");
+  const exs = await openExercises(ctx.schoolId);
+  const exercise = exerciseFor(exs, input.acquisitionDate);
+  if (!exercise) return err("NO_OPEN_EXERCISE");
+  const journal = await prisma.accountingJournal.findFirst({
+    where: { schoolId: ctx.schoolId, code: "OD" }, select: { id: true },
+  });
+  if (!journal) return err("NO_OD_JOURNAL");
+  const { counterpartAccountId, ...data } = input;
+  void counterpartAccountId;
+  const a = await prisma.$transaction(async (tx) => {
+    const asset = await tx.accountingAsset.create({ data: { schoolId: ctx.schoolId, ...data } });
+    await createEntry(ctx, tx, {
+      journalId: journal.id, exerciseId: exercise.id, date: input.acquisitionDate,
+      description: `Acquisition immobilisation — ${input.label}`,
+      sourceType: "ASSET_ACQ", sourceId: asset.id,
+      lines: [
+        { accountId: input.accountAssetId, debit: input.acquisitionCost, label: input.label },
+        { accountId: counterpart.id, credit: input.acquisitionCost, label: `Frs immo ${counterpart.code}` },
+      ],
+    });
+    return asset;
+  });
   await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "accounting.asset.create", entity: "AccountingAsset", entityId: a.id });
   return ok({ id: a.id });
 }
@@ -78,6 +117,8 @@ export async function runDepreciation(
     const remaining = a.acquisitionCost - done;
     if (remaining <= 0 || a.schedules.some((s) => +s.periodStart === +periodStart)) { skipped++; continue; }
     const amount = Math.min(Math.round(a.acquisitionCost / a.durationMonths), remaining);
+    // B3 : écriture + ligne de schedule dans UNE transaction — le registre
+    // ne peut plus diverger du grand livre après un crash intermédiaire.
     const created = await postEntrySafe(ctx, {
       journalId: journal.id, exerciseId: exercise.id, date: entryDate,
       description: `Dotation ${a.label} ${yyyymm}`,
@@ -86,18 +127,13 @@ export async function runDepreciation(
         { accountId: a.accountChargeId, debit: amount, label: `Dotation ${yyyymm}` },
         { accountId: a.accountDepreciationId, credit: amount, label: `Amort. ${a.label}` },
       ],
-    });
-    if (!created) { skipped++; continue; }
-    const entry = await prisma.accountingEntry.findFirstOrThrow({
-      where: { schoolId: ctx.schoolId, sourceType: "ASSET_DEPR", sourceId: `${a.id}:${yyyymm}` },
-      select: { id: true },
-    });
-    try {
-      await prisma.assetSchedule.create({
+    }, async (tx, entry) => {
+      await tx.assetSchedule.create({
         data: { assetId: a.id, periodStart, amount, entryId: entry.id },
       });
-      posted++;
-    } catch { skipped++; } // P2002 concurrence — écriture déjà lettrée
+    });
+    if (!created) { skipped++; continue; }
+    posted++;
   }
   await logAudit({
     actorId: ctx.userId, schoolId: ctx.schoolId,
@@ -107,12 +143,51 @@ export async function runDepreciation(
   return ok({ posted, skipped });
 }
 
+/** Sortie d'immobilisation : D28x (amort. cumulé) + D81x (VNC) / C2xx (coût). */
 export async function disposeAsset(ctx: Ctx, assetId: string, status: "SOLD" | "SCRAPPED") {
   if (!(await has(ctx, "accounting.manage"))) return err("FORBIDDEN");
-  const r = await prisma.accountingAsset.updateMany({
-    where: { id: assetId, schoolId: ctx.schoolId, status: "ACTIVE" },
-    data: { status },
+  const a = await prisma.accountingAsset.findFirst({
+    where: { id: assetId, schoolId: ctx.schoolId },
+    include: { schedules: { select: { amount: true } } },
   });
-  if (r.count === 0) return err("NOT_FOUND");
+  if (!a || a.status !== "ACTIVE") return err("NOT_FOUND");
+  const amortized = a.schedules.reduce((s, x) => s + x.amount, 0);
+  const vna = a.acquisitionCost - amortized;
+  // M4 : écriture de sortie + statut dans UNE transaction (idempotente
+  // via ASSET_DISPOSAL:<assetId> ; rattrapage du statut si doublon).
+  const lossAcc = vna > 0
+    ? await prisma.accountingAccount.findFirst({
+        where: { schoolId: ctx.schoolId, code: { in: ["81", "812", "816", "654", "675"] } },
+        orderBy: { code: "asc" }, select: { id: true },
+      })
+    : null;
+  if (vna > 0 && !lossAcc) return err("MISSING_ACCOUNTS");
+  const exs = await openExercises(ctx.schoolId);
+  const exercise = exerciseFor(exs, new Date());
+  if (!exercise) return err("NO_OPEN_EXERCISE");
+  const journal = await prisma.accountingJournal.findFirst({
+    where: { schoolId: ctx.schoolId, code: "OD" }, select: { id: true },
+  });
+  if (!journal) return err("NO_OD_JOURNAL");
+  const created = await postEntrySafe(ctx, {
+    journalId: journal.id, exerciseId: exercise.id, date: new Date(),
+    description: `Sortie immobilisation — ${a.label} (${status})`,
+    sourceType: "ASSET_DISPOSAL", sourceId: a.id,
+    lines: [
+      ...(amortized > 0 ? [{ accountId: a.accountDepreciationId, debit: amortized, label: "Amort. cumulé" }] : []),
+      ...(vna > 0 && lossAcc ? [{ accountId: lossAcc.id, debit: vna, label: "VNC" }] : []),
+      { accountId: a.accountAssetId, credit: a.acquisitionCost, label: a.label },
+    ],
+  }, async (tx) => {
+    await tx.accountingAsset.update({ where: { id: a.id }, data: { status } });
+  });
+  if (!created) {
+    // Écriture déjà postée (rejeu) → s'assurer que le statut est bien à jour.
+    await prisma.accountingAsset.updateMany({
+      where: { id: a.id, schoolId: ctx.schoolId }, data: { status },
+    });
+    return ok({ id: assetId });
+  }
+  await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "accounting.asset.dispose", entity: "AccountingAsset", entityId: a.id, metadata: { status, vna } });
   return ok({ id: assetId });
 }

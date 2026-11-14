@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G2-A — brique documentaire transversale :
  * upload valide/invalide/volumineux, magic bytes, quotas, téléchargement

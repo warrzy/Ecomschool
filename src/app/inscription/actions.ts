@@ -24,7 +24,7 @@ export async function submitSignupRequest(
   // Throttle par IP réelle : Nginx positionne X-Forwarded-For
   // ($proxy_add_x_forwarded_for) — première entrée = client.
   const ip =
-    (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    (await headers()).get("x-forwarded-for")?.split(",").pop()?.trim() ??
     "unknown";
   if (!throttleKey(`signup:${ip}`)) {
     return {

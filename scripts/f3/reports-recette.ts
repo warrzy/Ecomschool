@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F3-D — rapports et exports financiers :
  * 6 types de rapports, formats CSV/XLSX/PDF, filtres, totaux,

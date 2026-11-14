@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-E / Phase 2B — conformité de l'adaptateur PAYDUNYA.
  *

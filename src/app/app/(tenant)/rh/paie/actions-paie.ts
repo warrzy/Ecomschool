@@ -69,3 +69,40 @@ export async function setAdvanceCapAction(fd: FormData) {
   const r = await setAdvanceCap({ userId: t.userId, schoolId: t.schoolId }, Math.round(Number(fd.get("capPercent")) * 100));
   redirect(`/app/rh/paie?${r.ok ? "ok=Plafond+avances+mis+à+jour" : `err=${r.error}`}`);
 }
+
+export async function grantAdvanceAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { grantAdvance } = await import("@/lib/services/hr/payroll");
+  const r = await grantAdvance(
+    { userId: t.userId, schoolId: t.schoolId },
+    String(fd.get("employeeId")),
+    {
+      amount: Math.round(Number(fd.get("amount")) || 0),
+      date: fd.get("date") ? new Date(String(fd.get("date"))) : new Date(),
+      reason: String(fd.get("reason") ?? "") || undefined,
+    },
+  );
+  redirect(`/app/rh/paie?${r.ok ? "ok=Avance+accordée" : `err=${r.error}`}#avances`);
+}
+
+export async function cancelAdvanceAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { cancelAdvance } = await import("@/lib/services/hr/payroll");
+  const r = await cancelAdvance({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("id")));
+  redirect(`/app/rh/paie?${r.ok ? "ok=Avance+annulée" : `err=${r.error}`}#avances`);
+}
+
+export async function setAttendanceConfigAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { setAttendanceConfig } = await import("@/lib/services/hr/payroll");
+  const r = await setAttendanceConfig(
+    { userId: t.userId, schoolId: t.schoolId },
+    {
+      workdaysPerMonth: Math.round(Number(fd.get("workdays")) || 30),
+      // Checkbox + champ caché "0" : getAll détecte la présence du "1".
+      prorateUnpaidLeave: fd.getAll("prorateUnpaidLeave").includes("1"),
+      prorateAbsences: fd.getAll("prorateAbsences").includes("1"),
+    },
+  );
+  redirect(`/app/rh/paie?${r.ok ? "ok=Assiduité+configurée" : `err=${r.error}`}`);
+}

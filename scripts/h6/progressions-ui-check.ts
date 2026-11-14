@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * H6 — Smoke test UI progressions & réconciliation (LOCAL uniquement).
  *

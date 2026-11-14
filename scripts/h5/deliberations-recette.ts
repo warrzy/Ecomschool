@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette H5 — délibérations scolaires :
  * règles configurables, propositions calculées vs décisions du

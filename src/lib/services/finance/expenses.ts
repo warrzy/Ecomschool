@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/services/audit";
+import { exerciseFor, openExercises, postEntrySafe } from "@/lib/services/accounting";
 import type { ExpenseStatus, PaymentMethod } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
@@ -12,6 +13,7 @@ export type ExpensesError =
   | "YEAR_CLOSED"
   | "ALREADY_PAID"
   | "ALREADY_CANCELLED"
+  | "NO_OPEN_EXERCISE"
   | "IDEMPOTENCY_CONFLICT"
   | "CREATE_FAILED"
   | "UPDATE_FAILED";
@@ -386,15 +388,52 @@ export async function cancelExpense(
   if (!e) return { ok: false, error: "NOT_FOUND" };
   if (e.status === "CANCELLED") return { ok: false, error: "ALREADY_CANCELLED" };
 
-  await prisma.expense.update({
-    where: { id: e.id },
-    data: {
-      status: "CANCELLED",
-      cancelledAt: new Date(),
-      cancelledById: ctx.userId,
-      cancelReason: input.reason.trim(),
-    },
+  const cancelData = {
+    status: "CANCELLED" as const,
+    cancelledAt: new Date(),
+    cancelledById: ctx.userId,
+    cancelReason: input.reason.trim(),
+  };
+
+  // Dépense déjà comptabilisée : l'annulation produit une contre-passation
+  // (EXPENSE_CANCEL) dans la MÊME transaction — les livres ne conservent
+  // pas une charge annulée. Si l'exercice d'origine est clôturé, la
+  // régularisation part dans l'exercice ouvert couvrant aujourd'hui.
+  const posted = await prisma.accountingEntry.findFirst({
+    where: { schoolId: ctx.schoolId, sourceType: "EXPENSE", sourceId: e.id },
+    include: { lines: true },
   });
+  if (posted) {
+    const origEx = await prisma.accountingExercise.findUnique({
+      where: { id: posted.exerciseId }, select: { status: true },
+    });
+    let exerciseId = posted.exerciseId;
+    let date = posted.date;
+    if (origEx?.status !== "OPEN") {
+      const now = new Date();
+      const open = exerciseFor(await openExercises(ctx.schoolId), now);
+      if (!open) return { ok: false, error: "NO_OPEN_EXERCISE" };
+      exerciseId = open.id;
+      date = now;
+    }
+    try {
+      await postEntrySafe(ctx, {
+        journalId: posted.journalId, exerciseId, date,
+        description: `Contre-passation — annulation dépense`,
+        sourceType: "EXPENSE_CANCEL", sourceId: e.id,
+        lines: posted.lines.map((l) => ({
+          accountId: l.accountId, debit: l.credit, credit: l.debit,
+          label: `Annulation — ${l.label ?? "dépense"}`,
+        })),
+      }, async (tx) => {
+        await tx.expense.update({ where: { id: e.id }, data: cancelData });
+      });
+    } catch {
+      return { ok: false, error: "CREATE_FAILED" };
+    }
+  } else {
+    await prisma.expense.update({ where: { id: e.id }, data: cancelData });
+  }
   await logAudit({
     actorId: ctx.userId,
     schoolId: ctx.schoolId,

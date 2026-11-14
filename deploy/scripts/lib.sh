@@ -28,6 +28,20 @@ else
   BACKUP_DIR=${ECOMSCHOOL_BACKUP_DIR:-/var/backups/ecomschool}
 fi
 
+# Identité de l'instance (PM2, port, URL publique). Dérivée d'APP_ROOT
+# quand non fournie — monitor/healthcheck/rollback doivent viser la BONNE
+# instance (B4/B5 : une sonde prod qui vérifie la preprod rend une panne
+# prod invisible ; un rollback codé en dur casse la mauvaise app).
+case "$(basename "$APP_ROOT")" in
+  ecomschool-prod)
+    _PM2_APP=ecomschool-prod; _APP_PORT=3002; _PUBLIC_URL=https://ecomschool.fr ;;
+  *)
+    _PM2_APP=ecomschool-preprod; _APP_PORT=3001; _PUBLIC_URL=https://preprod.ecomschool.fr ;;
+esac
+PM2_APP=${ECOMSCHOOL_PM2_APP:-$_PM2_APP}
+APP_PORT=${ECOMSCHOOL_APP_PORT:-$_APP_PORT}
+PUBLIC_URL=${ECOMSCHOOL_PUBLIC_URL:-$_PUBLIC_URL}
+
 # Fichier de statut lu par monitor.sh — écrit par backup.sh.
 BACKUP_STATUS_FILE="$LOG_DIR/backup-status.env"
 # Répertoire de déduplication des alertes (un fichier par alerte active).

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F2-E2-C bis — vérification des gardes d'intégrité des
  * résultats/bulletins après verrouillage de période ou clôture d'année.

@@ -66,9 +66,11 @@ export const MAX_APPLICATION_CHILDREN = 5;
 export const MAX_APPLICATION_DOCS = Number(
   process.env.ADMISSIONS_MAX_DOCS ?? 10,
 );
-/** Volume cumulé maximal des pièces d'une soumission (hors plafond/fichier). */
+/** Volume cumulé maximal des pièces d'une soumission (hors plafond/fichier).
+ *  Plafond 10 Mo aligné sur nginx client_max_body_size et
+ *  serverActions.bodySizeLimit — au-delà, le rejet arrive avant l'app. */
 export const MAX_TOTAL_UPLOAD_BYTES = Number(
-  process.env.ADMISSIONS_MAX_TOTAL_UPLOAD_BYTES ?? 25 * 1024 * 1024,
+  process.env.ADMISSIONS_MAX_TOTAL_UPLOAD_BYTES ?? 10 * 1024 * 1024,
 );
 /** Durée de vie d'un ticket de lecture de pièce (suivi candidat). */
 export const DOC_TICKET_TTL_MS = 15 * 60 * 1000;

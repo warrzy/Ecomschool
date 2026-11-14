@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G2-E — réinscriptions annuelles : campagnes, éligibilité,
  * dépôt parent, instruction, décisions, finalisation transactionnelle,

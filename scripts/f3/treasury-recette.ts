@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F3-C — tableau de bord de trésorerie :
  * encaissements VALIDATED / CANCELLED, décaissements paidAt IS NOT NULL

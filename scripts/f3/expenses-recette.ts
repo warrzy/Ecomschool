@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F3-B — module Dépenses :
  * catégories (défauts, doublons, archivage), cycle de vie

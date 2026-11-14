@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette H6 — passage / redoublement / orientation :
  * progression structurée synchronisée par les délibérations annuelles

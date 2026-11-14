@@ -227,3 +227,20 @@ export async function updateParentContactAction(formData: FormData) {
       : `/parent?tab=profil&error=${res.error}`,
   );
 }
+
+export async function markAllNotificationsReadAction() {
+  const t = await requireSchoolPermission("portal.parent");
+  const { markAllRead } = await import("@/lib/services/notifications");
+  await markAllRead(t.userId, t.schoolId);
+  return back("/parent?tab=notifications");
+}
+
+export async function markNotificationReadAction(formData: FormData) {
+  const t = await requireSchoolPermission("portal.parent");
+  const id = String(formData.get("id") ?? "");
+  if (id) {
+    const { markNotificationRead } = await import("@/lib/services/notifications");
+    await markNotificationRead(t.userId, id, t.schoolId);
+  }
+  return back("/parent?tab=notifications");
+}

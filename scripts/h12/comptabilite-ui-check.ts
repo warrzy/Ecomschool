@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Smoke UI H12 — page /app/comptabilite : fixture minimale
  * (école + admin + plan + exercice + écritures), captures.

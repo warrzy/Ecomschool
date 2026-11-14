@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-D — rapprochement Mobile Money, commissions,
  * reversements, remboursements, anomalies, risque guichet.

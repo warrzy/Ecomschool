@@ -570,6 +570,7 @@ model Payment {
   receiptSnapshot Json?
 
   idempotencyKey String?
+  idempotencyHash String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4247,6 +4248,10 @@ model Payslip {
   employerCost  Int @default(0)
   net           Int
 
+  /** M8 — traçabilité de la proratisation d'assiduité. */
+  daysWorked Int?
+  unpaidDays Int?
+
   /** Détail calculé : [{code,label,kind,amount,formula}]. */
   lines Json
   /** Règles figées au moment du calcul — jamais recalculées. */
@@ -4294,6 +4299,14 @@ model PayrollConfig {
 
   /** Plafond de recouvrement des avances en points de base (3000 = 30 %). Valeur indicative configurable. */
   advanceCapBp Int @default(3000)
+
+  /** M8 — Assiduité (valeurs indicatives configurées par l'établissement, aucune règle légale présumée). */
+  /** Base mensuelle de proratisation en jours (30 = convention courante, configurable). */
+  workdaysPerMonth Int @default(30)
+  /** Les congés sans solde (UNPAID) approuvés réduisent le brut au prorata des jours non travaillés. */
+  prorateUnpaidLeave Boolean @default(true)
+  /** Les absences pointées (StaffAttendance ABSENT) réduisent le brut — opt-in. */
+  prorateAbsences Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

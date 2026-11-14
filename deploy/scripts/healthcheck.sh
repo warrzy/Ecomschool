@@ -6,15 +6,15 @@ source "$(dirname "$0")/lib.sh" 2>/dev/null || true
 fail=0
 
 echo "== Processus =="
-pm2 describe ecomschool-preprod >/dev/null 2>&1 \
-  && echo "OK   PM2 ecomschool-preprod présent" \
-  || { echo "FAIL PM2 ecomschool-preprod absent"; fail=1; }
-ss -tln | grep -q '127.0.0.1:3001' \
-  && echo "OK   écoute 127.0.0.1:3001 (non exposé)" \
-  || { echo "FAIL pas d'écoute sur 127.0.0.1:3001"; fail=1; }
-ss -tln | grep -E '(0\.0\.0\.0|\[::\]|\*|::):3001' >/dev/null \
-  && { echo "FAIL 3001 exposé sur toutes les interfaces"; fail=1; } \
-  || echo "OK   3001 non exposé publiquement"
+pm2 describe ${PM2_APP} >/dev/null 2>&1 \
+  && echo "OK   PM2 ${PM2_APP} présent" \
+  || { echo "FAIL PM2 ${PM2_APP} absent"; fail=1; }
+ss -tln | grep -q "127.0.0.1:${APP_PORT}" \
+  && echo "OK   écoute 127.0.0.1:${APP_PORT} (non exposé)" \
+  || { echo "FAIL pas d'écoute sur 127.0.0.1:${APP_PORT}"; fail=1; }
+ss -tln | grep -E "(0\.0\.0\.0|\[::\]|\*|::):${APP_PORT}" >/dev/null \
+  && { echo "FAIL ${APP_PORT} exposé sur toutes les interfaces"; fail=1; } \
+  || echo "OK   ${APP_PORT} non exposé publiquement"
 
 echo "== Release =="
 [ -n "${APP_CURRENT:-}" ] && [ -L "$APP_CURRENT" ] \
@@ -22,7 +22,7 @@ echo "== Release =="
   || echo "WARN lien current introuvable"
 
 echo "== Applicatif =="
-code=$(curl -sk -o /dev/null -w '%{http_code}' http://127.0.0.1:3001/api/auth/csrf)
+code=$(curl -sk -o /dev/null -w '%{http_code}' http://127.0.0.1:${APP_PORT}/api/auth/csrf)
 [ "$code" = "200" ] && echo "OK   /api/auth/csrf → 200" \
   || { echo "FAIL /api/auth/csrf → $code"; fail=1; }
 
@@ -44,8 +44,8 @@ else
 fi
 # Après Certbot : HTTPS attendu. HTTP → 301 accepté (redirection vers HTTPS).
 code=$(curl -sk -L -o /dev/null -w '%{http_code}' \
-  https://preprod.ecomschool.fr/api/auth/csrf)
-echo "HTTPS preprod.ecomschool.fr → $code (200 attendu)"
+  ${PUBLIC_URL}/api/auth/csrf)
+echo "HTTPS ${PUBLIC_URL#https://} → $code (200 attendu)"
 
 echo "== Cron =="
 # La tâche est dans la crontab de l'utilisateur deploy (pas /etc/cron.d).

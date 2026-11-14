@@ -347,9 +347,9 @@ export async function closeCashAction(formData: FormData) {
 }
 
 export async function remindAction(formData: FormData) {
-  // Aligné sur la page /app/fees/unpaid : la relance relève du suivi des
-  // impayés (supervision), pas de la simple consultation financière.
-  const tenant = await requireSchoolPermission("finance.reports.read");
+  // La relance crée un enregistrement : permission de gestion des frais,
+  // pas une simple consultation de rapports.
+  const tenant = await requireSchoolPermission("finance.fees.manage");
   const parsed = z
     .object({
       studentId: idField,

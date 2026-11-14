@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // Uploads via server actions (documents 5 Mo, candidatures ≤10 Mo total) —
+  // la limite framework par défaut est 1 Mo. Alignée sur nginx
+  // client_max_body_size 10m : tout rejet >10 Mo arrive côté proxy avant l'app.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   async headers() {
     return [
       {

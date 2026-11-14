@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G3-C — portail parent : frais, paiements Mobile Money, reçus.
  *

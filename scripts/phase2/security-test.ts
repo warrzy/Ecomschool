@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 import "dotenv/config";
 import { prisma } from "@/lib/db/prisma";
 import { hashPassword } from "@/lib/auth/password";

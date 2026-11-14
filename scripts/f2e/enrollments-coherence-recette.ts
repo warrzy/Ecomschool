@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette F2-E2-D — cohérence des inscriptions :
  * unicité ENROLLED par élève/année (y compris quand le réglage

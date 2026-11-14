@@ -3,7 +3,7 @@
 # Usage : bash deploy/scripts/rollback.sh [release]
 #
 # Bascule le lien `current` vers la release précédente (ou celle fournie)
-# puis redémarre ecomschool-preprod. Aucun rebuild nécessaire.
+# puis redémarre ${PM2_APP}. Aucun rebuild nécessaire.
 #
 # ATTENTION : ce script ne rétrograde PAS la base de données. Si le problème
 # vient d'une migration, restaurer d'abord le dump pre-migrate correspondant
@@ -31,9 +31,9 @@ echo "Bascule → $TARGET"
 ln -sfn "$APP_RELEASES/$TARGET" "$APP_CURRENT.tmp" \
   && mv -T "$APP_CURRENT.tmp" "$APP_CURRENT"
 
-pm2 delete ecomschool-preprod >/dev/null 2>&1 || true
+pm2 delete ${PM2_APP} >/dev/null 2>&1 || true
 pm2 start "$APP_CURRENT/deploy/pm2/ecosystem.config.cjs" \
-  --only ecomschool-preprod
+  --only ${PM2_APP}
 pm2 save
 
 echo "Rollback terminé."

@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 /**
  * Recette G2-C — instruction administrative et décisions d'admission :
  * notes internes isolées, compléments + réponses, affectation instructeur,

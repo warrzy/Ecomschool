@@ -88,12 +88,20 @@ export async function carryForward(ctx: Ctx, closedExerciseId: string, input: {
   const exercise = await prisma.accountingExercise.create({
     data: { schoolId: ctx.schoolId, name: input.name, startDate: input.startDate, endDate: input.endDate, mode: old.mode },
   });
-  const created = await postEntrySafe(ctx, {
-    journalId, exerciseId: exercise.id, date: input.startDate,
-    description: `À-nouveaux — reprise ${old.name}`,
-    sourceType: "OPENING", sourceId: old.id,
-    lines,
-  });
+  let created = false;
+  try {
+    created = await postEntrySafe(ctx, {
+      journalId, exerciseId: exercise.id, date: input.startDate,
+      description: `À-nouveaux — reprise ${old.name}`,
+      sourceType: "OPENING", sourceId: old.id,
+      lines,
+    });
+  } catch {
+    // B3 : exception après création de l'exercice → nettoyer l'orphelin
+    // (sinon EXERCISE_OVERLAP bloque tout rejeu définitivement).
+    await prisma.accountingExercise.delete({ where: { id: exercise.id } }).catch(() => {});
+    throw new Error("CARRY_FORWARD_FAILED");
+  }
   if (!created) {
     // Concurrence : une autre reprise a gagné — supprimer l'exercice orphelin.
     await prisma.accountingExercise.delete({ where: { id: exercise.id } }).catch(() => {});
@@ -159,14 +167,16 @@ export async function migrateToAccrual(ctx: Ctx, exerciseId: string): Promise<Re
   }
   lines.push({ accountId: resAcc.id, credit: total, label: "Contrepartie reprise créances" });
 
+  // B3 : écriture de reprise + bascule du mode dans UNE transaction.
   const created = await postEntrySafe(ctx, {
     journalId, exerciseId, date: ex.startDate,
     description: `Bascule CASH→ACCRUAL — reprise créances impayées`,
     sourceType: "MIGRATION_ACCRUAL", sourceId: exerciseId,
     lines,
+  }, async (tx) => {
+    await tx.accountingExercise.update({ where: { id: exerciseId }, data: { mode: "ACCRUAL" } });
   });
   if (!created) return err("ALREADY_MIGRATED");
-  await prisma.accountingExercise.update({ where: { id: exerciseId }, data: { mode: "ACCRUAL" } });
   await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "accounting.exercise.accrual", entity: "AccountingExercise", entityId: exerciseId, metadata: { receivables: total, students: byStudent.size } });
   return ok({ receivables: total, count: byStudent.size });
 }

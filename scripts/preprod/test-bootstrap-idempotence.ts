@@ -1,3 +1,4 @@
+import "../lib/recette-guard";
 import "dotenv/config";
 import { execFileSync } from "node:child_process";
 import { prisma } from "@/lib/db/prisma";
