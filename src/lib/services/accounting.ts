@@ -258,7 +258,7 @@ export async function closeExercise(ctx: SchoolCtx, exerciseId: string) {
 
 // ---------- Génération des écritures ----------
 
-type Line = { accountId: string; debit?: number; credit?: number; label?: string };
+export type Line = { accountId: string; debit?: number; credit?: number; label?: string };
 
 function nextEntryRef(seq: number, year: number) {
   return `EC-${year}-${String(seq).padStart(5, "0")}`;
@@ -316,7 +316,7 @@ async function createEntry(
 }
 
 /** Poste une écriture en transaction ; ignore le doublon concurrent (P2002). */
-async function postEntrySafe(
+export async function postEntrySafe(
   ctx: SchoolCtx,
   input: Parameters<typeof createEntry>[2],
 ): Promise<boolean> {
@@ -330,7 +330,7 @@ async function postEntrySafe(
   }
 }
 
-async function mapsByKey(ctx: SchoolCtx) {
+export async function mapsByKey(ctx: SchoolCtx) {
   const rows = await prisma.accountingAccountMap.findMany({
     where: { schoolId: ctx.schoolId },
     select: { key: true, accountId: true, journalId: true },
@@ -338,8 +338,8 @@ async function mapsByKey(ctx: SchoolCtx) {
   return new Map(rows.map((m) => [m.key, m]));
 }
 
-function exerciseFor(
-  exercises: { id: string; startDate: Date; endDate: Date }[],
+export function exerciseFor(
+  exercises: { id: string; startDate: Date; endDate: Date; mode?: string }[],
   date: Date,
 ) {
   return exercises.find((e) => date >= e.startDate && date <= e.endDate);
@@ -356,13 +356,18 @@ type GenStats = {
  * dont le compte de trésorerie n'est pas mappé sont signalées dans les
  * statistiques (aucune écriture inventée silencieusement).
  */
+/** Exercices ouverts de l'école (avec mode caisse/engagement). */
+export async function openExercises(schoolId: string) {
+  return prisma.accountingExercise.findMany({
+    where: { schoolId, status: "OPEN" },
+    select: { id: true, startDate: true, endDate: true, mode: true },
+  });
+}
+
 export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenStats>> {
   if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
   const stats: GenStats = { payments: 0, cancels: 0, refunds: 0, expenses: 0, incomplete: 0, skipped: 0 };
-  const exercises = await prisma.accountingExercise.findMany({
-    where: { schoolId: ctx.schoolId, status: "OPEN" },
-    select: { id: true, startDate: true, endDate: true },
-  });
+  const exercises = await openExercises(ctx.schoolId);
   if (exercises.length === 0) return err("NO_OPEN_EXERCISE");
   const maps = await mapsByKey(ctx);
   const posted = new Set(
@@ -395,10 +400,16 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     if (!ex) { stats.skipped++; continue; }
     const mid = maps.get(`METHOD:${p.method}`);
     const credits = new Map<string, number>();
-    for (const a of p.allocations) {
-      const accId = maps.get(`CAT:${a.installment.charge.categoryId}`)?.accountId
-        ?? maps.get("FALLBACK:CAT")?.accountId;
-      if (accId) credits.set(accId, (credits.get(accId) ?? 0) + a.amount);
+    if (ex.mode === "ACCRUAL") {
+      // Engagement : le règlement solde la créance 411, le produit est né à la facturation.
+      const receivable = maps.get("FALLBACK:RECEIVABLE")?.accountId;
+      if (receivable) credits.set(receivable, p.amount);
+    } else {
+      for (const a of p.allocations) {
+        const accId = maps.get(`CAT:${a.installment.charge.categoryId}`)?.accountId
+          ?? maps.get("FALLBACK:CAT")?.accountId;
+        if (accId) credits.set(accId, (credits.get(accId) ?? 0) + a.amount);
+      }
     }
     if (!mid || credits.size === 0) { stats.incomplete++; continue; }
     const lines: Line[] = [
