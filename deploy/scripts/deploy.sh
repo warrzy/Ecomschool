@@ -33,8 +33,12 @@ else
     https://github.com/warrzy/Ecomschool.git "$APP_REPO"
   git -C "$APP_REPO" fetch --all --tags --prune
 fi
-# Une branche non présente localement (clone frais) se résout via origin/.
-if ! git -C "$APP_REPO" rev-parse --verify --quiet "$APP_REF" >/dev/null; then
+# Pour un nom de branche, origin/<ref> fait foi : une branche locale du clone
+# peut être obsolète (cas réel : `main` local figé → release déployée sur un
+# ancien commit). Les SHA/tags sans ref distante passent par la résolution directe.
+if git -C "$APP_REPO" rev-parse --verify --quiet "origin/$APP_REF" >/dev/null; then
+  APP_REF="origin/$APP_REF"
+elif ! git -C "$APP_REPO" rev-parse --verify --quiet "$APP_REF" >/dev/null; then
   APP_REF="origin/$APP_REF"
 fi
 # Worktree isolé, HEAD détaché : le répertoire de la version en cours n'est

@@ -117,3 +117,18 @@ Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi,
 - `migrate diff` DB migrée vs schema.prisma : zero derive.
 - `prisma.config.ts` : `shadowDatabaseUrl` optionnel ajoute (Prisma 7).
 - CI : branches lot0 (nav-permissions, ci-github) fusionnees dans main ; nouveau job `migrations` (deploy depuis zero + detection de derive) pour detecter les migrations defectueuses.
+
+## Déploiement PRÉPRODUCTION — 2026-11-14
+- Release : 327f655 sur https://preprod.ecomschool.fr (healthcheck 200, 62/62 migrations).
+- Sauvegardes : ecomschool_preprod_20261114_195200.dump + pre-migrate-<ts>.dump (deploy.sh).
+- Incident : `deploy.sh main` a résolu un `main` local obsolète (9811e0a) → service restauré sur release précédente, redéploié avec origin/main, script corrigé (origin/<ref> prioritaire).
+- Permissions : bootstrap RH exécuté (ADMIN_SCHOOL ×4, HR_MANAGER ×2) ; ajouté à bootstrap.sh.
+- Comptes démo (école ÉCOLE DÉMO VALIDATION, slug demo-validation) :
+  demo-compta@demo.ecomschool.test / Demo-Compta-2026! (accounting.*)
+  demo-rh@demo.ecomschool.test / Demo-Rh-2026! (hr.*)
+  demo-paie@demo.ecomschool.test / Demo-Paie-2026! (payroll.* + hr.read)
+- Données démo : 2 employés fictifs, run paie DRAFT non validé (prime fictive 10 %).
+- Recettes E2E rejouées sur preprod : CG-1 14/14, RH-1 20/20, RH-3 23/23, RH-5 14/14, RH-7/8 13/13.
+- Routes : /app/rh, /app/rh/paie, /app/comptabilite{,/tiers,/etats,/immobilisations,/rapprochement} → 200 ; modules scolaires OK.
+- Rollback : repointer current → release précédente + pm2 start (deploy/scripts/rollback.sh) ; dumps disponibles.
+- Production : non touchée. CNSS/fiscaux : non activés.
