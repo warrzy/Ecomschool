@@ -126,14 +126,15 @@ async function main() {
   const run1 = await createRun(ctxE, { periodStart: new Date("2026-02-01"), periodEnd: new Date("2026-02-28") });
   const run1Id = run1.ok ? run1.result.id : "";
   await computeRun(ctxE, run1Id);
-  let slip = (await getRun(ctxE, run1Id)).result?.payslips[0];
+  const slipOf = async (id: string) => { const d = await getRun(ctxE, id); return d.ok === true ? d.result.payslips[0] : undefined; };
+  let slip = await slipOf(run1Id);
   check("défaut 30 % → retenue 30 000, net 70 000", slip?.deductions === 30000 && slip?.net === 70000);
   check("trace AdvanceRecovery créée", (await prisma.advanceRecovery.count({ where: { payslipId: slip?.id ?? "" } })) === 1);
 
   // C2 — cap abaissé à 15 % → recalcul DRAFT : restitution avance puis retenue 15 000
   await setAdvanceCap(ctxE, 1500);
   await computeRun(ctxE, run1Id);
-  slip = (await getRun(ctxE, run1Id)).result?.payslips[0];
+  slip = await slipOf(run1Id);
   check("cap 15 % configuré → retenue 15 000, net 85 000", slip?.deductions === 15000 && slip?.net === 85000);
   check("recalcul : avance restaurée avant re-déduction (restant = 35 000)", (await prisma.advance.findFirst({ where: { employeeId: empE } }))?.remaining === 35000);
   check("1 seule recovery après recalcul", (await prisma.advanceRecovery.count({ where: { payslipId: slip?.id ?? "" } })) === 1);
@@ -142,7 +143,7 @@ async function main() {
   // puis re-déduit le solde complet → retenue 50 000, net 50 000.
   await setAdvanceCap(ctxE, 10000);
   await computeRun(ctxE, run1Id);
-  slip = (await getRun(ctxE, run1Id)).result?.payslips[0];
+  slip = await slipOf(run1Id);
   check("cap 100 % → retenue 50 000 (totalité du solde), net 50 000", slip?.deductions === 50000 && slip?.net === 50000);
   check("avance soldée (restant 0)", (await prisma.advance.findFirst({ where: { employeeId: empE } }))?.remaining === 0);
 
@@ -154,13 +155,13 @@ async function main() {
   const run2 = await createRun(ctxE, { periodStart: new Date("2026-03-01"), periodEnd: new Date("2026-03-31") });
   const run2Id = run2.ok ? run2.result.id : "";
   await computeRun(ctxE, run2Id);
-  const s1 = (await getRun(ctxE, run2Id)).result?.payslips.find((p) => p.employeeId === empE2);
+  const d2a = await getRun(ctxE, run2Id); const s1 = d2a.ok === true ? d2a.result.payslips.find((p) => p.employeeId === empE2) : undefined;
   await computeRun(ctxE, run2Id);
-  const s2 = (await getRun(ctxE, run2Id)).result?.payslips.find((p) => p.employeeId === empE2);
+  const d2b = await getRun(ctxE, run2Id); const s2 = d2b.ok === true ? d2b.result.payslips.find((p) => p.employeeId === empE2) : undefined;
   check("déterministe : recalcul identique (gross/net/deductions)", s1?.gross === s2?.gross && s1?.net === s2?.net && s1?.deductions === s2?.deductions);
 
   // C5 — traçabilité : lignes du bulletin incluent la retenue avance, snapshot figé
-  const emp1slip = (await getRun(ctxE, run1Id)).result?.payslips.find((p) => p.employeeId === empE);
+  const d1 = await getRun(ctxE, run1Id); const emp1slip = d1.ok === true ? d1.result.payslips.find((p) => p.employeeId === empE) : undefined;
   check("bulletin traçable : ligne recovery dans lines", Array.isArray(emp1slip?.lines));
   check("formulaSnapshot figé sur le bulletin", Array.isArray(emp1slip?.formulaSnapshot));
 
