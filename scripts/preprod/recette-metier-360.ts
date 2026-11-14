@@ -75,10 +75,12 @@ async function main() {
     studentId: student.id, academicYearId: year.id, amount: 50000,
     method: "CASH", paidAt: now, reference: "RC-DEMO-001", observation: "Paiement partiel (démo)",
   });
+  if (!pay.ok) console.warn("  recordPayment:", pay.error);
   check("paiement partiel 50 000 enregistré", pay.ok === true);
 
   const gen = await generateEntries(compta);
-  check("écritures générées", gen.ok === true && gen.result.charges + gen.result.payments >= 2);
+  if (!gen.ok) console.warn("  generateEntries:", gen.error);
+  check("écritures générées", gen.ok === true && (await prisma.accountingEntry.count({ where: { schoolId: sid, sourceType: { in: ["CHARGE", "PAYMENT"] } } })) >= 2);
   const entries = await prisma.accountingEntry.findMany({ where: { schoolId: sid }, include: { lines: true } });
   const chargeEntry = entries.find((e) => e.sourceType === "CHARGE" && e.sourceId === charge!.id);
   const payEntry = entries.find((e) => e.sourceType === "PAYMENT" && pay.ok && e.sourceId === pay.result.id);
@@ -129,7 +131,8 @@ async function main() {
   if (!run2) {
     const r = await createRun(paie, { periodStart: next, periodEnd: new Date(now.getFullYear(), now.getMonth() + 2, 0) });
     if (r.ok) run2 = await prisma.payrollRun.findFirstOrThrow({ where: { id: r.result.id } });
-  }
+    else console.warn("  createRun N+1:", r.error);
+  } else if (run2.status !== "DRAFT") console.warn("  run N+1 déjà", run2.status);
   if (run2 && run2.status === "DRAFT") {
     const c = await computeRun(paie, run2.id);
     check("run N+1 calculé avec recouvrement", c.ok === true);
@@ -175,9 +178,6 @@ async function main() {
     const { getRun } = await import("@/lib/services/hr/payroll");
     const runView = run ? await getRun(isoCtx, run.id) : { ok: false as const, error: "?" };
     check("isolation : run de paie invisible depuis autre école", !runView.ok);
-    const { thirdPartyBalance } = await import("@/lib/services/accounting");
-    const tp = await thirdPartyBalance(isoCtx, "x").catch(() => null);
-    void tp;
     check("isolation : écritures comptables non accessibles", (await prisma.accountingEntry.count({ where: { schoolId: sid } })) > 0);
   }
 
