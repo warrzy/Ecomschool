@@ -45,6 +45,7 @@ export const SYSCOHADA_STARTER = {
   accounts: [
     { code: "201", name: "Immobilisations corporelles", classNumber: 2 },
     { code: "281", name: "Amortissements des immobilisations", classNumber: 2 },
+    { code: "12", name: "Résultat net de l'exercice", classNumber: 1 },
     { code: "411", name: "Élèves — créances", classNumber: 4 },
     { code: "401", name: "Fournisseurs", classNumber: 4 },
     { code: "521", name: "Banques locales", classNumber: 5 },
@@ -243,9 +244,18 @@ export async function openExercise(
   return ok(r);
 }
 
-/** Clôture irréversible d'un exercice — bloque toute nouvelle écriture. */
+/** Clôture irréversible d'un exercice — bloque toute nouvelle écriture.
+ *  CG-6 (M-3) : refuse si une paie validée reste à comptabiliser. */
 export async function closeExercise(ctx: SchoolCtx, exerciseId: string) {
   if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
+  // Garde paie : requête brute tolérante — la table PayrollRun n'existe
+  // qu'après RH-5 ; tant qu'elle est absente, aucun blocage.
+  try {
+    const rows = await prisma.$queryRaw<{ n: bigint }[]>`
+      SELECT COUNT(*)::bigint AS n FROM "PayrollRun"
+      WHERE "schoolId" = ${ctx.schoolId} AND "status" = 'VALIDATED' AND "postedEntryId" IS NULL`;
+    if (Number(rows[0]?.n ?? 0) > 0) return err("PAYROLL_UNPOSTED");
+  } catch { /* PayrollRun absent → pas de garde */ }
   const r = await prisma.accountingExercise.updateMany({
     where: { id: exerciseId, schoolId: ctx.schoolId, status: "OPEN" },
     data: { status: "CLOSED" },

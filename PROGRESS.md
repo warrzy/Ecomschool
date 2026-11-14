@@ -49,3 +49,22 @@ Tiers : référentiel CRUD (`AccountingThirdParty`), balance âgée 30/60/90 sur
 ## PROCHAINE SESSION → CG-3
 
 Clients/fournisseurs complets + règlements + rapprochement bancaire (`BankStatement`/`BankStatementLine` déjà migrés en CG-1), lettrage fournisseur, dettes fournisseurs (D6xx/C401 à la dépense engagée ?). Voir `BACKLOG_DEVELOPPEMENT.md` CG-3..CG-6 puis RH-1..RH-8.
+
+## COMPTABILITÉ GÉNÉRALE TERMINÉE ✅ (CG-1→CG-6, migration 57/57)
+
+| Lot | Livré | Recette |
+|---|---|---|
+| CG-1 | Engagement CHARGE D411/C706, règlement ACCRUAL D57x/C411, lettrage partiel, écran OD, export GL | 14/14 |
+| CG-2 | Référentiel tiers, balance âgée 5 buckets, `/app/comptabilite/tiers`, CSV | 13/13 |
+| CG-3 | Bilan + compte de résultat (actif=passif, résultat croisé, perte→actif), `/app/comptabilite/etats`, CSV+PDF | 16/16 |
+| CG-4 | Immobilisations + dotations mensuelles idempotentes D681/C281, unique(assetId,periodStart) | 15/15 |
+| CG-5 | Rapprochement bancaire : import relevé, pointage auto montant+date±3j, écarts | 10/10 |
+| CG-6 | À-nouveaux OPENING équilibrés (classes 1-5 + résultat→12), bascule CASH→ACCRUAL (D411/C12, auxiliaires auto), garde PAYROLL_UNPOSTED sur clôture | 16/16 |
+
+- H12 non-régression : **68/68** (assertion starter 10→14 comptes mise à jour : +12/201/281/681)
+- Bug réel corrigé par recette : `carryForward` créait un exercice orphelin au rejeu → contrôle ALREADY_CARRIED en amont
+- Garde paie : `closeExercise` interroge `PayrollRun` en SQL brut tolérant (table absente → pas de blocage) — test réel à la recette RH-5
+
+## PROCHAINE SESSION → RH-1
+
+`Employee` + `EmployeeContract`(+`amendsContractId`) + documents + matricule. Voir `BACKLOG_DEVELOPPEMENT.md` RH-1→RH-8. Séparation des fonctions : `PAYROLL_OFFICER` à créer, HR_MANAGER sans `payroll.*`. Barème BF officiel requis avant RH-3.

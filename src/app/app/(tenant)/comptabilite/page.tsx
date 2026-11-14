@@ -7,6 +7,7 @@ import {
 import {
   installPlanAction, upsertAccountAction, upsertMappingAction,
   openExerciseAction, closeExerciseAction, generateAction, manualEntryAction,
+  carryForwardAction, migrateAccrualAction,
 } from "./actions";
 
 export const instant = false;
@@ -95,8 +96,23 @@ export default async function ComptabilitePage(props: {
                     <a href={`/app/comptabilite?exercise=${e.id}`} className="text-blue-700 hover:underline">{e.name}</a>
                   </td>
                   <td>{dstr(e.startDate)} → {dstr(e.endDate)}</td>
-                  <td>{e.status === "OPEN" ? "Ouvert" : "Clôturé"}</td>
-                  <td className="text-right">
+                  <td>{e.status === "OPEN" ? "Ouvert" : "Clôturé"}<span className="ml-1 text-xs text-slate-400">{e.mode}</span></td>
+                  <td className="space-x-3 text-right">
+                    {manage && e.status === "OPEN" && e.mode === "CASH" ? (
+                      <form action={migrateAccrualAction} className="inline">
+                        <input type="hidden" name="exerciseId" value={e.id} />
+                        <button type="submit" className="text-xs text-amber-700 hover:underline">Bascule engagement</button>
+                      </form>
+                    ) : null}
+                    {manage && e.status === "CLOSED" ? (
+                      <form action={carryForwardAction} className="inline">
+                        <input type="hidden" name="exerciseId" value={e.id} />
+                        <input type="hidden" name="name" value={`${e.name}+1`} />
+                        <input type="hidden" name="startDate" value={new Date(+e.endDate + 86400000).toISOString().slice(0, 10)} />
+                        <input type="hidden" name="endDate" value={new Date(+e.endDate + 31536000000).toISOString().slice(0, 10)} />
+                        <button type="submit" className="text-xs text-blue-700 hover:underline">À-nouveaux →</button>
+                      </form>
+                    ) : null}
                     {manage && e.status === "OPEN" ? (
                       <form action={closeExerciseAction} className="inline">
                         <input type="hidden" name="exerciseId" value={e.id} />

@@ -1,13 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import * as svc from "@/lib/services/accounting";
 
 export async function installPlanAction() {
   const t = await requireSchoolPermission("accounting.manage");
   await svc.installStarterPlan({ userId: t.userId, schoolId: t.schoolId });
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 export async function upsertAccountAction(fd: FormData) {
@@ -20,7 +22,8 @@ export async function upsertAccountAction(fd: FormData) {
       classNumber: Number(fd.get("classNumber") ?? 0),
     },
   );
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 export async function upsertMappingAction(fd: FormData) {
@@ -33,7 +36,8 @@ export async function upsertMappingAction(fd: FormData) {
       journalId: String(fd.get("journalId") ?? "") || null,
     },
   );
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 export async function openExerciseAction(fd: FormData) {
@@ -46,7 +50,8 @@ export async function openExerciseAction(fd: FormData) {
       endDate: new Date(String(fd.get("endDate"))),
     },
   );
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 export async function closeExerciseAction(fd: FormData) {
@@ -55,13 +60,15 @@ export async function closeExerciseAction(fd: FormData) {
     { userId: t.userId, schoolId: t.schoolId },
     String(fd.get("exerciseId") ?? ""),
   );
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 export async function generateAction() {
   const t = await requireSchoolPermission("accounting.manage");
   await svc.generateEntries({ userId: t.userId, schoolId: t.schoolId });
-  revalidatePath("/app/comptabilite");
+  revalidatePath("/app/comptabilite");
+
 }
 
 /** CG-1 : saisie manuelle d'une OD (journal, exercice, lignes JSON). */
@@ -81,4 +88,22 @@ export async function manualEntryAction(fd: FormData) {
     },
   );
   revalidatePath("/app/comptabilite");
+}
+
+export async function carryForwardAction(fd: FormData) {
+  const t = await requireSchoolPermission("accounting.manage");
+  const { carryForward } = await import("@/lib/services/accounting/closing");
+  const r = await carryForward({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("exerciseId")), {
+    name: String(fd.get("name") ?? ""),
+    startDate: new Date(String(fd.get("startDate"))),
+    endDate: new Date(String(fd.get("endDate"))),
+  });
+  redirect(`/app/comptabilite?${r.ok ? `exercise=${r.result.exerciseId}` : `err=${r.error}`}`);
+}
+
+export async function migrateAccrualAction(fd: FormData) {
+  const t = await requireSchoolPermission("accounting.manage");
+  const { migrateToAccrual } = await import("@/lib/services/accounting/closing");
+  const r = await migrateToAccrual({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("exerciseId")));
+  redirect(`/app/comptabilite?${r.ok ? "ok=Bascule+ACCRUAL+effectuée" : `err=${r.error}`}`);
 }
