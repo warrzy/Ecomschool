@@ -1,0 +1,349 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Administrateur et Direction</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Tableau de bord <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Paramétrer l'année scolaire <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Structure : niveaux, classes, matières, salles <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Enseignants et emplois du temps <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Élèves et parents <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Inscriptions et réinscriptions <a name="s6"></a></a></div><div class="l1"><a href="#s7">7. Admissions <a name="s7"></a></a></div><div class="l1"><a href="#s8">8. Notes, moyennes, bulletins, délibérations <a name="s8"></a></a></div><div class="l1"><a href="#s9">9. Absences et retards <a name="s9"></a></a></div><div class="l1"><a href="#s10">10. Finances : tarifs, encaissements, impayés <a name="s10"></a></a></div><div class="l2"><a href="#">10.1 Grille tarifaire — `/app/fees/settings`</a></div><div class="l2"><a href="#">10.2 Encaisser — fiche élève ou guichet</a></div><div class="l2"><a href="#">10.3 Impayés et relances — `/app/fees/unpaid`</a></div><div class="l1"><a href="#s11">11. Dépenses <a name="s11"></a></a></div><div class="l1"><a href="#s12">12. Comptabilité SYSCOHADA <a name="s12"></a></a></div><div class="l2"><a href="#">12.1 Installation initiale</a></div><div class="l2"><a href="#">12.2 Générer les écritures</a></div><div class="l2"><a href="#">12.3 États et contrôles</a></div><div class="l2"><a href="#">12.4 Clôture d'exercice</a></div><div class="l1"><a href="#s13">13. Trésorerie <a name="s13"></a></a></div><div class="l1"><a href="#s14">14. Mobile Money <a name="s14"></a></a></div><div class="l1"><a href="#s15">15. Communication <a name="s15"></a></a></div><div class="l1"><a href="#s16">16. Documents <a name="s16"></a></a></div><div class="l1"><a href="#s17">17. Utilisateurs, rôles et permissions <a name="s17"></a></a></div><div class="l1"><a href="#s18">18. Paramètres et abonnement <a name="s18"></a></a></div></div>
+  <!-- title: Manuel Administrateur et Direction -->
+<h1>Manuel administrateur et direction</h1>
+<p>Ce manuel couvre l&#39;intégralité de l&#39;espace <code>/app</code> pour un administrateur
+d&#39;établissement : paramétrage, scolarité, pédagogie, finances,
+administration. Chaque chapitre indique le <strong>chemin exact dans les
+menus</strong>, la <strong>permission requise</strong> et le <strong>résultat attendu</strong>.</p>
+<div class="note"><p>[!NOTE]
+L&#39;administrateur d&#39;établissement dispose de toutes les permissions de
+l&#39;école. Les autres profils ne voient qu&#39;une partie de ces écrans —
+chaque manuel par profil détaille son périmètre.</p>
+</div><div class="chap"><h2>1. Tableau de bord</h2>
+</div><p><strong>Menu :</strong> Pilotage → Tableau de bord (<code>/app</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-dashboard.png" alt=""/><figcaption>Figure 01 — Tableau de bord</figcaption></figure></p>
+<p>Le tableau de bord est la page d&#39;accueil. Il répond en un coup d&#39;œil à :
+combien d&#39;élèves, combien encaissé, combien reste à percevoir.</p>
+<table>
+<thead>
+<tr>
+<th>Zone</th>
+<th>Information affichée</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Élèves inscrits</td>
+<td>Effectif actif de l&#39;année courante (13)</td>
+</tr>
+<tr>
+<td>Enseignants actifs</td>
+<td>Nombre de fiches enseignant (1)</td>
+</tr>
+<tr>
+<td>Classes</td>
+<td>Classes de l&#39;année en cours (6)</td>
+</tr>
+<tr>
+<td>Effectifs par niveau</td>
+<td>Répartition Sixième → Troisième</td>
+</tr>
+<tr>
+<td>Filles / garçons</td>
+<td>Diagramme de répartition</td>
+</tr>
+<tr>
+<td>Encaissé aujourd&#39;hui / ce mois</td>
+<td>Totaux des paiements validés</td>
+</tr>
+<tr>
+<td>Solde restant</td>
+<td>Créances non soldées (750 000 F dû : 1 195 000 F)</td>
+</tr>
+<tr>
+<td>Échéances en retard</td>
+<td>Échéancier dépassé (19 échéances)</td>
+</tr>
+<tr>
+<td>Dernières inscriptions</td>
+<td>Historique des 6 derniers mouvements</td>
+</tr>
+</tbody></table>
+<div class="warn"><p>[!WARN]
+Le <strong>solde restant</strong> et les <strong>échéances en retard</strong> sont vos deux
+indicateurs de pilotage quotidien : surveillez-les chaque matin.</p>
+</div><div class="chap"><h2>2. Paramétrer l&#39;année scolaire</h2>
+</div><p><strong>Menu :</strong> Établissement → Années scolaires (<code>/app/academic-years</code>)
+Permission : <span class="perm">academic.read</span> (gestion : <span class="perm">academic.manage</span>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-annees.png" alt=""/><figcaption>Figure 02 — Années scolaires</figcaption></figure></p>
+<p><strong>Procédure :</strong></p>
+<ol>
+<li>Cliquez sur <strong>Nouvelle année</strong> et saisissez le nom (ex. <code>2026-2027</code>),
+les dates de début et de fin.</li>
+<li>Ouvrez la fiche de l&#39;année → onglet <strong>Périodes</strong> : créez les
+trimestres ou semestres (ex. « Trimestre 1 »).</li>
+<li>Cochez <strong>Année courante</strong> : toutes les listes (élèves, finances,
+notes) basculent sur cette année.</li>
+</ol>
+<div class="warn"><p>[!WARN]
+Une seule année peut être « courante ». Les bulletins et moyennes se
+calculent <strong>par période</strong> : sans période créée, pas de résultats.</p>
+</div><div class="chap"><h2>3. Structure : niveaux, classes, matières, salles</h2>
+</div><p><strong>Menus :</strong> Établissement → Niveaux / Classes / Matières / Salles</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-classes.png" alt=""/><figcaption>Figure 03 — Classes</figcaption></figure></p>
+<p><strong>Ordre obligatoire de création</strong> (dépendances) :</p>
+<ol>
+<li><strong>Niveaux</strong> (<code>/app/levels</code>) : Sixième, Cinquième…</li>
+<li><strong>Classes</strong> (<code>/app/classrooms</code>) : rattachez chaque classe à un niveau
+et à l&#39;année courante, indiquez la capacité.</li>
+<li><strong>Matières</strong> (<code>/app/subjects</code>) : créez puis affectez à chaque classe
+avec un <strong>coefficient</strong> (ex. Mathématiques coef 4).</li>
+<li><strong>Salles</strong> (<code>/app/rooms</code>) : nécessaires pour placer les cours dans
+l&#39;emploi du temps.</li>
+</ol>
+<div class="note"><p>[!NOTE]
+Le coefficient pondère les moyennes : une note de Mathématiques (coef 4)
+pèse 4 fois une note d&#39;Histoire (coef 2) dans le calcul.</p>
+</div><div class="chap"><h2>4. Enseignants et emplois du temps</h2>
+</div><p><strong>Menus :</strong> Établissement → Enseignants (<code>/app/teachers</code>),
+Emplois du temps (<code>/app/schedules</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-edt.png" alt=""/><figcaption>Figure 04 — Emploi du temps</figcaption></figure></p>
+<p><strong>Affecter un enseignant à une classe :</strong></p>
+<ol>
+<li><strong>Classes → fiche classe → Matières</strong> : ajoutez la matière, son
+coefficient et l&#39;enseignant titulaire.</li>
+<li><strong>Emplois du temps</strong> : ajoutez les créneaux (jour, heure de début,
+heure de fin, classe, matière, salle).</li>
+<li>Les séances se matérialisent automatiquement dans l&#39;espace de
+l&#39;enseignant (<code>/teacher</code>) pour l&#39;appel et le cahier de textes.</li>
+</ol>
+<div class="note"><p>[!NOTE]
+Une fiche enseignant peut être reliée à un <strong>compte utilisateur</strong> :
+le titulaire accède alors au portail <code>/teacher</code>.</p>
+</div><div class="chap"><h2>5. Élèves et parents</h2>
+</div><p><strong>Menus :</strong> Pédagogie → Élèves (<code>/app/students</code>),
+Parents (<code>/app/guardians</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-eleves.png" alt=""/><figcaption>Figure 05 — Liste des élèves</figcaption></figure></p>
+<p><strong>Créer un élève :</strong></p>
+<ol>
+<li><strong>Nouvel élève</strong> : nom, prénom, matricule (obligatoire et unique),
+date de naissance, sexe.</li>
+<li>Rattachez un <strong>responsable</strong> (parent) existant ou créez-le —
+c&#39;est ce lien qui alimente le portail parent.</li>
+<li><strong>Import en masse</strong> : <code>/app/students/import</code> accepte CSV/Excel —
+l&#39;assistant affiche un aperçu des erreurs <strong>avant</strong> toute
+écriture ; rien n&#39;est enregistré sans votre validation.</li>
+</ol>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-eleves-import.png" alt=""/><figcaption>Figure 06 — Assistant d'import</figcaption></figure></p>
+<div class="chap"><h2>6. Inscriptions et réinscriptions</h2>
+</div><p><strong>Menus :</strong> Pédagogie → Inscriptions scolaires (<code>/app/enrollments</code>),
+Réinscriptions (<code>/app/reinscriptions</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-inscriptions.png" alt=""/><figcaption>Figure 07 — Inscriptions</figcaption></figure></p>
+<p><strong>Inscrire un élève :</strong></p>
+<ol>
+<li><strong>Inscrire</strong> : choisissez l&#39;élève et la classe de l&#39;année courante.</li>
+<li>La <strong>créance de scolarité est générée automatiquement</strong> à partir de
+la grille tarifaire du niveau — vérifiable dans Finances.</li>
+<li>La <strong>réinscription</strong> permet le passage d&#39;une année à l&#39;autre ;
+les demandes initiées par les parents depuis leur portail arrivent
+dans le file <code>/app/reinscriptions</code> pour décision.</li>
+</ol>
+<div class="chap"><h2>7. Admissions</h2>
+</div><p><strong>Menu :</strong> Pédagogie → Admissions (<code>/app/admissions</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-admissions.png" alt=""/><figcaption>Figure 08 — Admissions</figcaption></figure></p>
+<p>Le module gère le pipeline complet : <strong>campagne → candidature publique
+→ pièces justificatives → décision → conversion en élève inscrit</strong>.
+Chaque pièce est vérifiée (type de fichier contrôlé) et la décision est
+tracée. Permission : <span class="perm">admissions.read</span> / <span class="perm">admissions.decide</span>.</p>
+<div class="chap"><h2>8. Notes, moyennes, bulletins, délibérations</h2>
+</div><p><strong>Menus :</strong> Pédagogie → Notes, Moyennes, Bulletins, Délibérations,
+Règles de notation</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-notes.png" alt=""/><figcaption>Figure 09 — Évaluations</figcaption></figure></p>
+<p><strong>Cycle complet d&#39;une évaluation :</strong></p>
+<ol>
+<li><strong>Notes → Nouvelle évaluation</strong> : classe, matière, type (devoir,
+composition), date, barème (sur 20), coefficient.</li>
+<li>Saisie des notes par l&#39;enseignant (ou import).</li>
+<li><strong>Validation puis publication</strong> : tant que l&#39;évaluation n&#39;est pas
+<code>PUBLISHED</code>, elle est invisible des parents.</li>
+<li><strong>Moyennes</strong> (<code>/app/averages</code>) : calcul par période selon les
+coefficients — recalcul possible après correction.</li>
+<li><strong>Bulletins</strong> (<code>/app/report-cards</code>) : générés par classe et période,
+puis publiés aux familles.</li>
+<li><strong>Délibérations</strong> (<code>/app/deliberations</code>) : propositions calculées
+soumises à la décision du conseil — les moyennes affichées sont des
+<strong>propositions</strong>, la décision reste humaine et tracée.</li>
+</ol>
+<div class="warn"><p>[!WARN]
+La publication est le point de non-retour de la visibilité parent.
+Une erreur après publication se corrige par une <strong>rectification
+motivée</strong>, jamais par une modification silencieuse.</p>
+</div><div class="chap"><h2>9. Absences et retards</h2>
+</div><p><strong>Menu :</strong> Pédagogie → Absences &amp; retards (<code>/app/attendance</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-absences.png" alt=""/><figcaption>Figure 10 — Absences</figcaption></figure></p>
+<p>Deux modes coexistent : <strong>appel par séance</strong> (fait par l&#39;enseignant dans
+son portail) et <strong>appel journalier</strong> (saisie administration). Les absences
+sont visibles des parents en temps réel ; les justificatifs se
+enregistrent avec l&#39;auteur de la justification.</p>
+<div class="chap"><h2>10. Finances : tarifs, encaissements, impayés</h2>
+</div><p><strong>Menus :</strong> Finances → Finances (<code>/app/fees</code>), Guichet d&#39;inscription,
+Mes encaissements, Rapports</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-finances.png" alt=""/><figcaption>Figure 11 — Finances</figcaption></figure></p>
+<h3>10.1 Grille tarifaire — <code>/app/fees/settings</code></h3>
+<p>Créez les <strong>catégories</strong> (Scolarité, Inscription, Cantine…) puis les
+<strong>tarifs</strong> par niveau ou par classe, avec le statut obligatoire/
+optionnel. Ce sont ces tarifs qui génèrent les créances à l&#39;inscription.</p>
+<h3>10.2 Encaisser — fiche élève ou guichet</h3>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-paiements.png" alt=""/><figcaption>Figure 12 — Paiements</figcaption></figure></p>
+<ol>
+<li>Saisissez le montant, la méthode (espèces, virement, Mobile Money),
+la date.</li>
+<li>Le <strong>reçu numéroté</strong> <code>REC-AAAA-NNNN</code> est émis avec un instantané
+immuable de l&#39;opération.</li>
+<li><strong>Idempotence</strong> : toute double soumission renvoie le même reçu —
+vérifiable en rafraîchissant la page.</li>
+</ol>
+<h3>10.3 Impayés et relances — <code>/app/fees/unpaid</code></h3>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-impayes.png" alt=""/><figcaption>Figure 13 — Impayés</figcaption></figure></p>
+<p>Liste des soldes dus par élève. <strong>Relancer</strong> enregistre une relance
+tracée (date, canal, auteur) — utile pour prouver la diligence.</p>
+<div class="chap"><h2>11. Dépenses</h2>
+</div><p><strong>Menu :</strong> Finances → Dépenses (<code>/app/expenses</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-depenses.png" alt=""/><figcaption>Figure 14 — Dépenses</figcaption></figure></p>
+<p>Chaque dépense suit le cycle : <strong>saisie → paiement → comptabilisation</strong>.
+L&#39;annulation d&#39;une dépense déjà comptabilisée produit une
+<strong>contre-passation automatique</strong> — l&#39;historique reste intègre.
+Catégories paramétrables (<code>/app/expenses/categories</code>).</p>
+<div class="chap"><h2>12. Comptabilité SYSCOHADA</h2>
+</div><p><strong>Menus :</strong> Finances → Comptabilité, Tiers, États financiers,
+Immobilisations, Rapprochement</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-comptabilite.png" alt=""/><figcaption>Figure 15 — Comptabilité</figcaption></figure></p>
+<h3>12.1 Installation initiale</h3>
+<ol>
+<li><strong>Installer le plan de démarrage</strong> : comptes SYSCOHADA de base
+(411 élèves, 571 caisse, 706 produits, 66 personnel…).</li>
+<li><strong>Ouvrir l&#39;exercice</strong> (dates de début/fin).</li>
+<li>Vérifier les <strong>mappings</strong> : méthode de paiement → compte de trésorerie,
+catégorie de frais → compte de produit.</li>
+</ol>
+<h3>12.2 Générer les écritures</h3>
+<p>Le bouton <strong>Générer les écritures</strong> transforme chaque source non postée
+(paiements, dépenses, remboursements, annulations, paie validée,
+créances en mode engagement) en écriture <strong>équilibrée</strong> D/C :</p>
+<ul>
+<li>une écriture par source, clé unique → jamais de doublon ;</li>
+<li>une source en erreur est signalée (<code>stats.errors</code>) <strong>sans bloquer</strong>
+les autres ;</li>
+<li>en mode <strong>caisse</strong> : D571/C411 au paiement ; en mode <strong>engagement</strong> :
+D411/C706 à la créance puis D571/C411 à l&#39;encaissement.</li>
+</ul>
+<h3>12.3 États et contrôles</h3>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-etats.png" alt=""/><figcaption>Figure 16 — États financiers</figcaption></figure></p>
+<ul>
+<li><strong>Balance</strong> par compte et <strong>grand livre</strong> ;</li>
+<li><strong>Bilan</strong> — vérification actif = passif ;</li>
+<li><strong>Compte de résultat</strong> — produits/charges ;</li>
+<li><strong>Tiers</strong> (<code>/app/comptabilite/tiers</code>) : balance âgée des débiteurs ;</li>
+<li><strong>Immobilisations</strong> : acquisition comptabilisée, dotations mensuelles
+automatiques, sortie par écriture de cession ;</li>
+<li><strong>Rapprochement</strong> : pointage banque ↔ écritures.</li>
+</ul>
+<h3>12.4 Clôture d&#39;exercice</h3>
+<p>La clôture est <strong>refusée</strong> tant qu&#39;il existe des opérations non
+comptabilisées (message <code>UNPOSTED_OPERATIONS</code>). Après clôture, le
+<strong>report à nouveau</strong> crée les écritures d&#39;à-nouveaux dans le nouvel
+exercice de façon atomique.</p>
+<div class="chap"><h2>13. Trésorerie</h2>
+</div><p><strong>Menu :</strong> Finances → Trésorerie (<code>/app/treasury</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-tresorerie.png" alt=""/><figcaption>Figure 17 — Trésorerie</figcaption></figure></p>
+<p>Suivi par journée : ouverture, encaissements par méthode, <strong>clôture de
+caisse</strong> (contrôle du solde théorique vs physique). Permission :
+<span class="perm">treasury.read</span> / clôture : <span class="perm">finance.cash.close</span>.</p>
+<div class="chap"><h2>14. Mobile Money</h2>
+</div><p><strong>Menu :</strong> Finances → Mobile Money (<code>/app/paiements-mobile</code>)</p>
+<p>Module de suivi des intentions de paiement Mobile Money (PayDunya et
+saisie manuelle). En environnement de démonstration, un <strong>simulateur
+sandbox</strong> reproduit le cycle complet : intention → confirmation →
+réconciliation avec la créance.</p>
+<div class="chap"><h2>15. Communication</h2>
+</div><p><strong>Menus :</strong> Pilotage → Annonces (<code>/app/announcements</code>),
+Messagerie, Notifications</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-annonces.png" alt=""/><figcaption>Figure 18 — Annonces</figcaption></figure></p>
+<ul>
+<li><strong>Annonces</strong> : publiez pour une audience (tous, parents, enseignants,
+classe) — visibles immédiatement dans les portails.</li>
+<li><strong>Notifications</strong> : centre personnel par utilisateur (« tout marquer
+lu »).</li>
+<li><strong>Messagerie</strong> (<code>/app/messages</code>) : échanges internes.</li>
+<li><strong>Demandes parents</strong> (<code>/app/demandes</code>) : file des demandes
+administratives émises par les familles, à traiter et répondre.</li>
+</ul>
+<div class="chap"><h2>16. Documents</h2>
+</div><p><strong>Menus :</strong> Administration → Documents, Documents administratifs</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-documents.png" alt=""/><figcaption>Figure 19 — Documents</figcaption></figure></p>
+<ul>
+<li><strong>Documents</strong> : bibliothèque de fichiers de l&#39;établissement
+(contrôle du type de fichier, stockage hors webroot).</li>
+<li><strong>Documents administratifs</strong> : certificats et attestations générés
+avec <strong>code de vérification</strong> — un tiers peut en contrôler
+l&#39;authenticité.</li>
+</ul>
+<div class="chap"><h2>17. Utilisateurs, rôles et permissions</h2>
+</div><p><strong>Menu :</strong> Administration → Utilisateurs (<code>/app/users</code>)
+Permission : <span class="perm">user.read</span> / <span class="perm">user.manage</span></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-users.png" alt=""/><figcaption>Figure 20 — Utilisateurs</figcaption></figure></p>
+<p>Chaque ligne : compte, rôle, statut, actions <strong>Modifier / Réinit. MDP /
+Supprimer</strong>.</p>
+<p><strong>Créer un utilisateur :</strong></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-user-new.png" alt=""/><figcaption>Figure 21 — Nouvel utilisateur</figcaption></figure></p>
+<ol>
+<li><strong>Nouvel utilisateur</strong> : email, nom, prénom.</li>
+<li>Choisissez le <strong>rôle</strong> — c&#39;est le rôle qui porte les permissions.</li>
+<li>Envoyez l&#39;<strong>invitation</strong> : lien à usage unique et expirant, le
+destinataire choisit son mot de passe.</li>
+<li>Le bouton <strong>Comprendre les rôles</strong> affiche la matrice des
+permissions par rôle ; <strong>Exporter</strong> produit la liste CSV/Excel.</li>
+</ol>
+<div class="warn"><p>[!WARN]
+Les rôles <code>TEACHER</code>, <code>PARENT</code> et <code>STUDENT</code> ouvrent les portails
+dédiés — un compte parent doit porter le rôle PARENT <strong>et</strong> être relié
+à sa fiche responsable pour voir ses enfants.</p>
+</div><div class="chap"><h2>18. Paramètres et abonnement</h2>
+</div><p><strong>Menus :</strong> Administration → Paramètres (<code>/app/settings</code>),
+Mon abonnement (<code>/app/subscription</code>)</p>
+<ul>
+<li><strong>Paramètres</strong> : identité de l&#39;établissement, coordonnées, logo.</li>
+<li><strong>Mon abonnement</strong> : plan souscrit auprès d&#39;ECOM-TOUCH, modules
+couverts, échéance. Les modules hors plan disparaissent du menu —
+contactez ECOM-TOUCH pour faire évoluer l&#39;offre.</li>
+</ul>
+</body></html>

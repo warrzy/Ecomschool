@@ -1,0 +1,122 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Guide de démarrage rapide</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Se connecter <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Retrouver votre espace <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Naviguer dans les menus <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Premiers réflexes <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Checklist de prise en main <a name="s5"></a></a></div></div>
+  <!-- title: Guide de démarrage rapide -->
+<h1>Démarrage rapide — ECOM-SCHOOL</h1>
+<p>Ce guide permet à tout nouvel utilisateur d&#39;être opérationnel en 15 minutes.</p>
+<div class="chap"><h2>1. Se connecter</h2>
+</div><p>Ouvrez l&#39;adresse fournie par votre établissement : <strong>/login</strong>.</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/login.png" alt=""/><figcaption>Figure 01 — Page de connexion</figcaption></figure></p>
+<p><strong>Étapes :</strong></p>
+<ol>
+<li>Saisissez votre <strong>adresse email</strong> (repère 01).</li>
+<li>Saisissez votre <strong>mot de passe</strong> (repère 02).</li>
+<li>Cliquez sur <strong>Se connecter</strong> (repère 03).</li>
+</ol>
+<div class="note"><p>[!NOTE]
+Vos identifiants sont communiqués par l&#39;administrateur de votre
+établissement. En cas de mot de passe oublié, utilisez le lien
+« Mot de passe oublié ? » sous le bouton de connexion.</p>
+</div><div class="chap"><h2>2. Retrouver votre espace</h2>
+</div><p>Chaque profil arrive dans l&#39;espace qui lui correspond :</p>
+<table>
+<thead>
+<tr>
+<th>Profil</th>
+<th>Espace</th>
+<th>Ce que vous y voyez</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Direction / administrateur</td>
+<td><code>/app</code></td>
+<td>Tableau de bord, tous les modules autorisés</td>
+</tr>
+<tr>
+<td>Comptable / caissier</td>
+<td><code>/app</code></td>
+<td>Comptabilité, trésorerie, encaissements</td>
+</tr>
+<tr>
+<td>RH / paie</td>
+<td><code>/app</code></td>
+<td>Personnel et/ou paie selon le rôle</td>
+</tr>
+<tr>
+<td>Enseignant</td>
+<td><code>/teacher</code></td>
+<td>Cours, appels, cahier de textes, évaluations</td>
+</tr>
+<tr>
+<td>Parent</td>
+<td><code>/parent</code></td>
+<td>Vos enfants : notes, finances, absences</td>
+</tr>
+<tr>
+<td>Élève</td>
+<td><code>/student</code></td>
+<td>Emploi du temps, notes, bulletins</td>
+</tr>
+</tbody></table>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/admin-dashboard.png" alt=""/><figcaption>Figure 02 — Tableau de bord administrateur</figcaption></figure></p>
+<div class="chap"><h2>3. Naviguer dans les menus</h2>
+</div><p>Le menu latéral est organisé en <strong>5 sections</strong> : Pilotage, Établissement,
+Pédagogie, Finances, Administration. Une entrée n&#39;apparaît que si votre
+rôle possède la permission correspondante — une entrée absente est un
+cloisonnement normal, pas un bug.</p>
+<div class="chap"><h2>4. Premiers réflexes</h2>
+</div><ul>
+<li><strong>Cherchez les encadrés d&#39;aide</strong> : beaucoup d&#39;écrans affichent une
+notice « Comment fonctionne… ».</li>
+<li><strong>Une action sensible demande confirmation</strong> : encaissement,
+publication, clôture — lisez avant de valider.</li>
+<li><strong>En cas de refus 403</strong> : votre rôle n&#39;a pas cette permission ;
+contactez votre administrateur plutôt que le support.</li>
+</ul>
+<div class="chap"><h2>5. Checklist de prise en main</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Je me connecte sans erreur.</li>
+<li><input disabled="" type="checkbox"> Je sais quelle section du menu contient mes fonctions.</li>
+<li><input disabled="" type="checkbox"> J&#39;ai repéré le bouton <strong>Déconnexion</strong> (en haut à droite).</li>
+<li><input disabled="" type="checkbox"> Je sais où trouver les <strong>Notifications</strong>.</li>
+<li><input disabled="" type="checkbox"> J&#39;ai identifié l&#39;administrateur de mon établissement.</li>
+</ul>
+</body></html>

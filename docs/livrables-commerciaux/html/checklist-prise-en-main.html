@@ -1,0 +1,93 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Checklist de prise en main</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">Tout profil <a name="s1"></a></a></div><div class="l1"><a href="#s2">Administrateur — mise en service (ordre obligatoire) <a name="s2"></a></a></div><div class="l1"><a href="#s3">Comptable — vérifications quotidiennes <a name="s3"></a></a></div><div class="l1"><a href="#s4">Secrétariat — routine <a name="s4"></a></a></div><div class="l1"><a href="#s5">Paie — fin de mois <a name="s5"></a></a></div><div class="l1"><a href="#s6">Parent / élève — première visite <a name="s6"></a></a></div></div>
+  <!-- title: Checklist de prise en main -->
+<h1>Checklist de prise en main</h1>
+<p>À cocher lors de vos premières sessions. Chaque ligne renvoie au
+manuel correspondant.</p>
+<div class="chap"><h2>Tout profil</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Connexion sur l&#39;URL de l&#39;établissement → page de login</li>
+<li><input disabled="" type="checkbox"> Premier mot de passe défini via lien d&#39;invitation</li>
+<li><input disabled="" type="checkbox"> Menu = uniquement vos permissions (rien de plus, rien de moins)</li>
+<li><input disabled="" type="checkbox"> Ouvrir Notifications → « Tout marquer lu » fonctionne</li>
+<li><input disabled="" type="checkbox"> Déconnexion propre</li>
+</ul>
+<div class="chap"><h2>Administrateur — mise en service (ordre obligatoire)</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Année scolaire créée + périodes + <strong>courante</strong></li>
+<li><input disabled="" type="checkbox"> Niveaux → classes → matières (coefficients) → salles</li>
+<li><input disabled="" type="checkbox"> Grille tarifaire (catégories + tarifs)</li>
+<li><input disabled="" type="checkbox"> Enseignants + affectations + créneaux EDT</li>
+<li><input disabled="" type="checkbox"> Plan comptable démarrage installé + exercice ouvert + mappings</li>
+<li><input disabled="" type="checkbox"> Règles de dotation de congés + plafond d&#39;avances + assiduité</li>
+<li><input disabled="" type="checkbox"> Utilisateurs créés par rôle + invitations envoyées</li>
+<li><input disabled="" type="checkbox"> Un élève test inscrit → créance → paiement → reçu → écriture</li>
+<li><input disabled="" type="checkbox"> Une annonce publiée → visible côté portail parent</li>
+</ul>
+<div class="chap"><h2>Comptable — vérifications quotidiennes</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Sources non postées → Générer les écritures</li>
+<li><input disabled="" type="checkbox"> Balance équilibrée (Σ D = Σ C)</li>
+<li><input disabled="" type="checkbox"> Échéances en retard et solde restant (dashboard)</li>
+<li><input disabled="" type="checkbox"> Journée de caisse clôturée</li>
+</ul>
+<div class="chap"><h2>Secrétariat — routine</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Demandes parents en file → traitement</li>
+<li><input disabled="" type="checkbox"> Nouveaux élèves/inscriptions du jour</li>
+<li><input disabled="" type="checkbox"> Absences à justifier</li>
+</ul>
+<div class="chap"><h2>Paie — fin de mois</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Campagne créée → calculée → vérifiée → validée → <strong>comptabilisée</strong></li>
+<li><input disabled="" type="checkbox"> Avances en cours et plafond vérifiés</li>
+<li><input disabled="" type="checkbox"> Rappel : bulletins <strong>indicatifs</strong> tant que les composants
+réglementaires restent verrouillés</li>
+</ul>
+<div class="chap"><h2>Parent / élève — première visite</h2>
+</div><ul>
+<li><input disabled="" type="checkbox"> Sélection du bon enfant (pastille)</li>
+<li><input disabled="" type="checkbox"> Emploi du temps consulté</li>
+<li><input disabled="" type="checkbox"> Un reçu téléchargé depuis Finances</li>
+<li><input disabled="" type="checkbox"> Coordonnées du profil à jour</li>
+</ul>
+</body></html>

@@ -1,0 +1,125 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Responsable RH</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Votre espace <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Créer un employé et son contrat <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Règles de dotation des congés <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Traiter les demandes de congés <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Présences du personnel <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Départs <a name="s6"></a></a></div><div class="l1"><a href="#s7">7. Ce que vous ne voyez pas — et pourquoi <a name="s7"></a></a></div></div>
+  <!-- title: Manuel Responsable RH -->
+<h1>Manuel responsable RH</h1>
+<p>Votre périmètre : <strong>les personnes</strong> — employés, contrats, congés,
+présences, départs. Vous n&#39;avez <strong>pas</strong> accès à la paie (<code>/app/rh/paie</code>
+renvoie 403) : la confidentialité des salaires est un cloisonnement
+voulu entre la gestion RH et la gestion des montants.</p>
+<div class="chap"><h2>1. Votre espace</h2>
+</div><p><strong>Menu :</strong> Finances → Personnel (<code>/app/rh</code>)
+Permissions : <span class="perm">hr.read</span> · <span class="perm">hr.manage</span></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/rh-employes.png" alt=""/><figcaption>Figure 01 — Personnel</figcaption></figure></p>
+<p>La page liste les employés : matricule, nom, catégorie
+(enseignant/non-enseignant), contrat actif, statut. Les filtres
+permettent de retrouver un employé par nom ou par statut.</p>
+<div class="chap"><h2>2. Créer un employé et son contrat</h2>
+</div><ol>
+<li><strong>Nouvel employé</strong> : matricule, identité, catégorie, date d&#39;embauche.</li>
+<li>Ouvrez la fiche → <strong>Nouveau contrat</strong> : type (CDI/CDD), poste,
+salaire de base, dates.</li>
+<li><strong>Activer le contrat</strong> — c&#39;est l&#39;activation qui déclenche la
+<strong>dotation automatique des congés</strong> selon les règles de
+l&#39;établissement (voir §4).</li>
+</ol>
+<div class="note"><p>[!NOTE]
+La dotation est idempotente : réactiver ou reprovisionner ne crée
+jamais de doublon de solde. Une correction manuelle du solde est
+possible et reste tracée.</p>
+</div><div class="chap"><h2>3. Règles de dotation des congés</h2>
+</div><p>Sur la page Personnel, la carte <strong>Dotations de congés</strong> permet de définir,
+pour l&#39;établissement, les jours attribués par type et par an :</p>
+<ul>
+<li><strong>ANNUAL</strong> — congés annuels (ex. 30 jours, valeur de l&#39;école) ;</li>
+<li><strong>SICK</strong> — congés maladie (ex. 10 jours) ;</li>
+<li>autres types selon vos usages.</li>
+</ul>
+<p>Le bouton <strong>« Provisionner [année] »</strong> applique les règles à tous les
+contrats actifs. <strong>Aucun droit légal n&#39;est présumé</strong> : les valeurs sont
+celles que votre établissement décide — les obligations du code du
+travail restent de votre responsabilité.</p>
+<div class="chap"><h2>4. Traiter les demandes de congés</h2>
+</div><p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/rh-employes.png" alt=""/><figcaption>Figure 02 — Personnel — demandes</figcaption></figure></p>
+<p>Le cycle d&#39;une demande :</p>
+<ol>
+<li>L&#39;employé (ou vous pour lui) crée une demande : type, dates, motif —
+statut <code>PENDING</code>.</li>
+<li><strong>Approuver</strong> : le solde est déduit automatiquement ; si le solde est
+insuffisant, la demande peut être marquée <strong>sans solde (UNPAID)</strong> —
+ces jours impacteront la paie si l&#39;option est activée côté paie.</li>
+<li><strong>Refuser</strong> : motif obligatoire, le demandeur est informé.</li>
+</ol>
+<div class="chap"><h2>5. Présences du personnel</h2>
+</div><p>Le pointage des présences non enseignantes (secrétariat, personnel de
+service) se fait par journée : présent, absent, retard, absence
+justifiée. Les absences non justifiées peuvent alimenter la
+proratisation de paie si l&#39;établissement l&#39;active.</p>
+<div class="chap"><h2>6. Départs</h2>
+</div><p>Un départ se saisit sur la fiche employé : date, motif. Le contrat est
+clôturé, les dotations cessent de courir — l&#39;historique (contrats,
+congés, bulletins) est <strong>conservé</strong>, jamais effacé.</p>
+<div class="chap"><h2>7. Ce que vous ne voyez pas — et pourquoi</h2>
+</div><table>
+<thead>
+<tr>
+<th>Écran</th>
+<th>Accès</th>
+<th>Raison</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/app/rh/paie</code></td>
+<td><strong>403</strong></td>
+<td>Montants réservés au gestionnaire de paie</td>
+</tr>
+<tr>
+<td><code>/app/comptabilite</code></td>
+<td>403</td>
+<td>Comptabilité réservée au comptable</td>
+</tr>
+<tr>
+<td><code>/app/fees</code></td>
+<td>403</td>
+<td>Finances élèves hors périmètre RH</td>
+</tr>
+</tbody></table>
+</body></html>

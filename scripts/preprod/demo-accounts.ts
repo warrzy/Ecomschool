@@ -32,15 +32,11 @@ const ACCOUNTS: { email: string; envSuffix: string; perms: string[]; label: stri
     perms: ["hr.read", "hr.manage"] },
   { email: "demo-paie@demo.ecomschool.test", envSuffix: "PAIE", label: "PAIE_DEMO",
     perms: ["payroll.read", "payroll.manage", "hr.read"] },
+  // Administrateur d'établissement = super-admin de l'école : toutes les
+  // permissions du catalogue (le rôle reste scopé SCHOOL — aucun droit
+  // plateforme ne peut en découler).
   { email: "demo-admin@demo.ecomschool.test", envSuffix: "ADMIN", label: "DEMO_ADMIN",
-    perms: [
-      "academic.read", "academic.manage", "student.read", "student.manage", "enrollment.read", "enrollment.manage",
-      "classroom.read", "classroom.manage", "finance.read", "finance.manage", "finance.configure",
-      "finance.reports.read", "announcements.read", "announcements.manage",
-      "treasury.read", "expenses.read", "expenses.create",
-      "accounting.read", "accounting.manage", "accounting.export",
-      "hr.read", "hr.manage", "payroll.read", "payroll.manage",
-    ] },
+    perms: ["__ALL__"] },
   // Portail enseignant : le layout /teacher exige roleName === "TEACHER"
   // et une fiche Teacher reliée (créée par demo-data.ts).
   { email: "demo-enseignant@demo.ecomschool.test", envSuffix: "ENSEIGNANT", label: "TEACHER",
@@ -49,6 +45,27 @@ const ACCOUNTS: { email: string; envSuffix: string; perms: string[]; label: stri
   // qui exige la permission portal.parent + une fiche Guardian reliée.
   { email: "demo-parent@demo.ecomschool.test", envSuffix: "PARENT", label: "PARENT",
     perms: ["portal.parent", "notifications.read"] },
+  // Secrétariat / scolarité : gestion administrative des élèves et inscriptions,
+  // sans accès aux finances ni à la comptabilité.
+  { email: "demo-secretaire@demo.ecomschool.test", envSuffix: "SECRETAIRE", label: "SECRETAIRE_DEMO",
+    perms: [
+      "academic.read", "student.read", "student.create", "student.manage",
+      "guardian.read", "guardian.manage", "enrollment.read", "enrollment.create", "enrollment.manage",
+      "classroom.read", "teacher.read", "admissions.read", "admissions.review", "admissions.decide",
+      "reenrollments.read", "reenrollments.review", "attendance.read", "attendance.manage",
+      "administrative-requests.manage", "announcements.read", "documents.read",
+    ] },
+  // Caissier : guichet d'inscription et encaissements uniquement.
+  { email: "demo-caissier@demo.ecomschool.test", envSuffix: "CAISSIER", label: "CAISSIER_DEMO",
+    perms: [
+      "enrollment.read", "enrollment.create", "finance.read",
+      "finance.payments.create", "finance.receipts.read", "finance.receipts.print",
+      "treasury.read", "student.read",
+    ] },
+  // Portail élève : le layout /app redirige roleName === "STUDENT" vers /student,
+  // qui exige portal.student + une fiche Student reliée (demo-data.ts).
+  { email: "demo-eleve@demo.ecomschool.test", envSuffix: "ELEVE", label: "STUDENT",
+    perms: ["portal.student", "notifications.read"] },
 ];
 
 async function main() {
@@ -78,8 +95,10 @@ async function main() {
     })) ?? (await prisma.role.create({
       data: { name: acc.label, scope: "SCHOOL", schoolId: school.id },
     }));
-    const perms = await prisma.permission.findMany({ where: { key: { in: acc.perms } }, select: { id: true, key: true } });
-    const missing = acc.perms.filter((k) => !perms.some((p) => p.key === k));
+    const perms = acc.perms.includes("__ALL__")
+      ? await prisma.permission.findMany({ select: { id: true, key: true } })
+      : await prisma.permission.findMany({ where: { key: { in: acc.perms } }, select: { id: true, key: true } });
+    const missing = acc.perms.filter((k) => k !== "__ALL__" && !perms.some((p) => p.key === k));
     if (missing.length) console.warn(`  ⚠ permissions absentes : ${missing.join(", ")} (bootstrap requis)`);
     await prisma.rolePermission.createMany({
       data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })), skipDuplicates: true,

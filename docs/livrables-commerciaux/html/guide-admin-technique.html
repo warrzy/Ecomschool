@@ -1,0 +1,156 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Guide administrateur technique</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Architecture <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Environnements et migrations <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Sécurité opérationnelle <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Exploitation courante <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Paie — verrou réglementaire <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Idempotence et intégrité — points clés <a name="s6"></a></a></div><div class="l1"><a href="#s7">7. Démonstration et recette <a name="s7"></a></a></div></div>
+  <!-- title: Guide administrateur technique -->
+<h1>Guide administrateur technique — configuration et exploitation</h1>
+<p>Référence pour l&#39;équipe ECOM-TOUCH opérant la plateforme. Synthèse
+technique ; le détail opérationnel est dans
+<code>docs/exploitation/SECURITE_ET_EXPLOITATION.md</code>.</p>
+<div class="chap"><h2>1. Architecture</h2>
+</div><ul>
+<li><strong>Stack</strong> : Next.js (App Router) + TypeScript + Prisma/PostgreSQL</li>
+<li><strong>Multi-tenant</strong> : <code>schoolId</code> porté par toutes les tables métier ;
+aucune requête transverse sans filtre tenant</li>
+<li><strong>RBAC serveur</strong> : <code>requireSchoolPermission(ctx, perm)</code> côté serveur,
+menu filtré par <code>permCoveredByEntitlements</code> (droits ET abonnement)</li>
+<li><strong>Portails dédiés</strong> : <code>/app</code> (admin), <code>/teacher</code>, <code>/parent</code>,
+<code>/student</code>, <code>/platform</code> (ECOM-TOUCH)</li>
+<li><strong>PM2</strong> : instances par environnement (prod :3002, preprod :3001)
+derrière nginx</li>
+</ul>
+<div class="chap"><h2>2. Environnements et migrations</h2>
+</div><table>
+<thead>
+<tr>
+<th>Élément</th>
+<th>Détail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Migrations</td>
+<td>Prisma ; <code>prisma migrate deploy</code> en déploiement, backup <strong>pré-migrate</strong> automatique</td>
+</tr>
+<tr>
+<td>Variables</td>
+<td><code>.env</code> par environnement — jamais de secret en dépôt</td>
+</tr>
+<tr>
+<td>Sauvegardes</td>
+<td>dump quotidien + SHA-256 + uploads hebdo + dump pré-migrate</td>
+</tr>
+<tr>
+<td>Restore-drill</td>
+<td><code>restore.sh</code> vers base témoin <code>ecomschool_verify</code> — jamais la base applicative</td>
+</tr>
+</tbody></table>
+<div class="chap"><h2>3. Sécurité opérationnelle</h2>
+</div><ul>
+<li><strong>Rate limiting</strong> : <code>deploy/nginx/00-ecomschool-ratelimit.conf</code>
+(zones <code>ecom_api</code> 10 r/s, <code>ecom_auth</code> 2 r/s sur <code>/api/auth/</code>) —
+contexte <code>http</code>, application par sudo + <code>nginx -t</code></li>
+<li><strong>En-têtes</strong> : <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>,
+<code>Referrer-Policy</code>, <code>Permissions-Policy</code> dans les confs de site</li>
+<li><strong>Preprod</strong> : protection basic-auth ou IP allowlist (confs prêtes
+en commentaire) — activer avant toute recette externe</li>
+<li><strong>Tokens</strong> : invitations/reset hashés à l&#39;enregistrement ; liens à
+usage unique, expirants</li>
+<li><strong>Audit</strong> : journal plateforme + sessions d&#39;assistance visibles par
+l&#39;école (bandeau) et expirantes</li>
+</ul>
+<div class="chap"><h2>4. Exploitation courante</h2>
+</div><table>
+<thead>
+<tr>
+<th>Tâche</th>
+<th>Outil</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Santé applicative</td>
+<td><code>deploy/scripts/healthcheck.sh</code> (paramétré par env)</td>
+</tr>
+<tr>
+<td>Supervision jobs</td>
+<td><code>/platform/monitoring</code> (file, échecs DEAD à rejouer)</td>
+</tr>
+<tr>
+<td>Surveillance</td>
+<td><code>deploy/scripts/monitor.sh</code> (prod→3002, preprod→3001)</td>
+</tr>
+<tr>
+<td>Rollback</td>
+<td><code>deploy/scripts/rollback.sh</code> (pointe sur la release précédente)</td>
+</tr>
+<tr>
+<td>Logs</td>
+<td>PM2 logs + journal d&#39;audit applicatif</td>
+</tr>
+</tbody></table>
+<div class="chap"><h2>5. Paie — verrou réglementaire</h2>
+</div><p>Les composants <code>isRegulatory: true</code> sont <strong>exclus du calcul</strong> jusqu&#39;à
+validation officielle du barème burkinabè (CNSS : taux, plafond,
+ventilation ; ITS : tranches, assiette, abattements — liste complète
+dans <code>docs/reglementaire/PARAMETRES_PAIE_BF.md</code>). Activation = création
+des formules officielles + passage à 4 yeux — <strong>aucun taux ne doit
+être inventé</strong>.</p>
+<div class="chap"><h2>6. Idempotence et intégrité — points clés</h2>
+</div><ul>
+<li>Paiements : clé d&#39;idempotence + <strong>empreinte SHA-256 du payload</strong> —
+clé réutilisée avec payload différent ⇒ <code>IDEMPOTENCY_CONFLICT</code></li>
+<li>Écritures : équilibrées avant insertion ; clé unique source ⇒
+pas de doublon ; annulation = contre-passation</li>
+<li>Campagnes paie : validation → POSTED atomique ; rectification par
+contre-passation</li>
+<li>Clôture d&#39;exercice : refusée tant que des opérations ne sont pas
+postées (<code>UNPOSTED_OPERATIONS</code>)</li>
+</ul>
+<div class="chap"><h2>7. Démonstration et recette</h2>
+</div><ul>
+<li>Comptes démo : <code>scripts/preprod/demo-accounts.ts</code> (garde
+<code>ALLOW_DEMO_SEED=1</code>, refuse les URLs prod)</li>
+<li>Données démo : <code>scripts/preprod/demo-data.ts</code> (garde
+<code>ALLOW_RECETTE=1</code> + garde anti-prod du module partagé)</li>
+<li>Smoke UI : <code>scripts/preprod/ui-smoke.ts</code> (9 profils, erreurs JS/API)</li>
+<li>Captures : <code>scripts/docs/capture-annotated.ts</code></li>
+<li><strong>Ces scripts sont interdits en production</strong> — gardes multiples et
+cloisonnement strict à <code>demo-validation</code>.</li>
+</ul>
+</body></html>

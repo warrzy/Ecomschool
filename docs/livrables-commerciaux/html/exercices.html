@@ -1,0 +1,127 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Exercices pratiques et corrigés</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">Administrateur / direction <a name="s1"></a></a></div><div class="l2"><a href="#">Exercice A1 — Préparer une année</a></div><div class="l2"><a href="#">Exercice A2 — Vérifier le cloisonnement</a></div><div class="l1"><a href="#s2">Secrétariat <a name="s2"></a></a></div><div class="l2"><a href="#">Exercice S1 — Cycle complet élève</a></div><div class="l2"><a href="#">Exercice S2 — Traiter une demande</a></div><div class="l1"><a href="#s3">Comptable <a name="s3"></a></a></div><div class="l2"><a href="#">Exercice C1 — Générer les écritures</a></div><div class="l2"><a href="#">Exercice C2 — Contre-passation</a></div><div class="l1"><a href="#s4">Caissier <a name="s4"></a></a></div><div class="l2"><a href="#">Exercice K1 — Encaisser avec reçu</a></div><div class="l2"><a href="#">Exercice K2 — Refus de surpaiement</a></div><div class="l1"><a href="#s5">RH <a name="s5"></a></a></div><div class="l2"><a href="#">Exercice R1 — Cycle congé complet</a></div><div class="l1"><a href="#s6">Paie <a name="s6"></a></a></div><div class="l2"><a href="#">Exercice P1 — Campagne complète</a></div><div class="l2"><a href="#">Exercice P2 — Avance plafonnée</a></div><div class="l1"><a href="#s7">Enseignant <a name="s7"></a></a></div><div class="l2"><a href="#">Exercice E1 — Appel + cahier</a></div><div class="l1"><a href="#s8">Parent <a name="s8"></a></a></div><div class="l2"><a href="#">Exercice F1 — Explorer le suivi</a></div><div class="l1"><a href="#s9">Élève <a name="s9"></a></a></div><div class="l2"><a href="#">Exercice L1 — Consulter</a></div></div>
+  <!-- title: Exercices pratiques et corrigés -->
+<h1>Exercices pratiques — par profil</h1>
+<p>Exercices à réaliser sur l&#39;environnement de démonstration. Les corrigés
+suivent chaque série. <strong>N&#39;utilisez jamais un exercice en production.</strong></p>
+<div class="chap"><h2>Administrateur / direction</h2>
+</div><h3>Exercice A1 — Préparer une année</h3>
+<p>Créez une année <code>2027-2028</code> avec 2 périodes, marquez-la courante,
+créez une classe de test rattachée à un niveau.</p>
+<p><strong>Corrigé.</strong> Établissement → Années scolaires → Nouvelle année ;
+fiche → Périodes → 2 périodes ; cochez « courante » ; Établissement →
+Classes → nouvelle classe (niveau + année). Vérifiez : le tableau de
+bord indique la nouvelle année.</p>
+<h3>Exercice A2 — Vérifier le cloisonnement</h3>
+<p>Connectez-vous en <code>demo-compta</code> puis tentez <code>/app/rh</code> et <code>/app/rh/paie</code>.</p>
+<p><strong>Corrigé.</strong> Les deux URLs renvoient <strong>403</strong> — le menu ne montre pas
+Personnel/Paie et le serveur refuse l&#39;URL directe. Cloisonnement
+vérifié.</p>
+<div class="chap"><h2>Secrétariat</h2>
+</div><h3>Exercice S1 — Cycle complet élève</h3>
+<p>Créez un élève « TEST, Forma », rattachez un responsable, inscrivez-le
+en classe, vérifiez la créance générée.</p>
+<p><strong>Corrigé.</strong> Élèves → Nouvel élève ; Parents → fiche → rattacher ;
+Inscriptions → Inscrire. La créance de scolarité apparaît
+automatiquement (tarif du niveau) — visible dans Finances côté admin.</p>
+<h3>Exercice S2 — Traiter une demande</h3>
+<p>Passez une demande parent en « en cours », répondez, clôturez.</p>
+<p><strong>Corrigé.</strong> Demandes parents → ouvrir la demande → statuts → réponse.
+Le parent voit l&#39;avancement dans son onglet Demandes.</p>
+<div class="chap"><h2>Comptable</h2>
+</div><h3>Exercice C1 — Générer les écritures</h3>
+<p>Générez les écritures des sources non postées, puis contrôlez la balance.</p>
+<p><strong>Corrigé.</strong> Comptabilité → Générer les écritures → rapport (postées /
+erreurs). États → Balance : Σ débits = Σ crédits. Rejouer la
+génération → 0 nouvelle écriture (clé unique).</p>
+<h3>Exercice C2 — Contre-passation</h3>
+<p>Annulez une dépense payée et retrouvez sa contre-passation.</p>
+<p><strong>Corrigé.</strong> Dépenses → fiche → Annuler : l&#39;écriture inverse exacte est
+créée atomiquement — la dépense conserve son historique.</p>
+<div class="chap"><h2>Caissier</h2>
+</div><h3>Exercice K1 — Encaisser avec reçu</h3>
+<p>Encaissez un versement sur un élève en solde, remettez le reçu, puis
+retrouvez l&#39;opération dans « Mes encaissements ».</p>
+<p><strong>Corrigé.</strong> fiche élève → Paiement → montant/méthode → reçu <code>REC-…</code>.
+« Mes encaissements » montre l&#39;opération ; rejouer la soumission
+renvoie le même reçu (idempotence).</p>
+<h3>Exercice K2 — Refus de surpaiement</h3>
+<p>Tentez un encaissement supérieur au reste dû.</p>
+<p><strong>Corrigé.</strong> Le système <strong>refuse</strong> le montant — c&#39;est une règle
+métier de protection, pas une erreur.</p>
+<div class="chap"><h2>RH</h2>
+</div><h3>Exercice R1 — Cycle congé complet</h3>
+<p>Créez un employé, activez son contrat, vérifiez les dotations,
+saisissez puis approuvez un congé.</p>
+<p><strong>Corrigé.</strong> Personnel → Nouvel employé → contrat → activer : dotation
+automatique selon les règles. Demande PENDING → Approuver → solde
+déduit. Reprovisionner l&#39;année → aucun doublon.</p>
+<div class="chap"><h2>Paie</h2>
+</div><h3>Exercice P1 — Campagne complète</h3>
+<p>Créez une campagne, calculez, vérifiez un bulletin, validez,
+comptabilisez.</p>
+<p><strong>Corrigé.</strong> Paie → Campagnes → créer → Calculer → fiche bulletin
+(formules figées visibles) → Valider → Comptabiliser : OD équilibrée
+postée atomiquement, run <code>POSTED</code> verrouillé.</p>
+<h3>Exercice P2 — Avance plafonnée</h3>
+<p>Accordez une avance, calculez le run suivant, constatez le recouvrement
+plafonné.</p>
+<p><strong>Corrigé.</strong> Avances → Accorder. Au run suivant : ligne de retenue
+≤ plafond % du net ; reliquat reporté (statut RECOVERING).</p>
+<div class="chap"><h2>Enseignant</h2>
+</div><h3>Exercice E1 — Appel + cahier</h3>
+<p>Faites l&#39;appel d&#39;une séance passée, complétez le cahier de textes.</p>
+<p><strong>Corrigé.</strong> Dashboard → « Faire l&#39;appel » → présences → valider :
+l&#39;absence remonte au parent. « Compléter » → contenu de séance.</p>
+<div class="chap"><h2>Parent</h2>
+</div><h3>Exercice F1 — Explorer le suivi</h3>
+<p>Parcourez les onglets de votre enfant, téléchargez un reçu, ouvrez une
+demande.</p>
+<p><strong>Corrigé.</strong> Sélecteur d&#39;enfant → onglets Finances (reçu <code>REC-…</code>
+téléchargeable) → Demandes → nouvelle demande. Les écrans d&#39;autres
+élèves sont inaccessibles — cloisonnement vérifié.</p>
+<div class="chap"><h2>Élève</h2>
+</div><h3>Exercice L1 — Consulter</h3>
+<p>Retrouvez votre classe, votre emploi du temps et une note publiée.</p>
+<p><strong>Corrigé.</strong> <code>/student</code> : classe et année en haut ; onglets EDT /
+Notes — lecture seule, aucune action possible.</p>
+</body></html>

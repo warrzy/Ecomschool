@@ -1,0 +1,180 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Glossaire ECOM-SCHOOL</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1></div>
+  <!-- title: Glossaire ECOM-SCHOOL -->
+<h1>Glossaire</h1>
+<table>
+<thead>
+<tr>
+<th>Terme</th>
+<th>Définition</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>ACCRUAL (engagement)</strong></td>
+<td>Mode comptable où la créance produit une écriture D411/C706 dès sa génération, puis D571/C411 à l&#39;encaissement</td>
+</tr>
+<tr>
+<td><strong>Année courante</strong></td>
+<td>L&#39;année scolaire active : toutes les listes, inscriptions et finances s&#39;y réfèrent</td>
+</tr>
+<tr>
+<td><strong>Avance (sur salaire)</strong></td>
+<td>Somme prêtée à un employé, recouvrée sur les bulletins suivants dans la limite du plafond</td>
+</tr>
+<tr>
+<td><strong>Balance âgée</strong></td>
+<td>Ventilation des créances par ancienneté (0-30, 30-60, 60-90, +90 j)</td>
+</tr>
+<tr>
+<td><strong>Bulletin</strong></td>
+<td>Relevé périodique des résultats d&#39;un élève ; ou fiche de paie d&#39;un employé selon le contexte</td>
+</tr>
+<tr>
+<td><strong>CASH (caisse)</strong></td>
+<td>Mode comptable où seul l&#39;encaissement produit l&#39;écriture</td>
+</tr>
+<tr>
+<td><strong>Campagne de paie</strong></td>
+<td>Cycle de calcul des bulletins pour une période donnée</td>
+</tr>
+<tr>
+<td><strong>Charge / créance</strong></td>
+<td>Montant dû par un élève généré depuis la grille tarifaire</td>
+</tr>
+<tr>
+<td><strong>Coefficient</strong></td>
+<td>Pondération d&#39;une matière dans le calcul des moyennes</td>
+</tr>
+<tr>
+<td><strong>Composant de paie</strong></td>
+<td>Rubrique de bulletin (prime, indemnité, retenue) portée par une formule</td>
+</tr>
+<tr>
+<td><strong>Contre-passation</strong></td>
+<td>Écriture inverse qui annule une écriture existante — l&#39;écriture d&#39;origine n&#39;est jamais modifiée</td>
+</tr>
+<tr>
+<td><strong>Créance</strong></td>
+<td>Synonyme de charge élève</td>
+</tr>
+<tr>
+<td><strong>Délibération</strong></td>
+<td>Session du conseil de classe statuant sur les résultats proposés</td>
+</tr>
+<tr>
+<td><strong>Dotation de congés</strong></td>
+<td>Attribution automatique de jours selon les règles de l&#39;établissement, à l&#39;activation du contrat</td>
+</tr>
+<tr>
+<td><strong>Échéancier</strong></td>
+<td>Ventilation d&#39;une créance en échéances datées</td>
+</tr>
+<tr>
+<td><strong>Écriture comptable</strong></td>
+<td>Enregistrement équilibré débit/crédit dans un journal</td>
+</tr>
+<tr>
+<td><strong>Exercice</strong></td>
+<td>Période comptable ; sa clôture verrouille les écritures</td>
+</tr>
+<tr>
+<td><strong>formulaSnapshot</strong></td>
+<td>Copie figée des formules utilisées dans un bulletin de paie — calcul reproductible</td>
+</tr>
+<tr>
+<td><strong>Idempotence</strong></td>
+<td>Propriété qu&#39;une opération rejouée produise le même résultat, sans doublon</td>
+</tr>
+<tr>
+<td><strong>isRegulatory</strong></td>
+<td>Verrou d&#39;un composant de paie : tant qu&#39;il est actif, la formule est ignorée — en attente du barème officiel</td>
+</tr>
+<tr>
+<td><strong>Mapping comptable</strong></td>
+<td>Correspondance méthode de paiement ↔ compte de trésorerie, catégorie ↔ compte de produit</td>
+</tr>
+<tr>
+<td><strong>Membership</strong></td>
+<td>Lien entre un utilisateur, une école et un rôle</td>
+</tr>
+<tr>
+<td><strong>OD</strong></td>
+<td>Journal des opérations diverses (écritures non-trésorerie)</td>
+</tr>
+<tr>
+<td><strong>Permission</strong></td>
+<td>Droit atomique (<code>student.read</code>, <code>payroll.manage</code>…) regroupé dans un rôle</td>
+</tr>
+<tr>
+<td><strong>Plafond d&#39;avance</strong></td>
+<td>Part maximale du net à payer prélevable par recouvrement mensuel — réglage de l&#39;école</td>
+</tr>
+<tr>
+<td><strong>PUBLISHED</strong></td>
+<td>Statut qui rend une évaluation/notes/bulletin visible des familles</td>
+</tr>
+<tr>
+<td><strong>Reçu</strong></td>
+<td>Document numéroté <code>REC-…</code> émis à l&#39;encaissement, immuable</td>
+</tr>
+<tr>
+<td><strong>Report à nouveau</strong></td>
+<td>Écritures d&#39;à-nouveaux reportant les soldes à l&#39;exercice suivant</td>
+</tr>
+<tr>
+<td><strong>Rôle</strong></td>
+<td>Ensemble de permissions assigné à un utilisateur dans une école</td>
+</tr>
+<tr>
+<td><strong>SYSCOHADA</strong></td>
+<td>Plan comptable des états membres de l&#39;OHADA (utilisé au Burkina Faso)</td>
+</tr>
+<tr>
+<td><strong>Tenant</strong></td>
+<td>Établissement scolaire — unité d&#39;isolation des données</td>
+</tr>
+<tr>
+<td><strong>UNPAID (congé)</strong></td>
+<td>Congé approuvé sans solde — peut réduire le brut si l&#39;option paie est activée</td>
+</tr>
+</tbody></table>
+</body></html>

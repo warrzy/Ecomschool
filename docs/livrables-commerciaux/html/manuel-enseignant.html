@@ -1,0 +1,142 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Enseignant</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Votre tableau de bord <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Faire l'appel <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Cahier de textes <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Emploi du temps <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Évaluations et notes <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Retour à l'école <a name="s6"></a></a></div></div>
+  <!-- title: Manuel Enseignant -->
+<h1>Manuel enseignant</h1>
+<p>Votre espace <code>/teacher</code> est un portail dédié : vos cours, vos appels,
+votre cahier de textes, vos évaluations. Vous n&#39;accédez ni aux données
+RH, ni aux finances, ni aux fiches des autres classes.</p>
+<div class="chap"><h2>1. Votre tableau de bord</h2>
+</div><p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/enseignant-dashboard.png" alt=""/><figcaption>Figure 01 — Tableau de bord enseignant</figcaption></figure></p>
+<p>Dès la connexion, votre journée :</p>
+<table>
+<thead>
+<tr>
+<th>Carte</th>
+<th>Contenu</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cours aujourd&#39;hui</td>
+<td>Séances du jour avec horaires</td>
+</tr>
+<tr>
+<td>Cours cette semaine</td>
+<td>Vue hebdo de vos créneaux</td>
+</tr>
+<tr>
+<td>Classes attribuées</td>
+<td>Vos classes (6e A, 5e A…)</td>
+</tr>
+<tr>
+<td>Appels à effectuer</td>
+<td>Séances passées sans appel — <strong>action requise</strong></td>
+</tr>
+<tr>
+<td>Prochaines séances</td>
+<td>Anticipation</td>
+</tr>
+<tr>
+<td>Évaluations</td>
+<td>Évaluations en cours de saisie</td>
+</tr>
+<tr>
+<td>Cahier de textes</td>
+<td>Séances à compléter</td>
+</tr>
+</tbody></table>
+<div class="chap"><h2>2. Faire l&#39;appel</h2>
+</div><ol>
+<li>Carte <strong>Appels à effectuer</strong> → <strong>Faire l&#39;appel</strong> sur la séance.</li>
+<li>Marquez chaque élève : présent, <strong>absent</strong>, <strong>retard</strong> (durée).</li>
+<li>Validez : l&#39;absence remonte immédiatement au portail des parents et
+au suivi administration.</li>
+</ol>
+<div class="note"><p>[!NOTE]
+Les absences saisies ici sont celles visibles par les familles —
+vérifiez avant de valider.</p>
+</div><div class="chap"><h2>3. Cahier de textes</h2>
+</div><p>Carte <strong>Cahier de textes à compléter</strong> → <strong>Compléter</strong> : thème,
+chapitre, objectif, contenu de la séance, devoirs donnés.
+C&#39;est la trace pédagogique officielle de votre progression.</p>
+<div class="chap"><h2>4. Emploi du temps</h2>
+</div><p>Menu <strong>Mon emploi du temps</strong> : la grille hebdomadaire de vos créneaux,
+par classe, matière et salle.</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/enseignant-edt.png" alt=""/><figcaption>Figure 02 — Emploi du temps enseignant</figcaption></figure></p>
+<div class="chap"><h2>5. Évaluations et notes</h2>
+</div><ol>
+<li>Créez ou ouvrez une <strong>évaluation</strong> de votre classe (devoir,
+composition — type, barème, coefficient définis par
+l&#39;administration).</li>
+<li>Saisissez les notes de vos élèves (ou absence d&#39;un élève à
+l&#39;épreuve).</li>
+<li><strong>Soumettez</strong> pour validation : les notes ne deviennent visibles des
+parents qu&#39;après <strong>publication</strong> par l&#39;administration — vous voyez
+l&#39;état d&#39;avancement (DRAFT → SUBMITTED → VALIDATED → PUBLISHED).</li>
+</ol>
+<div class="chap"><h2>6. Retour à l&#39;école</h2>
+</div><p>Le lien <strong>« Retour à l&#39;école »</strong> ramène vers <code>/app</code> si votre rôle y a
+des droits complémentaires — sinon, l&#39;accès reste refusé : normal.</p>
+<table>
+<thead>
+<tr>
+<th>Écran tenté</th>
+<th>Résultat</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>/app/rh</code></td>
+<td>403</td>
+</tr>
+<tr>
+<td><code>/app/rh/paie</code></td>
+<td>403</td>
+</tr>
+<tr>
+<td><code>/app/comptabilite</code></td>
+<td>403</td>
+</tr>
+<tr>
+<td><code>/app/students</code></td>
+<td>403 (liste complète hors périmètre)</td>
+</tr>
+</tbody></table>
+</body></html>

@@ -275,3 +275,13 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - `demo-screenshots.ts` : **19 captures réelles** → `docs/demo/screenshots/` (login, dashboards admin/compta/paie, bulletin de paie, portails enseignant/parent avec notes et absences).
 - Livrables : `docs/demo/PARCOURS_DEMONSTRATION.md` (script 45 min / 6 actes), `docs/utilisateur/GUIDE_UTILISATEUR.md` (captures embarquées), `docs/recette/CHECKLIST_RECETTE_METIER.md` (46 contrôles), `docs/commercial/DOSSIER_PRESENTATION.md` (positionnement BF).
 - `MATRICE_COMMERCIALISATION.md` : validée par smoke UI 43/43.
+
+## SUITE DOCUMENTAIRE DE FORMATION (2026-11-15)
+
+- `scripts/docs/capture-annotated.ts` : moteur Playwright de capture annotée (badges numérotés, flèches, encadrés, libellés) — **~85 captures réelles** sur preprod dans `docs/manuels/captures/` (admin, comptable, caissier, secrétaire, RH, paie, enseignant, parent, élève, plateforme).
+- `demo-accounts.ts` : +3 comptes (demo-secretaire, demo-caissier, demo-eleve) — 9 profils provisionnés ; DEMO_ADMIN porté à 124 permissions.
+- `demo-data.ts` : +pédagogie (matières/coefs, EDT, séances, devoir publié, absences) — re-run 0 nouvelle entité.
+- `docs/manuels/src/` : 16 sources — 10 manuels par profil + démarrage rapide + 9 tutoriels métier + FAQ + glossaire + exercices corrigés + checklist + guide admin technique.
+- `tools/docs/build.mjs` : MD → PDF (couverture, sommaire cliquable, légendes, pagination, identité ECOM) + DOCX modifiable — **16 PDF, ~200 pages, 48 captures intégrées**.
+- `tools/docs/package.mjs` : PPTX 11 diapositives + **ECOM-SCHOOL_DOCUMENTATION_v2026.11.zip (15,2 Mo, 126 fichiers)** organisé par profil + 6 documents commerciaux + captures.
+- Aucun identifiant dans les livrables ; paie réglementaire BF documentée comme désactivée/indicative.

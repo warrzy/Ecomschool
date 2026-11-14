@@ -1,0 +1,150 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Gestionnaire de paie</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Votre espace <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Composants de salaire <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Préparer et calculer une campagne <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Lire un bulletin <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Avances sur salaire <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Plafond de recouvrement <a name="s6"></a></a></div><div class="l1"><a href="#s7">7. Assiduité et paie <a name="s7"></a></a></div><div class="l1"><a href="#s8">8. Rectifier une campagne <a name="s8"></a></a></div></div>
+  <!-- title: Manuel Gestionnaire de paie -->
+<h1>Manuel gestionnaire de paie</h1>
+<p>Votre périmètre : <strong>les campagnes de paie et les avances</strong>. Vous voyez
+les employés en lecture (nécessaire au calcul) mais la gestion RH
+(contrats, congés) reste au responsable RH — séparation des fonctions.</p>
+<div class="warn"><p>[!WARN]
+<strong>Mention réglementaire</strong> : les retenues CNSS et fiscales burkinabè ne
+sont pas calculées. Les composants marqués « réglementaire » sont
+ignorés jusqu&#39;à validation des barèmes officiels. Les bulletins
+produits sont donc <strong>indicatifs</strong> ; les obligations sociales se
+traitent en parallèle.</p>
+</div><div class="chap"><h2>1. Votre espace</h2>
+</div><p><strong>Menu :</strong> Finances → Paie (<code>/app/rh/paie</code>)
+Permissions : <span class="perm">payroll.read</span> · <span class="perm">payroll.manage</span></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/paie-campagnes.png" alt=""/><figcaption>Figure 01 — Campagnes de paie</figcaption></figure></p>
+<p>La page réunit : composants de salaire, plafond d&#39;avances, assiduité,
+campagnes, bulletins et avances.</p>
+<div class="chap"><h2>2. Composants de salaire</h2>
+</div><p>Chaque composant (prime, indemnité, retenue interne) porte une
+<strong>formule déclarative</strong> :</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Principe</th>
+<th>Exemple</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>fixed</code></td>
+<td>Montant fixe</td>
+<td>Indemnité de transport 10 000 F</td>
+</tr>
+<tr>
+<td><code>percent</code></td>
+<td>% d&#39;une base nommée</td>
+<td>Prime = 10 % du salaire de base</td>
+</tr>
+<tr>
+<td><code>rate_x_qty</code></td>
+<td>Taux × quantité (jours, heures)</td>
+<td>Vacation horaire</td>
+</tr>
+<tr>
+<td><code>table</code></td>
+<td>Barème progressif par tranches</td>
+<td>Retenue progressive</td>
+</tr>
+</tbody></table>
+<ul>
+<li><code>formulaSnapshot</code> fige la formule <strong>dans chaque bulletin</strong> : un calcul
+refait plus tard retrouve exactement le même résultat.</li>
+<li>Les composants <code>isRegulatory</code> sont visibles mais <strong>ignorés du calcul</strong>
+— verrou de conformité (cf. encadré réglementaire ci-dessus).</li>
+</ul>
+<div class="chap"><h2>3. Préparer et calculer une campagne</h2>
+</div><p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/paie-run-posted.png" alt=""/><figcaption>Figure 02 — Campagne postée</figcaption></figure></p>
+<ol>
+<li><strong>Créer une campagne</strong> : période (ex. 2026-11-01 → 2026-11-30).</li>
+<li><strong>Calculer</strong> : un bulletin par contrat actif — brut, retenues, net,
+coût patronal.</li>
+<li>Vérifiez les bulletins (§4) puis <strong>Valider</strong>.</li>
+<li><strong>Comptabiliser</strong> : l&#39;OD de paie (D 66 / C 422, + 431 charges et
+421 avances) est postée <strong>atomiquement</strong> avec le statut POSTED —
+pas d&#39;état intermédiaire possible.</li>
+</ol>
+<div class="note"><p>[!NOTE]
+La validation exige la comptabilisation avant toute clôture d&#39;exercice
+comptable — le système vous prévient (<code>PAYROLL_UNPOSTED</code>).</p>
+</div><div class="chap"><h2>4. Lire un bulletin</h2>
+</div><p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/paie-bulletin.png" alt=""/><figcaption>Figure 03 — Bulletin de paie</figcaption></figure></p>
+<p>Lignes du bulletin : salaire de base, composants par ordre, <strong>brut</strong>,
+retenues (avances, absences si activées), <strong>net à payer</strong>, coût
+patronal, jours travaillés éventuels, et le snapshot des formules
+utilisées — preuve de calcul.</p>
+<div class="chap"><h2>5. Avances sur salaire</h2>
+</div><p>Section <strong>Avances</strong> de la page paie :</p>
+<ol>
+<li><strong>Accorder</strong> : employé, montant, date, motif — statut <code>GRANTED</code>.</li>
+<li>Le recouvrement se fait automatiquement sur les bulletins suivants,
+dans l&#39;ordre (FIFO), en respectant le <strong>plafond</strong> (§6) — statut
+<code>RECOVERING</code> puis <code>RECOVERED</code>.</li>
+<li><strong>Annuler</strong> une avance non commencée la sort du circuit.</li>
+</ol>
+<div class="chap"><h2>6. Plafond de recouvrement</h2>
+</div><p>Encart <strong>« Plafond de recouvrement des avances »</strong> : pourcentage du net
+à payer (ex. 30 %) au-delà duquel le recouvrement mensuel est reporté.</p>
+<div class="warn"><p>[!WARN]
+Cette valeur est <strong>indicative et décidée par l&#39;établissement</strong> — elle
+n&#39;est présentée ni calculée comme une obligation réglementaire.</p>
+</div><div class="chap"><h2>7. Assiduité et paie</h2>
+</div><p>Encart <strong>« Assiduité et paie »</strong> — paramètres de l&#39;établissement :</p>
+<ul>
+<li><strong>Base mensuelle</strong> (ex. 30 jours) : diviseur du prorata ;</li>
+<li><strong>Congés sans solde (UNPAID) non payés</strong> : si activé, les jours de
+congé approuvés sans solde réduisent le brut — tracés en ligne
+<code>ABS_NP</code> et champ <code>unpaidDays</code> du bulletin ;</li>
+<li><strong>Absences pointées déduites</strong> : même logique pour les absences non
+justifiées du pointage RH.</li>
+</ul>
+<p>Ces valeurs sont des <strong>réglages internes</strong>, pas des règles légales
+présumées.</p>
+<div class="chap"><h2>8. Rectifier une campagne</h2>
+</div><p>Une campagne <code>POSTED</code> erronée se <strong>rectifie</strong> : le système crée la
+<strong>contre-passation exacte</strong> de l&#39;OD (ou dans l&#39;exercice ouvert courant
+si l&#39;exercice d&#39;origine est clos) et un run correctif <code>DRAFT</code> — jamais
+de modification de l&#39;historique. La rectification est idempotente :
+la rejouer réutilise le run correctif existant.</p>
+</body></html>

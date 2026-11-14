@@ -1,0 +1,134 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Administrateur plateforme ECOM-TOUCH</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Référentiel des établissements <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Onboarding <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Offres et modules <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Abonnements et factures <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Supervision <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Autres entrées <a name="s6"></a></a></div><div class="l1"><a href="#s7">7. Règles d'exploitation <a name="s7"></a></a></div></div>
+  <!-- title: Manuel Administrateur plateforme ECOM-TOUCH -->
+<h1>Manuel administrateur plateforme — ECOM-TOUCH</h1>
+<p>Manuel de l&#39;équipe ECOM-TOUCH : supervision multi-établissements sous
+<code>/platform</code>. Cet espace est <strong>distinct</strong> des espaces écoles — il gère
+les établissements clients, les offres commerciales, les abonnements et
+la santé du service. Il n&#39;accède <strong>jamais</strong> aux données des élèves.</p>
+<div class="chap"><h2>1. Référentiel des établissements</h2>
+</div><p><strong>Menu :</strong> Établissements (<code>/platform/schools</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/platform-schools.png" alt=""/><figcaption>Figure 01 — Établissements</figcaption></figure></p>
+<p>Table de tous les établissements : nom, code, ville, membres, années,
+statut. Actions par ligne : <strong>Fiche</strong> (détail) et <strong>Suspendre</strong>
+(suspension de l&#39;accès — lecture seule côté école).</p>
+<ul>
+<li><strong>Créer un établissement</strong> : identité, code unique, contact
+administrateur — l&#39;onboarding invite ensuite le premier
+administrateur.</li>
+</ul>
+<div class="chap"><h2>2. Onboarding</h2>
+</div><p><strong>Menu :</strong> Création établissement (<code>/platform/onboarding</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/platform-onboarding.png" alt=""/><figcaption>Figure 02 — Onboarding</figcaption></figure></p>
+<p>Assistant de mise en service d&#39;un nouveau client : création de
+l&#39;école → premier compte administrateur → vérifications de
+provisionnement. À l&#39;issue, l&#39;école est autonome pour son paramétrage.</p>
+<div class="chap"><h2>3. Offres et modules</h2>
+</div><p><strong>Menus :</strong> Offres (<code>/platform/plans</code>), Modules (<code>/platform/modules</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/platform-plans.png" alt=""/><figcaption>Figure 03 — Offres</figcaption></figure></p>
+<ul>
+<li><strong>Offres</strong> : plans commerciaux (modules inclus, limites d&#39;effectif,
+tarif).</li>
+<li><strong>Modules</strong> : catalogue technique de la plateforme avec dépendances
+(ex. états comptables ⇒ comptabilité) — un module activé tire ses
+prérequis.</li>
+</ul>
+<div class="chap"><h2>4. Abonnements et factures</h2>
+</div><p><strong>Menus :</strong> Abonnements (<code>/platform/subscriptions</code>),
+Factures (<code>/platform/invoices</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/platform-subscriptions.png" alt=""/><figcaption>Figure 04 — Abonnements</figcaption></figure></p>
+<ul>
+<li><strong>Abonnements</strong> : rattachement école ↔ offre, statut (essai, actif,
+impayé, grâce, suspendu). La suspension/expédition bascule l&#39;école en
+lecture seule automatiquement.</li>
+<li><strong>Factures</strong> : émission et suivi des factures plateforme.</li>
+</ul>
+<div class="chap"><h2>5. Supervision</h2>
+</div><p><strong>Menu :</strong> Supervision (<code>/platform/monitoring</code>)</p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/platform-monitoring.png" alt=""/><figcaption>Figure 05 — Supervision</figcaption></figure></p>
+<p>Vue santé : jobs en file (emails, SMS, purges), jobs en échec (DEAD —
+à rejouer), métriques de rétention. C&#39;est votre tour de contrôle
+quotidienne.</p>
+<div class="chap"><h2>6. Autres entrées</h2>
+</div><table>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Fonction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Demandes</td>
+<td>Demandes d&#39;inscription publiques d&#39;écoles prospects</td>
+</tr>
+<tr>
+<td>Administrateurs</td>
+<td>Comptes de l&#39;équipe plateforme</td>
+</tr>
+<tr>
+<td>Automatisations</td>
+<td>Tâches planifiées (purges, rappels)</td>
+</tr>
+<tr>
+<td>Audit</td>
+<td>Journal d&#39;audit plateforme — qui a fait quoi, quand</td>
+</tr>
+<tr>
+<td>Assistance</td>
+<td>Sessions d&#39;assistance horodatées dans une école — <strong>visibles par l&#39;école</strong> (bandeau) et tracées</td>
+</tr>
+<tr>
+<td>Profil</td>
+<td>Votre compte</td>
+</tr>
+</tbody></table>
+<div class="chap"><h2>7. Règles d&#39;exploitation</h2>
+</div><ul>
+<li><strong>Principe du moindre accès</strong> : <code>/platform</code> ne lit pas les données
+métier des écoles ; l&#39;assistance se fait par session dédiée, visible
+et expirante.</li>
+<li><strong>Suspendre ≠ supprimer</strong> : la suspension préserve toutes les
+données et coupe l&#39;accès ; la suppression n&#39;existe pas en self-service.</li>
+<li><strong>Audit first</strong> : toute action sensible (suspension, changement de
+plan, session d&#39;assistance) est journalisée.</li>
+</ul>
+</body></html>

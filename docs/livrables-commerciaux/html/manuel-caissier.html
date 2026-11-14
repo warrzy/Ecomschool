@@ -1,0 +1,101 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>
+@page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+* { box-sizing: border-box; }
+body { font-family: "Segoe UI", system-ui, sans-serif; font-size: 10.5pt; color: #1f2937; line-height: 1.55; margin: 0; }
+h1 { font-size: 26pt; color: #1e3a8a; border-bottom: 3px solid #1e3a8a; padding-bottom: 8px; }
+h2 { font-size: 16pt; color: #1e3a8a; margin-top: 1.6em; page-break-after: avoid; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; }
+h3 { font-size: 12.5pt; color: #334155; margin-top: 1.3em; page-break-after: avoid; }
+h4 { font-size: 11pt; color: #475569; }
+p { margin: .5em 0; }
+table { border-collapse: collapse; width: 100%; margin: .8em 0; font-size: 9.5pt; }
+th { background: #1e3a8a; color: #fff; text-align: left; padding: 5px 8px; }
+td { border: 1px solid #cbd5e1; padding: 4px 8px; }
+tr:nth-child(even) td { background: #f8fafc; }
+img { max-width: 100%; }
+figure { margin: 1em 0 1.4em; page-break-inside: avoid; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+figure img { display: block; width: 100%; }
+figcaption { background: #f1f5f9; padding: 6px 10px; font-size: 9pt; color: #475569; font-weight: 600; }
+.cover { text-align: center; padding-top: 34mm; page-break-after: always; }
+.cover .logo { font-size: 30pt; font-weight: 800; color: #1e3a8a; letter-spacing: 2px; }
+.cover .sub { font-size: 13pt; color: #64748b; margin-top: 4px; }
+.cover .title { font-size: 22pt; font-weight: 700; color: #0f172a; margin: 40px 0 10px; }
+.cover .meta { color: #94a3b8; font-size: 10pt; margin-top: 60px; }
+.toc { page-break-after: always; }
+.toc a { color: #1f2937; text-decoration: none; }
+.toc .l1 { font-weight: 700; margin: 8px 0 2px; }
+.toc .l2 { margin-left: 16px; margin: 3px 0; font-size: 9.8pt; }
+.badge { display: inline-block; background: #e11d48; color: #fff; border-radius: 50%; width: 18px; height: 18px; text-align: center; font-weight: 700; font-size: 9pt; line-height: 18px; }
+.note, .warn, .ok { border-radius: 8px; padding: 10px 14px; margin: .9em 0; font-size: 9.8pt; page-break-inside: avoid; }
+.note { background: #eff6ff; border-left: 4px solid #3b82f6; }
+.warn { background: #fff7ed; border-left: 4px solid #f59e0b; }
+.ok   { background: #f0fdf4; border-left: 4px solid #22c55e; }
+.perm { display: inline-block; background: #ede9fe; color: #5b21b6; border-radius: 5px; padding: 1px 7px; font-size: 8.5pt; font-family: Consolas, monospace; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 9pt; }
+.step { display: flex; gap: 10px; margin: 6px 0; }
+.chap { page-break-before: always; }
+.small { font-size: 8.8pt; color: #64748b; }
+</style></head><body>
+  <div class="cover"><div class="logo">ECOM-SCHOOL</div><div class="sub">ECOM-TOUCH — Gestion scolaire intégrée</div>
+  <div class="title">Manuel Caissier</div>
+  <div class="meta">Environnement de démonstration — données 100 % fictives<br/>Édition novembre 2026 — Document confidentiel</div></div>
+  <div class="toc"><h1 style="font-size:18pt">Sommaire</h1><div class="l1"><a href="#s1">1. Votre espace <a name="s1"></a></a></div><div class="l1"><a href="#s2">2. Guichet d'inscription <a name="s2"></a></a></div><div class="l1"><a href="#s3">3. Encaisser un paiement <a name="s3"></a></a></div><div class="l1"><a href="#s4">4. Votre journal personnel <a name="s4"></a></a></div><div class="l1"><a href="#s5">5. Trésorerie (consultation) <a name="s5"></a></a></div><div class="l1"><a href="#s6">6. Réflexes de sécurité <a name="s6"></a></a></div></div>
+  <!-- title: Manuel Caissier -->
+<h1>Manuel caissier</h1>
+<p>Votre périmètre : <strong>l&#39;encaissement</strong> — guichet d&#39;inscription, paiements,
+reçus. Vous n&#39;avez pas accès à la comptabilité ni aux autres modules :
+la caisse est votre poste.</p>
+<div class="chap"><h2>1. Votre espace</h2>
+</div><p>Menu Finances : <strong>Guichet d&#39;inscription</strong>, <strong>Finances</strong>,
+<strong>Mes encaissements</strong>, <strong>Trésorerie</strong> (consultation).</p>
+<div class="chap"><h2>2. Guichet d&#39;inscription</h2>
+</div><p><strong>Menu :</strong> Finances → Guichet d&#39;inscription (<code>/app/fees/registration</code>)
+Permissions : <span class="perm">enrollment.read</span> · <span class="perm">enrollment.create</span> · <span class="perm">finance.payments.create</span></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/caissier-guichet.png" alt=""/><figcaption>Figure 01 — Guichet d'inscription</figcaption></figure></p>
+<p>Le guichet enchaîne en un seul écran l&#39;<strong>inscription administrative</strong> et
+le <strong>premier encaissement</strong> — le parcours complet du parent qui se
+présente au comptoir :</p>
+<ol>
+<li>Recherchez ou créez l&#39;élève et son responsable.</li>
+<li>Choisissez la classe → les créances obligatoires apparaissent.</li>
+<li>Saisissez le montant encaissé et la méthode.</li>
+<li>Validez : inscription créée + reçu émis <strong>dans la même opération</strong>.</li>
+</ol>
+<div class="chap"><h2>3. Encaisser un paiement</h2>
+</div><p><strong>Depuis la fiche élève</strong> (Finances → recherche élève → Paiement) :</p>
+<ol>
+<li>Vérifiez l&#39;identité de l&#39;élève et le <strong>solde dû</strong> affiché.</li>
+<li>Montant, méthode (espèces/virement), date effective.</li>
+<li>Validez → le <strong>reçu numéroté</strong> <code>REC-…</code> s&#39;édite.</li>
+</ol>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/caissier-finances.png" alt=""/><figcaption>Figure 02 — Finances</figcaption></figure></p>
+<p><strong>Règles à connaître :</strong></p>
+<ul>
+<li><strong>Surpaiement refusé</strong> : un montant supérieur au reste dû est bloqué.</li>
+<li><strong>Idempotence</strong> : si vous soumettez deux fois (double-clic, réseau
+lent), le système renvoie <strong>le même reçu</strong> — jamais deux encaissements.</li>
+<li><strong>Le reçu est immuable</strong> : il fige élève, montant, caissier, horodatage.</li>
+</ul>
+<div class="warn"><p>[!WARN]
+Remettez toujours le reçu au payeur — il porte le numéro qui fait foi
+en cas de contestation.</p>
+</div><div class="chap"><h2>4. Votre journal personnel</h2>
+</div><p><strong>Menu :</strong> Finances → Mes encaissements (<code>/app/fees/my-payments</code>)
+Permission : <span class="perm">finance.receipts.read</span></p>
+<p><figure><img src="file:///C:/Users/LENOVO-L490/Desktop/Ecomschool/docs/manuels/captures/caissier-encaissements.png" alt=""/><figcaption>Figure 03 — Mes encaissements</figcaption></figure></p>
+<p>Liste de <strong>vos seuls</strong> encaissements (filtre strict sur votre identité
+serveur) : montants du jour, reçus émis, réimpression possible.
+C&#39;est votre outil de préparation de la clôture de caisse.</p>
+<div class="chap"><h2>5. Trésorerie (consultation)</h2>
+</div><p><strong>Menu :</strong> Finances → Trésorerie (<code>/app/treasury</code>)</p>
+<p>Vue de la journée de caisse : total par méthode, ouverture/clôture —
+la clôture elle-même relève du responsable financier.</p>
+<div class="chap"><h2>6. Réflexes de sécurité</h2>
+</div><ul>
+<li><strong>Ne communiquez jamais</strong> votre mot de passe : chaque reçu porte
+votre identité — vous êtes responsable de vos encaissements.</li>
+<li><strong>Déconnectez-vous</strong> en quittant le poste.</li>
+<li>Une erreur d&#39;encaissement ne s&#39;efface pas : signalez-la au
+responsable financier — l&#39;<strong>annulation</strong> produit une contre-passation
+tracée, jamais une disparition.</li>
+</ul>
+</body></html>

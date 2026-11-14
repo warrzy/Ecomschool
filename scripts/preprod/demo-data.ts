@@ -268,6 +268,16 @@ async function main() {
     } else note(`lien parent ${pc.mat} (${pc.rel})`, false);
   }
 
+  // demo-eleve : fiche Student reliée au compte (garde /student).
+  const eleveUser = await prisma.user.findUniqueOrThrow({
+    where: { email: "demo-eleve@demo.ecomschool.test" }, select: { id: true },
+  });
+  const awa = await prisma.student.findFirstOrThrow({ where: { schoolId: sid, matricule: "D-E001" } });
+  if (awa.userId !== eleveUser.id) {
+    await prisma.student.update({ where: { id: awa.id }, data: { userId: eleveUser.id } });
+    note("fiche élève rattachée (demo-eleve → /student, Awa)", true);
+  } else note("fiche élève rattachée (demo-eleve)", false);
+
   // ---------- Pédagogie : périodes, matières, emploi du temps, notes ----------
   const period1 = (await prisma.academicPeriod.findFirst({
     where: { schoolId: sid, academicYearId: year.id, name: "Trimestre 1" },
