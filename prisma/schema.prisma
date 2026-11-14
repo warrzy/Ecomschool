@@ -4028,6 +4028,9 @@ model Employee {
 
   contracts EmployeeContract[]
   documents EmployeeDocument[]
+  leaveBalances  LeaveBalance[]
+  leaveRequests  LeaveRequest[]
+  attendances    StaffAttendance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -4070,4 +4073,75 @@ model EmployeeDocument {
   createdAt DateTime @default(now())
 
   @@index([employeeId])
+}
+
+// ---------- RH-2 : congés, absences, présences ----------
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  UNPAID
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/** Solde de congés par employé, année et type (en jours). */
+model LeaveBalance {
+  id         String @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  year      Int
+  type      LeaveType
+  entitled  Int @default(0)
+  used      Int @default(0)
+
+  @@unique([employeeId, year, type])
+}
+
+/** Demande de congé — circuit : PENDING → APPROVED/REJECTED ; CANCELLED restaure le solde. */
+model LeaveRequest {
+  id         String @id @default(cuid())
+  schoolId   String
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type      LeaveType
+  startDate DateTime
+  endDate   DateTime
+  days      Int
+  reason    String?
+
+  status      LeaveStatus @default(PENDING)
+  decidedById String?
+  decidedAt   DateTime?
+  decisionNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+  @@index([employeeId])
+}
+
+/** Pointage journalier du personnel — indépendant de l'assiduité élèves. */
+model StaffAttendance {
+  id         String @id @default(cuid())
+  schoolId   String
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date   DateTime
+  status AttendanceStatus
+  note   String?
+
+  @@unique([employeeId, date])
+  @@index([schoolId])
 }

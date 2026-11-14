@@ -56,3 +56,48 @@ export async function addDocumentAction(fd: FormData) {
   });
   back(empId, "&ok=Document+ajouté");
 }
+
+export async function requestLeaveAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { requestLeave } = await import("@/lib/services/hr/leaves");
+  const r = await requestLeave({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("employeeId")), {
+    type: String(fd.get("type")) as never,
+    startDate: new Date(String(fd.get("startDate"))),
+    endDate: new Date(String(fd.get("endDate"))),
+    reason: String(fd.get("reason") ?? "") || undefined,
+  });
+  back(String(fd.get("employeeId")), r.ok ? "&ok=Demande+enregistrée" : `&err=${r.error}`);
+}
+
+export async function decideLeaveAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { decideLeave } = await import("@/lib/services/hr/leaves");
+  const r = await decideLeave({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("id")), fd.get("approve") === "1");
+  redirect(`/app/rh?${r.ok ? "ok=Décision+enregistrée" : `err=${r.error}`}`);
+}
+
+export async function cancelLeaveAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { cancelLeave } = await import("@/lib/services/hr/leaves");
+  await cancelLeave({ userId: t.userId, schoolId: t.schoolId }, String(fd.get("id")));
+  redirect("/app/rh?ok=Congé+annulé");
+}
+
+export async function setEntitlementAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { setEntitlement } = await import("@/lib/services/hr/leaves");
+  const empId = String(fd.get("employeeId"));
+  await setEntitlement({ userId: t.userId, schoolId: t.schoolId }, empId,
+    new Date().getFullYear(), String(fd.get("type")) as never, Number(fd.get("days")));
+  back(empId, "&ok=Droit+défini");
+}
+
+export async function markAttendanceAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { markAttendance } = await import("@/lib/services/hr/leaves");
+  const empId = String(fd.get("employeeId"));
+  await markAttendance({ userId: t.userId, schoolId: t.schoolId }, empId,
+    new Date(String(fd.get("date"))), String(fd.get("status")) as never,
+    String(fd.get("note") ?? "") || undefined);
+  back(empId, "&ok=Présence+pointée");
+}

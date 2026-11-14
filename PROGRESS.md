@@ -82,3 +82,15 @@ Clients/fournisseurs complets + règlements + rapprochement bancaire (`BankState
 ## PROCHAINE SESSION → RH-2
 
 `LeaveRequest`/`LeaveBalance`/`StaffAttendance` — cycle congé complet ; absence élève ≠ solde congé. Puis RH-3 (moteur paie — **barème BF officiel requis**), RH-4 avances ≤30% net, RH-5 OD paie→compta, RH-6 rectifications, RH-7 pilotage, RH-8 sortie+révocation+vacations.
+
+## RH-2 TERMINÉ ✅ (congés/présences, migration 59/59)
+
+- `LeaveBalance` (droit/consommé par type+année, unique), `LeaveRequest` (PENDING→APPROVED/REJECTED/CANCELLED), `StaffAttendance` (unique employé+jour)
+- Approbation transactionnelle avec décompte du solde ; INSUFFICIENT_BALANCE ; UNPAID sans solde ; CANCELLED restaure ; jours calendaires
+- UI `/app/rh` : bandeau demandes en attente (approuver/rejeter), section congés sur fiche (soldes, demande, annulation, droits), pointage présence
+- Recette `scripts/rh1/recette-rh2.ts` : **16/16 PASS** ; non-régression CG-1 OK
+- Incident isolé résolu : migration partielle (doublon enum AttendanceStatus — réutilisé celui des élèves, UNMARKED inclus) → `db execute` manuel + `migrate resolve --applied` sur verify uniquement
+
+## PROCHAINE SESSION → RH-3
+
+Moteur paie : `SalaryComponent` (grammaire fixed/percent/rate_x_qty/table, bases nommées, pipeline ordonné, formulaSnapshot figé) + `PayrollRun`/`Payslip` + bulletin. **AUCUN taux BF non vérifié** — paramètres configurables inactifs. Puis RH-4 avances ≤30% net, RH-5 OD paie→compta (champ `postedEntryId` lu par la garde CG-6), RH-6 rectifications rectifiesRunId, RH-7 dashboard, RH-8 sortie+révocation+vacations.
