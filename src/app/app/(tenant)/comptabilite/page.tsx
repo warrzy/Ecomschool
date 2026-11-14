@@ -288,7 +288,7 @@ export default async function ComptabilitePage(props: {
               placeholder='[{"accountId":"<id>","debit":10000},{"accountId":"<id>","credit":10000}] — débit = crédit requis'
               className="w-full rounded border px-2 py-1 font-mono text-xs"
             />
-            <button className={BTN} type="submit">Poster l'écriture</button>
+            <button className={BTN} type="submit">Poster l&rsquo;écriture</button>
           </form>
         </section>
       ) : null}

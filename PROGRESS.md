@@ -38,3 +38,14 @@
 ## PROCHAINE SESSION → CG-2
 
 Tiers : référentiel CRUD (`AccountingThirdParty`), balance âgée 30/60/90 sur `dueDate` des échéances, page `/app/comptabilite/tiers` (liste+recherche+filtre kind+export CSV), soldes par tiers. Helpers dispo : `thirdPartyBalance`, `allocate`. Base isolée : tunnel `ssh -N -L 5433:127.0.0.1:5432 ecomschool-preprod` + URL `/tmp/vdb.txt` (reconstruire).
+
+## CG-2 TERMINÉ ✅ (tiers & créances)
+
+- `src/lib/services/accounting/thirdparty.ts` : référentiel tiers (élève/parent/fournisseur/autre), `studentAging` (buckets non échu/1-30/31-60/61-90/+90 sur `dueDate` − `PaymentAllocation`), `agingCsv`, `upsertThirdParty`, `listThirdParties` (recherche insensible casse + filtre kind)
+- UI `/app/comptabilite/tiers` + `export-tiers` CSV + actions serveur `actions-tiers.ts`, entrée nav ajoutée
+- Recette `scripts/cg1/recette-cg2.ts` : **13/13 PASS** — 4 buckets âgés, paiement partiel 400/1000, CRUD fournisseur, FORBIDDEN sans membership/permission, isolation B, CSV
+- Non-régression : CG-1 14/14, H12 68/68 ; typecheck + eslint verts
+
+## PROCHAINE SESSION → CG-3
+
+Clients/fournisseurs complets + règlements + rapprochement bancaire (`BankStatement`/`BankStatementLine` déjà migrés en CG-1), lettrage fournisseur, dettes fournisseurs (D6xx/C401 à la dépense engagée ?). Voir `BACKLOG_DEVELOPPEMENT.md` CG-3..CG-6 puis RH-1..RH-8.
