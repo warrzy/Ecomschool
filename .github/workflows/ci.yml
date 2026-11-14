@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, phase-10-production-readiness]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Typecheck, lint, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          AUTH_SECRET: ci-build-secret
+          NEXTAUTH_SECRET: ci-build-secret
+          NEXTAUTH_URL: http://localhost:3000
+
+  recette:
+    name: Recette base isolee (PostgreSQL service)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ecomschool
+          POSTGRES_PASSWORD: ecomschool
+          POSTGRES_DB: ecomschool_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ecomschool"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ecomschool:ecomschool@localhost:5432/ecomschool_ci?schema=public
+      AUTH_SECRET: ci-recette-secret
+      NEXTAUTH_SECRET: ci-recette-secret
+      NEXTAUTH_URL: http://localhost:3000
+      MOBILE_MONEY_LIVE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma migrate deploy
+      - name: Bootstrap donnees de reference
+        run: bash scripts/preprod/bootstrap.sh
+      - name: Recette comptabilite H12
+        run: npx tsx scripts/h12/comptabilite-recette.ts
