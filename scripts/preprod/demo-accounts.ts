@@ -32,7 +32,7 @@ async function main() {
     const user = await prisma.user.upsert({
       where: { email: acc.email },
       update: { passwordHash },
-      create: { email: acc.email, name: acc.label.replace(/_/g, " "), passwordHash },
+      create: { email: acc.email, firstName: "Démo", lastName: acc.label.replace(/_/g, " "), passwordHash },
     });
     const role = (await prisma.role.findFirst({
       where: { scope: "SCHOOL", schoolId: school.id, name: acc.label },
