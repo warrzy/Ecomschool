@@ -44,10 +44,10 @@ async function main() {
   const c = op?.lines.reduce((s, l) => s + l.credit, 0) ?? -2;
   const a12 = await acc("12");
   check("OPENING équilibrée", d === c && d > 0);
-  check("OPENING porte 12 (résultat 100k)", op?.lines.some((l) => l.accountId === a12 && l.credit === 100000));
-  check("OPENING reprend 281 créditeur", op?.lines.some((l) => l.accountId === a281 && l.credit === 20000));
-  check("OPENING reprend 571 découvert", op?.lines.some((l) => l.accountId === a571 && l.credit === 10000));
-  check("OPENING reprend 201 débiteur", op?.lines.some((l) => l.accountId === a201 && l.debit === 80000));
+  check("OPENING porte 12 (résultat 100k)", op?.lines.some((l) => l.accountId === a12 && l.credit === 100000) === true);
+  check("OPENING reprend 281 créditeur", op?.lines.some((l) => l.accountId === a281 && l.credit === 20000) === true);
+  check("OPENING reprend 571 découvert", op?.lines.some((l) => l.accountId === a571 && l.credit === 10000) === true);
+  check("OPENING reprend 201 débiteur", op?.lines.some((l) => l.accountId === a201 && l.debit === 80000) === true);
   const cf2 = await carryForward(ctx, ex1.result.id, { name: "2026b", startDate: new Date("2027-01-01"), endDate: new Date("2027-12-31") });
   check("rejeu à-nouveaux → idempotent", !cf2.ok && cf2.error === "ALREADY_CARRIED");
   const tb2 = await trialBalance(ctx, ex2id);

@@ -68,3 +68,17 @@ Clients/fournisseurs complets + règlements + rapprochement bancaire (`BankState
 ## PROCHAINE SESSION → RH-1
 
 `Employee` + `EmployeeContract`(+`amendsContractId`) + documents + matricule. Voir `BACKLOG_DEVELOPPEMENT.md` RH-1→RH-8. Séparation des fonctions : `PAYROLL_OFFICER` à créer, HR_MANAGER sans `payroll.*`. Barème BF officiel requis avant RH-3.
+
+## RH-1 TERMINÉ ✅ (référentiel personnel, migration 58/58)
+
+- `Employee` (matricule unique/école, catégorie TEACHING/NON_TEACHING, liens optionnels Teacher+User, statuts ACTIVE/SUSPENDED/DEPARTED), `EmployeeContract` (CDI/CDD/VACATION/INTERN, `amendsContractId` chaîné), `EmployeeDocument`
+- Avenant transactionnel : parent → ENDED à la date de début ; 1 seul contrat ACTIVE (activation clôt l'existant) ; avenant sur contrat non actif refusé
+- Sortie transactionnelle : DEPARTED + fin de tous les contrats (révocation accès = RH-8)
+- Permissions `hr.read`/`hr.manage` (+`payroll.*` pré-créées), rôle global HR_MANAGER bootstrappé — séparation RH/paie respectée
+- UI `/app/rh` : liste, recherche, fiche (contrats/avenants/documents), sortie
+- Recette `scripts/rh1/recette-rh1.ts` : **20/20 PASS** ; non-régression CG-1 14/14 ; typecheck vert
+- Bug corrigé par recette : `activate` passé dans `data` Prisma → destructuré
+
+## PROCHAINE SESSION → RH-2
+
+`LeaveRequest`/`LeaveBalance`/`StaffAttendance` — cycle congé complet ; absence élève ≠ solde congé. Puis RH-3 (moteur paie — **barème BF officiel requis**), RH-4 avances ≤30% net, RH-5 OD paie→compta, RH-6 rectifications, RH-7 pilotage, RH-8 sortie+révocation+vacations.

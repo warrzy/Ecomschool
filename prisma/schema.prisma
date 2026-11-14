@@ -254,6 +254,7 @@ model School {
   signupRequests             SchoolSignupRequest[]
 
   schoolMessages    SchoolMessage[]
+  employees         Employee[]
 
   @@index([status])
 }
@@ -314,6 +315,7 @@ model User {
   refundApprovals          PaymentRefund[]         @relation("RefundApprovedBy")
   discrepancyResolutions   PaymentDiscrepancy[]    @relation("DiscrepancyResolvedBy")
   providerLiveEnabled      PaymentProvider[]       @relation("ProviderLiveEnabler")
+  employees                Employee[]
 
   @@index([schoolId])
   @@index([email])
@@ -830,6 +832,7 @@ model Teacher {
   courseSchedules   CourseSchedule[]
   courseSessions    CourseSession[]
   assessments       Assessment[]
+  employees         Employee[]
 
   @@index([schoolId])
   @@index([schoolId, status])
@@ -3967,4 +3970,104 @@ model BankStatementLine {
   matchedEntryLineId String?
 
   @@index([statementId])
+}
+
+// ---------- RH-1 : personnel (enseignant & non enseignant) ----------
+
+enum EmploymentCategory {
+  TEACHING
+  NON_TEACHING
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  SUSPENDED
+  DEPARTED
+}
+
+enum ContractType {
+  CDI
+  CDD
+  VACATION
+  INTERN
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+/** Salarié de l'établissement — distinct de Teacher (pédagogie) et User (accès). */
+model Employee {
+  id       String @id @default(cuid())
+  schoolId String
+  school   School @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  matricule  String
+  firstName  String
+  lastName   String
+  sex        Gender?
+  birthDate  DateTime?
+  phone      String?
+  email      String?
+  nationalId String?
+
+  category EmploymentCategory @default(NON_TEACHING)
+  status   EmployeeStatus     @default(ACTIVE)
+  hireDate DateTime?
+  departureDate DateTime?
+
+  /** Lien pédagogique optionnel — un enseignant salarié garde sa fiche Teacher. */
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  /** Lien compte utilisateur optionnel (portail enseignant). */
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  contracts EmployeeContract[]
+  documents EmployeeDocument[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, matricule])
+  @@index([schoolId])
+}
+
+/** Contrat — avenants chaînés via amendsContractId (jamais d'UPDATE historique). */
+model EmployeeContract {
+  id         String @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type      ContractType
+  position  String
+  startDate DateTime
+  endDate   DateTime?
+  baseSalary Int @default(0)
+
+  /** Avenant : ce contrat amende le contrat pointé (le parent passe ENDED). */
+  amendsContractId String?
+  status           ContractStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+}
+
+model EmployeeDocument {
+  id         String @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  kind    String
+  label   String
+  fileUrl String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
 }
