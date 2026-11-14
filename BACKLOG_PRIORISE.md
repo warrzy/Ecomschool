@@ -43,7 +43,7 @@ Priorité : P0 bloque une première offre scolaire honnête. P1 la rend solide. 
 | ID | Titre | Taille | Dépend de | Preuve du besoin | Critère d'acceptation |
 |---|---|---|---|---|---|
 | AUD-019 | Écritures d'engagement (411 / produit, puis règlement / 411) | L | AUD-003 | `generateEntries` crédite le produit à l'encaissement | Jeu d'essai sans double comptage avec les écritures PAYMENT déjà postées |
-| AUD-020 | Étendre le plan de démarrage sans écraser l'existant | M | AUD-019 | 11 comptes, pas de classe 1, 2, 3 | Comptes ajoutés, comptes déjà renommés conservés |
+| AUD-020 | Étendre le plan de démarrage sans écraser l'existant | M | AUD-019 | 10 comptes, pas de classe 1, 2, 3 | Comptes ajoutés, comptes déjà renommés conservés |
 | AUD-021 | Compte de résultat et bilan simplifié | L | AUD-019, AUD-020 | Aucune fonction bilan | Totaux = balance, PDF ou CSV, exercice clos figé |
 | AUD-022 | Auxiliaires élèves et fournisseurs, lettrage | L | AUD-019 | 411 et 401 collectifs, `Expense.beneficiary` texte | Solde auxiliaire = compte collectif |
 | AUD-023 | Rapprochement bancaire | L | AUD-021 | Absent. Ne pas réutiliser `PaymentReconciliation` | Relevé importé, pointage, écart listé |
@@ -91,6 +91,17 @@ Priorité : P0 bloque une première offre scolaire honnête. P1 la rend solide. 
 
 AUD-011 peut s'intercaler dès AUD-001, il ne dépend pas de la recette.  
 AUD-026 ne démarre pas avant AUD-010 : il n'y a pas de fondation RH à perdre, et le scolaire doit être stable avant d'ouvrir un second domaine.
+
+## P1 — Écarts relevés après la première lecture
+
+| ID | Titre | Taille | Dépend de | Preuve du besoin | Critère d'acceptation |
+|---|---|---|---|---|---|
+| AUD-040 | Créer le rôle `BURSAR` ou retirer son nom du bootstrap | S | AUD-001 | `scripts/h12/bootstrap-accounting-permissions.ts` attache des droits à `BURSAR` sans jamais créer le rôle | Un comptable a un rôle seedé, ou le script ne cite plus un rôle inexistant |
+| AUD-041 | Décider du sort de `allowMultipleEnrollments` | S | — | Le réglage est ignoré à cause de l'unicité `ENROLLED` | Le réglage disparaît de l'écran, ou l'unicité est levée avec une recette |
+| AUD-042 | Clôture d'année : bloquer ou assumer les inscrits encore ouverts | S | — | `closeYear` avertit puis clôture | Le comportement choisi est testé et écrit dans le manuel |
+| AUD-043 | Garder `/app/preferences` par `preferences.read` | S | — | La page n'exige que le contexte école | Sans la permission, la page est refusée |
+
+Les corrections déjà présentes dans `ec62b59` et encore décrites comme ouvertes par `docs/f2e-audit-gestion-scolaire.md` (créances à l'import, classe archivée, année close sur les évaluations, archivage d'un élève inscrit) ne deviennent pas des tickets.
 
 ## Hors backlog
 

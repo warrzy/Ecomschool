@@ -27,7 +27,7 @@ Le fait le plus important pour reprendre le projet : **`main`, branche par défa
 - Référentiel scolaire : établissement, années, périodes, niveaux, classes, matières, coefficients, salles, emplois du temps.
 - Vie scolaire : élèves, tuteurs, inscriptions, admissions publiques, réinscriptions, absences, notes, moyennes, bulletins PDF, délibérations, passage / redoublement / orientation.
 - Finances de scolarité : tarifs, échéanciers, encaissements, reçus, impayés, clôture de caisse, dépenses, trésorerie, rapports CSV / Excel / PDF.
-- Comptabilité de démarrage SYSCOHADA : plan, journaux, exercices, écritures générées depuis les paiements et les dépenses, balance à l'écran, exports CSV.
+- Comptabilité de démarrage SYSCOHADA : plan de 10 comptes, 5 journaux, exercices, écritures de partie double lancées par un bouton (pas à chaque encaissement), balance à l'écran, exports CSV.
 - SaaS : plans, modules, quotas, factures plateforme, supervision, audit, demandes d'inscription d'établissements.
 - Mobile Money : encaissement manuel Orange Money / Moov Money ; intentions, webhooks, rapprochement et adaptateur PayDunya, avec verrou serveur des paiements réels.
 - 55 migrations SQL, 102 modèles Prisma, 75 enums, 93 pages, 41 routes, 70 services, 16 specs Playwright, 87 scripts de recette ou de contrôle.
@@ -94,7 +94,7 @@ Il n'y a pas de dossier `.github`. Il n'y a pas de middleware Next.js à la raci
 - `School` porte le tenant (pays `BF`, devise `XOF`, fuseau `Africa/Ouagadougou` par défaut).
 - `SchoolMembership` relie un utilisateur à un établissement (phase 2). L'unicité e-mail est devenue globale puis le rattachement passe par l'appartenance.
 - Les services financiers et scolaires consultés filtrent par `schoolId`.
-- Les rôles système seedés incluent `PLATFORM_OWNER`, `ADMIN_SCHOOL`, `TEACHER`, `PARENT`, `STUDENT`, `FINANCE_MANAGER`, `CASHIER`.
+- Les rôles système créés par les bootstraps incluent `PLATFORM_OWNER`, `PLATFORM_SALES`, `ADMIN_SCHOOL`, `TEACHER`, `PARENT`, `STUDENT`, `FINANCE_MANAGER`, `CASHIER`. Le script `scripts/h12/bootstrap-accounting-permissions.ts` attache aussi les droits comptables à un rôle `BURSAR` s'il existe déjà. Aucun script ne crée ce rôle.
 - Les modules d'abonnement (`PlatformModule`, `PlanModule`, `SchoolModuleOverride`) peuvent couper une permission. Les quotas `maxStudents` et `maxUsers` sont appliqués dans `src/lib/services/platform/modules.ts`.
 
 ### Sécurité observée dans le code (non rejouée de bout en bout)
@@ -150,7 +150,7 @@ Légende d'état utilisée partout :
 Voir le rapport dédié `AUDIT_RH_COMPTABILITE_360.md`. Résumé :
 
 - La **gestion des frais, de la caisse, des impayés, des dépenses et de la trésorerie de flux** est développée, avec recettes versionnées (`scripts/phase7`, `scripts/f3`, `scripts/g3`).
-- La **comptabilité** (lot H12) génère des écritures de partie double à partir des paiements, annulations, remboursements et dépenses payées. Elle affiche une balance et exporte des journaux CSV. Elle n'est pas une comptabilité générale SYSCOHADA complète.
+- La **comptabilité** (lot H12) produit des écritures de partie double à partir des paiements, annulations, remboursements et dépenses payées, lorsque quelqu'un clique sur « Générer les écritures ». Rien n'est posté au moment de l'encaissement. Elle affiche une balance et exporte des journaux CSV. Le compte 411 du plan de démarrage n'est pas mouvementé. Elle n'est pas une comptabilité générale SYSCOHADA complète.
 - Relances d'impayés : notifications **internes** (`FeeReminder`). Pas de SMS prouvé.
 
 ### C. Ressources humaines
@@ -185,8 +185,8 @@ Le semestre scolaire (`AcademicPeriodType.SEMESTER`) est un découpage d'année 
 |---|---|---|
 | Espèces, virement, chèque, autre | Code complet + recette versionnée | `PaymentMethod`, `src/lib/services/finance/payments.ts` |
 | Orange Money et Moov Money **au guichet** (référence saisie, pas d'appel opérateur) | Code complet + recette versionnée | `src/lib/services/finance/manualMobileMoney.ts`, `scripts/g3/manual-momo-recette.ts` |
-| Orange Money API directe | Absente | Aucun adaptateur Orange. L'opérateur est un enum de saisie manuelle. |
-| Moov Money API directe | Absente | Idem. |
+| Orange Money API directe | Absente | Aucun adaptateur Orange. L'opérateur est un enum de saisie manuelle. Le commentaire de `paydunya.ts` indique que SoftPay Orange Money BF n'est pas implémenté. |
+| Moov Money API directe | Absente | Idem, y compris SoftPay Moov Money BF. |
 | PayDunya | Adaptateur codé, inerte sans verrou et secrets | `src/lib/services/payments/providers/paydunya.ts`, `index.ts` (« enregistré mais inerte »). Recettes `scripts/g3/`. Aucune preuve d'appel LIVE réussi en production. |
 | Simulateur sandbox | Code complet | `payments/providers/sandbox.ts`. Les prestataires `SANDBOX` ne sortent pas sur le réseau. |
 | Webhooks, rapprochement, reversements, remboursements | Code complet + recettes versionnées | `webhooks.ts`, `reconciliation.ts`, `refunds.ts`, modèles `PaymentIntent`, `WebhookEvent`, `PaymentReconciliation`, `PaymentSettlement`, `PaymentRefund` |
@@ -210,6 +210,11 @@ Le semestre scolaire (`AcademicPeriodType.SEMESTER`) est un découpage d'année 
 | `/app/preferences` | Page réelle, liée depuis les notifications, pas depuis le menu principal. |
 | `/app/fees/unpaid`, `/app/fees/payments`, `/app/fees/accounts`, `/app/fees/settings` | Pages présentes. Le menu pointe vers `/app/fees` ; les sous-pages sont atteintes depuis l'écran Finances (liens internes). |
 | Ancien rapport « comptabilité absente » | `docs/strategie-produit/inventaire-fonctionnel.md` section G. Contredit par H12. |
+| `allowMultipleEnrollments` | Réglage ignoré : un index unique impose une seule inscription `ENROLLED` par élève et par année (`enrollments.ts`). |
+| Clôture d'année | `closeYear` avertit si des inscriptions `ENROLLED` restent ouvertes, puis clôture quand même. |
+| Préférences de communication | `/app/preferences` passe par `requireSchoolContext`, pas par la permission `preferences.read`. |
+
+Les écarts bloquants décrits dans `docs/f2e-audit-gestion-scolaire.md` (import sans créances, inscription dans une classe archivée, évaluation sans garde d'année close, archivage d'un élève encore inscrit) sont corrigés dans `ec62b59`. Ce markdown n'a pas été réécrit. Ils ne sont pas à refaire.
 
 ---
 
@@ -246,7 +251,7 @@ Le semestre scolaire (`AcademicPeriodType.SEMESTER`) est un découpage d'année 
 | `origin/devin/1794223531-manuel-utilisateur` | Phase 10 + manuel `docs/manuel-utilisateur/` (texte + 41 captures). | PR #1 ouverte, non fusionnée. Documentation seule. |
 | `https://preprod.ecomschool.fr` | HTTP 200, Nginx 1.24, Next.js, titre « ECOM-SCHOOL — Pilotez votre établissement… », `/login` 200. | SHA exact **non vérifiable** (pas de route de version). |
 | `https://ecomschool.fr` | Même titre, **mêmes 10 empreintes de chunks** que la préproduction au sondage de 15 h 54 (Europe/Paris). `www` redirige en 301. | Même limite sur le SHA. Les deux hôtes semblent servir **le même build** à cet instant. |
-| Port 3001 public de l'IP documentée dans `deploy/README.md` | Timeout. | Cohérent avec l'écoute `127.0.0.1` décrite dans le guide. Ce n'est pas une preuve que le processus tourne ou ne tourne pas. |
+| Ports applicatifs documentés | Préproduction `127.0.0.1:3001` (`ecomschool-preprod`). Production `127.0.0.1:3002` (`ecomschool-prod`) dans `deploy/pm2/ecosystem.config.cjs`. | Le port 3001 public a expiré au bout de 8 secondes. Le port 3002 n'a pas été sondé. Les deux hôtes HTTPS, eux, répondent. |
 | Routes `/app/rh` et `/app/paie` sur la préproduction | HTTP 404. | Le build servi n'a pas de module RH. Cohérent avec le code de `ec62b59`. |
 | `/app/comptabilite` et `/app/documents-administratifs` | HTTP 200 (coquille Next, chargement). | Les routes existent dans le build. L'accès authentifié n'a pas été testé : aucun identifiant n'a été utilisé. |
 

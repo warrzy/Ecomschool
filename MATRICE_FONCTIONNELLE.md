@@ -86,7 +86,7 @@ Les arrondis affichés sont à l'entier le plus proche ; le calcul brut est donn
 
 | Module | Fonctionnalité | État réel | Preuve technique | Travail restant | Priorité |
 |---|---|---|---|---|---|
-| Compta | Plan SYSCOHADA | Partiel | `SYSCOHADA_STARTER`, 11 comptes | Plan utile à une liasse, validé par un comptable | P1 |
+| Compta | Plan SYSCOHADA | Partiel | `SYSCOHADA_STARTER`, 10 comptes | Plan utile à une liasse, validé par un comptable | P1 |
 | Compta | Journaux | Partiel | `AccountingJournal` CA, BQ, MM, VE, OD | Écran de création si le starter ne suffit pas | P1 |
 | Compta | Écritures auto caisse et dépenses | Partiel | `generateEntries` : comptabilité de caisse, pas d'engagement (411 non mouvementé à la facturation) | Écritures d'engagement | P1 |
 | Compta | Grand livre | Backend ou route seule | `generalLedger`, export `kind=ledger` sans bouton | Bouton et écran | P1 |

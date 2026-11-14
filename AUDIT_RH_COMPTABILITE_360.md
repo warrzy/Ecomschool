@@ -61,7 +61,7 @@ Fonctions exportées :
 
 ### 2.3 Plan de démarrage réellement codé
 
-`SYSCOHADA_STARTER` installe **11 comptes** et **5 journaux**, pas le plan SYSCOHADA intégral :
+`SYSCOHADA_STARTER` installe **10 comptes** et **5 journaux**, pas le plan SYSCOHADA intégral :
 
 | Code | Intitulé | Classe |
 |---|---|---|
@@ -82,7 +82,7 @@ Le compte 411 est un compte collectif. Il n'y a pas de sous-compte par élève n
 
 ### 2.4 Ce que la génération d'écritures fait
 
-`generateEntries` (`accounting.ts`, à partir de la ligne 359) lit les données financières **sans les modifier** et poste :
+`generateEntries` (`accounting.ts`, à partir de la ligne 359) n'est pas appelé par l'encaissement. L'écran Comptabilité le lance par une action explicite. Il lit les données financières **sans les modifier** et poste :
 
 | Source | Écriture |
 |---|---|
@@ -132,7 +132,7 @@ Ces scripts n'ont pas été exécutés pendant l'audit (ils exigent une base mig
 
 | Fonctionnalité | Statut | Preuve |
 |---|---|---|
-| Plan comptable SYSCOHADA | Partiel | 11 comptes de démarrage, modifiables. Pas le plan complet, pas de classes 1, 2, 3, 8. |
+| Plan comptable SYSCOHADA | Partiel | 10 comptes de démarrage, modifiables. Pas le plan complet, pas de classes 1, 2, 3, 8. |
 | Journaux | Partiel | CA, BQ, MM, VE, OD créés par le starter. Pas d'écran de création de journal au-delà du seed (liste + compte par défaut). |
 | Écritures automatiques d'encaissement et de dépense | Code complet + recette versionnée | `generateEntries` |
 | Saisie d'OD manuelle | Backend seul | `createManualEntry` |
@@ -183,7 +183,7 @@ Résultat : le mot « salaire » n'apparaît que dans la documentation de cadrag
 | Dossier administratif du salarié | Absent | Pas de modèle |
 | Distinction enseignant / personnel non enseignant | Partiel, pédagogique seulement | `Teacher` existe. Pas de `Staff` pour le personnel de vie scolaire, de caisse, de direction en tant que salariés. Ces personnes peuvent être des `User` avec un rôle (`CASHIER`, `ADMIN_SCHOOL`) sans dossier RH. |
 | Informations personnelles et professionnelles | Partiel | `Teacher` : `firstName`, `lastName`, `email`, `phone`, `status`, `userId`. Pas de date de naissance, pièce d'identité, adresse, matricule, diplôme, échelon. |
-| Documents administratifs du personnel | Absent | `AdministrativeDocument` vise l'élève (attestation, certificat, carte). `Document` est la brique de pièces (admissions, justificatifs), pas un dossier salarié. |
+| Documents administratifs du personnel | Absent | `AdministrativeDocument` vise l'élève (attestation, certificat, carte). `DOCUMENT_OWNER_TYPES` dans `documents.ts` prévoit les valeurs `STAFF` et `CONTRACT`, sans aucun appel `ownerType` correspondant dans `src/`. |
 | Historique des affectations | Partiel, pédagogique | `TeachingAssignment` relie enseignant, matière, classe, année. Pas d'historique de poste, de service ou de site. |
 
 Fichiers : `prisma/schema.prisma` modèle `Teacher` (vers la ligne 810), `src/lib/services/teachers.ts`, pages `/app/teachers` et `/app/teachers/[id]`, portail `/teacher`.
@@ -287,7 +287,7 @@ Ordre de dépendance recommandé, détaillé dans `ROADMAP_FINALISATION.md` :
 7. Compte de résultat et bilan produits depuis la balance, puis contrôles de cohérence.
 8. Budgets prévisionnels et suivi réalisé.
 9. Écritures de paie, après le module RH.
-10. Jeu d'essai signé par un comptable SYSCOHADA (le plan de 11 comptes ne suffit pas à une liasse).
+10. Jeu d'essai signé par un comptable SYSCOHADA (le plan de 10 comptes ne suffit pas à une liasse).
 
 ### RH et paie, pour mériter le mot « module »
 

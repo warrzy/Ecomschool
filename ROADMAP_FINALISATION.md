@@ -154,7 +154,7 @@ Lot 1. Le point 9 dépend du lot 4. Les points 6 à 8 peuvent suivre les points 
 ### Risques
 
 - Double comptage si l'on génère des écritures d'engagement sans isoler les écritures de caisse déjà postées (`sourceType = PAYMENT`).
-- Le plan de 11 comptes est insuffisant pour un bilan (pas de classe 1, 2, 3). Le starter devra être étendu sans écraser les comptes déjà personnalisés par une école (`installStarterPlan` fait des upserts qui **ne mettent pas à jour** l'existant : le conserver).
+- Le plan de 10 comptes est insuffisant pour un bilan (pas de classe 1, 2, 3). Le starter devra être étendu sans écraser les comptes déjà personnalisés par une école (`installStarterPlan` fait des upserts qui **ne mettent pas à jour** l'existant : le conserver).
 - Montants entiers XOF : pas de décimal. Les taux d'amortissement doivent tomber sur des entiers ou documenter l'arrondi.
 - Multi-instance : non concerné tant que PM2 reste mono-processus.
 
