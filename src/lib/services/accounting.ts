@@ -47,6 +47,9 @@ export const SYSCOHADA_STARTER = {
     { code: "281", name: "Amortissements des immobilisations", classNumber: 2 },
     { code: "12", name: "Résultat net de l'exercice", classNumber: 1 },
     { code: "411", name: "Élèves — créances", classNumber: 4 },
+    { code: "421", name: "Personnel — avances et acomptes", classNumber: 4 },
+    { code: "422", name: "Personnel — rémunérations dues", classNumber: 4 },
+    { code: "431", name: "Sécurité sociale — dettes", classNumber: 4 },
     { code: "401", name: "Fournisseurs", classNumber: 4 },
     { code: "521", name: "Banques locales", classNumber: 5 },
     { code: "571", name: "Caisse siège", classNumber: 5 },
@@ -510,7 +513,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
 
   // --- Dépenses payées ---
   const expenses = await prisma.expense.findMany({
-    where: { schoolId: ctx.schoolId, status: "PAID" },
+    where: { schoolId: ctx.schoolId, status: "PAID", payrollRunId: null },
     orderBy: { paidAt: "asc" },
   });
   for (const e of expenses) {
@@ -595,7 +598,7 @@ export async function listUnposted(ctx: SchoolCtx) {
   );
   const expIds = new Set(
     (await prisma.expense.findMany({
-      where: { schoolId: ctx.schoolId, status: "PAID" }, select: { id: true },
+      where: { schoolId: ctx.schoolId, status: "PAID", payrollRunId: null }, select: { id: true },
     })).map((e) => `EXPENSE:${e.id}`),
   );
   const refIds = new Set(

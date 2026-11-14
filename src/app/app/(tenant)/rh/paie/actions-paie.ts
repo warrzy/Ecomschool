@@ -46,3 +46,11 @@ export async function cancelRunAction(fd: FormData) {
   await cancelRun({ userId: t.userId, schoolId: t.schoolId }, id);
   back("?ok=Campagne+annulée");
 }
+
+export async function postPayrollAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { postPayrollToAccounting } = await import("@/lib/services/hr/payrollPosting");
+  const id = String(fd.get("id"));
+  const r = await postPayrollToAccounting({ userId: t.userId, schoolId: t.schoolId }, id);
+  back(r.ok ? `?run=${id}&ok=OD+de+paie+comptabilisée` : `?err=${r.error}`);
+}

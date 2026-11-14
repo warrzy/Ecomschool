@@ -173,7 +173,7 @@ async function main() {
     (await prisma.accountingEntry.count({ where: { schoolId: A.id } })) === 0);
   const accsR = await listAccounts(ctxA);
   const accs = accsR.ok ? accsR.result : [];
-  check("14 comptes SYSCOHADA (starter CG)", accs.length === 14);
+  check("17 comptes SYSCOHADA (starter CG+RH)", accs.length === 17);
   const joursR = await listJournals(ctxA);
   const jours = joursR.ok ? joursR.result : [];
   check("5 journaux (CA/BQ/MM/VE/OD)", jours.length === 5);

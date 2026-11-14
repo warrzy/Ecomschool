@@ -695,6 +695,8 @@ model Expense {
   cancelReason  String?
 
   idempotencyKey String?
+  /** RH-5/M-5 : dépense déjà comptabilisée via une OD de paie — jamais double-comptée. */
+  payrollRunId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

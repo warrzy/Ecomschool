@@ -1,7 +1,7 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listComponents, listRuns, getRun } from "@/lib/services/hr/payroll";
-import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction } from "./actions-paie";
+import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction, postPayrollAction } from "./actions-paie";
 
 const BTN = "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50";
 const INP = "rounded border px-2 py-1 text-sm";
@@ -63,6 +63,9 @@ export default async function PaiePage(props: { searchParams: Promise<{ run?: st
               <td>{r.periodStart.toISOString().slice(0, 10)} → {r.periodEnd.toISOString().slice(0, 10)}</td>
               <td>{r.status}</td><td>{r._count.payslips} bulletin(s)</td>
               <td className="space-x-2 text-right">
+                {canManage && r.status === "VALIDATED" ? (
+                  <form action={postPayrollAction} className="inline"><input type="hidden" name="id" value={r.id} /><button className="text-xs text-purple-700 underline">Comptabiliser</button></form>
+                ) : null}
                 {canManage && r.status === "DRAFT" ? (
                   <>
                     <form action={computeRunAction} className="inline"><input type="hidden" name="id" value={r.id} /><button className="text-xs text-blue-700 underline">Calculer</button></form>
