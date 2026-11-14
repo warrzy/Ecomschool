@@ -132,3 +132,13 @@ Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi,
 - Routes : /app/rh, /app/rh/paie, /app/comptabilite{,/tiers,/etats,/immobilisations,/rapprochement} → 200 ; modules scolaires OK.
 - Rollback : repointer current → release précédente + pm2 start (deploy/scripts/rollback.sh) ; dumps disponibles.
 - Production : non touchée. CNSS/fiscaux : non activés.
+
+## Recette métier 360° — préproduction (2026-11-14)
+- scripts/preprod/recette-metier-360.ts : **25/25 PASS** sur ecomschool_preprod.
+- S1 : élève → charge 75 000 → paiement partiel 50 000 → D411/C706 + D571/C411 → bilan=passif, CR produits 75 000.
+- S2 : congé approuvé (après dotation), présence, paie validée → garde PAYROLL_UNPOSTED → OD D66/C422 → POSTED.
+- S3 : avance 20 000 → recouvrement ≤30 % → rectification POSTED → contre-passation → RECTIFIED.
+- S4 : RH⊄paie, paie⊄RH, compta⊄bulletins (confidentialité salaires), isolation inter-écoles.
+- Anomalie observée : recordPayment a renvoyé une erreur sur un appel dont le paiement a commité (retry → OVERPAYMENT correctement refusé, aucune donnée en double) — à investiguer en tâche de fond.
+- demo-admin@demo.ecomschool.test / Demo-Admin-2026! ajouté (rôle DEMO_ADMIN, 21 permissions).
+- Deploy durci : fusionné main (f39e09d) + présent dans la release courante — sera dans toute prochaine release.
