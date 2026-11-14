@@ -84,6 +84,7 @@ export const appNav: NavItem[] = [
   { label: "Comptabilité", href: "/app/comptabilite", permission: "accounting.read", section: "Finances", icon: I.chart },
   { label: "Tiers", href: "/app/comptabilite/tiers", permission: "accounting.read", section: "Finances", icon: I.users },
   { label: "États financiers", href: "/app/comptabilite/etats", permission: "accounting.read", section: "Finances", icon: I.chart },
+  { label: "Immobilisations", href: "/app/comptabilite/immobilisations", permission: "accounting.read", section: "Finances", icon: I.chart },
   { label: "Trésorerie", href: "/app/treasury", permission: "treasury.read", section: "Finances", icon: I.wallet },
   { label: "Rapports", href: "/app/fees/reports", permission: "finance.reports.read", section: "Finances", icon: I.file },
   // G3-A : intentions Mobile Money — simulateur sandbox uniquement.

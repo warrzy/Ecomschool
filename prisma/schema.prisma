@@ -3935,6 +3935,7 @@ model AssetSchedule {
   amount      Int
   entryId     String? @unique
 
+  @@unique([assetId, periodStart])
   @@index([assetId])
 }
 

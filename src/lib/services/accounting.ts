@@ -43,12 +43,15 @@ async function hasPerm(ctx: SchoolCtx, key: string) {
 /** Plan SYSCOHADA de démarrage — codes usuels, ajustables par école. */
 export const SYSCOHADA_STARTER = {
   accounts: [
+    { code: "201", name: "Immobilisations corporelles", classNumber: 2 },
+    { code: "281", name: "Amortissements des immobilisations", classNumber: 2 },
     { code: "411", name: "Élèves — créances", classNumber: 4 },
     { code: "401", name: "Fournisseurs", classNumber: 4 },
     { code: "521", name: "Banques locales", classNumber: 5 },
     { code: "571", name: "Caisse siège", classNumber: 5 },
     { code: "585", name: "Virements de fonds (Mobile Money)", classNumber: 5 },
     { code: "605", name: "Autres achats", classNumber: 6 },
+    { code: "681", name: "Dotations aux amortissements", classNumber: 6 },
     { code: "62", name: "Services extérieurs", classNumber: 6 },
     { code: "66", name: "Charges de personnel", classNumber: 6 },
     { code: "701", name: "Ventes de marchandises", classNumber: 7 },
