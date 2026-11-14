@@ -107,3 +107,49 @@ model AccountingBudget {               // Budget prévisionnel (P3)
 | CG-4 | Immobilisations + dotations auto | 3 j | 1 écriture/mois idempotente |
 | CG-5 | Rapprochement bancaire | 3 j | import + pointage + écart |
 | CG-6 | Clôture + à-nouveaux | 2 j | reprise classes 1-5 |
+
+---
+
+## 7. Corrections v2 (revue CG-A→M-5)
+
+### CG-A — Lettrage partiel : `AccountingAllocation`
+
+```prisma
+model AccountingAllocation {              // charge ↔ règlement (N:N montant)
+  id String @id @default(cuid())
+  schoolId String
+  chargeLineId String                     // EntryLine débit 411
+  paymentLineId String                    // EntryLine crédit 411
+  amount Int                              // part soldée (acompte autorisé)
+  allocatedAt DateTime @default(now())
+  @@unique([chargeLineId, paymentLineId])
+}
+```
+Règles : somme des allocations d'une charge ≤ montant ; solde auxiliaire = charges − allocations ; `reconciledAt` retiré (remplacé).
+
+### CG-B — Bascule CASH→ACCRUAL (procédure contrôlée)
+
+1. Mode par **exercice** : `AccountingExercise.mode = CASH|ACCRUAL` ; bascule au **prochain exercice ouvert** seulement.
+2. À l'ouverture du 1er exercice ACCRUAL : OD d'ouverture `sourceType=OPENING` reprenant les `StudentFeeCharge` non soldées → D411 / C706 (C119 si exercices antérieurs).
+3. Écritures `PAYMENT` historiques inchangées ; `generateEntries` ignore les sources antérieures au mode.
+
+### CHARGE/PAYROLL dans `generateEntries` (I-1)
+
+`generateEntries` traite `CHARGE` (facturation) et `PAYROLL` (validation run) **uniquement si `exercise.mode=ACCRUAL`** ; en CASH, comportement inchangé. Mappings `MAP:CHARGE:*`, `MAP:PAYROLL:*`.
+
+### CG-E — Mapping rubriques états financiers
+
+| Rubrique | Classes |
+|---|---|
+| Actif immobilisé | 2x − 28x | Créances | 411, 41x nets 49x | Trésorerie | 5x |
+| Capitaux propres | 1x | Dettes | 401, 42x, 43x, 44x, 16x |
+| Charges 6x / Produits 7x | CR : résultat = Σ7x − Σ6x ; contrôle actif=passif |
+**Référent comptable requis pour les rubriques détaillées avant CG-3.**
+
+### M-5 — Dépenses « paie » historiques
+
+`generateEntries` exclut les `Expense` à catégorie `payrollLinked` si un `PayrollRun` posté couvre la période.
+
+### M-3 — Clôture exercice
+
+`closeExercise` refuse (`PAYROLL_UNPOSTED`) si un `PayrollRun` DRAFT/COMPUTED/VALIDATED existe dans la plage.

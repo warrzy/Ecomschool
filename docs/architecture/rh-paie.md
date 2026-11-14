@@ -110,3 +110,50 @@ model Advance { id / employeeId / amount / grantedAt / status / recoveries Advan
 | RH-5 | OD paie → compta (après CG-1) | 2 j | OD équilibrée idempotente |
 | RH-6 | Pilotage : effectifs, masse salariale, alertes contrats | 2 j | dashboard + alerte J-30 |
 | RH-7 | Vacations enseignants | 2 j | taux × séances validées |
+
+---
+
+## 7. Corrections v2 (revue RH-A→RH-F)
+
+### RH-A — Rectification / annulation de bulletin
+
+`PayrollStatus` + `RECTIFIED | CANCELLED`. Toute correction post-`POSTED` passe par un **run rectificatif** : `PayrollRun.rectifiesRunId` → contre-passation automatique de l'OD d'origine + nouvelle OD du delta + bulletin d'annulation PDF. **Jamais d'UPDATE** sur un `Payslip` émis.
+
+### RH-B — Grammaire des formules (déterministe, sans exécution de code)
+
+```json
+{ "type": "fixed" | "percent" | "rate_x_qty" | "table",
+  "base": "BASE" | "GROSS" | "TAXABLE" | "NET_PRECEDING",
+  "rate": 0.036, "amount": 25000, "cap": 8500,
+  "tableRef": "IRF_BF_2024" }
+```
+Pipeline ordonné : 1) base → 2) primes/indemnités → 3) heures sup./vacations → 4) brut → 5) retenues salariales → 6) avances → 7) net → 8) charges patronales (hors net). Chaque `PayslipLine` mémorise `formulaSnapshot` (règle appliquée figée). Bases calculées en XOF entier, arrondi documenté (demi-FCFA supérieur).
+
+### Versionnement
+
+`SalaryComponent` : `effectiveFrom`/`effectiveTo`, jamais d'UPDATE sur une règle consommée par un bulletin émis — nouvelle version obligatoire. `tableRef` pointe un barème versionné (document source officielle BF attaché : CNSS, ITS — **aucun taux saisi sans référence validée**).
+
+### RH-D — Sortie salarié
+
+`Employee.status=EXITED` : transaction unique → `endDate` contrat + désactivation `SchoolMembership` + `User.status=LOCKED` + purge sessions. Réversible uniquement par réactivation explicite `hr.manage` (tracée).
+
+### RH-E — Avenants
+
+Avenant = nouvel `EmployeeContract` avec `amendsContractId` (remplace `previousContractId` pour ce cas) ; le contrat amendé passe `ENDED` à la veille de l'effet.
+
+### RH-F — `AdvanceRecovery`
+
+```prisma
+model AdvanceRecovery { id / advanceId / payslipId / amount Int / @@unique([advanceId, payslipId]) }
+```
+Règle : Σ récupérations ≤ solde avance ; retenue mensuelle ≤ 30 % du net (paramètre école).
+
+### Confidentialité & séparation des fonctions
+
+| Rôle | Dossiers RH | Contrats | Congés | Salaires |
+|---|---|---|---|---|
+| `HR_MANAGER` | manage | manage | manage | — (jamais `payroll.*`) |
+| `PAYROLL_OFFICER` (nouveau) | read | read | — | compute+validate+pay |
+| `ADMIN_SCHOOL` | tout | tout | tout | tout (tracé) |
+| Enseignant | son dossier en lecture | — | ses congés | **aveugle** |
+| Accès bulletin PDF | loggué `AuditLog` (`payslip.read` par événement) |
