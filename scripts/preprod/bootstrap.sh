@@ -18,6 +18,7 @@ for f in \
   scripts/phase9/bootstrap.ts \
   scripts/h5/bootstrap-deliberations-permissions.ts \
   scripts/h12/bootstrap-accounting-permissions.ts \
+  scripts/rh1/bootstrap-hr-permissions.ts \
   scripts/preprod/create-platform-admin.ts
 do
   echo "── $f"
