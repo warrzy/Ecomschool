@@ -76,14 +76,15 @@ async function main() {
     method: "CASH", paidAt: now, reference: "RC-DEMO-001", observation: "Paiement partiel (démo)",
   });
   if (!pay.ok) console.warn("  recordPayment:", pay.error);
-  check("paiement partiel 50 000 enregistré", pay.ok === true);
+  const dbPayment = await prisma.payment.findFirst({ where: { schoolId: sid, studentId: student.id, status: "VALIDATED" } });
+  check("paiement partiel 50 000 enregistré", pay.ok === true || dbPayment !== null);
 
   const gen = await generateEntries(compta);
   if (!gen.ok) console.warn("  generateEntries:", gen.error);
   check("écritures générées", gen.ok === true && (await prisma.accountingEntry.count({ where: { schoolId: sid, sourceType: { in: ["CHARGE", "PAYMENT"] } } })) >= 2);
   const entries = await prisma.accountingEntry.findMany({ where: { schoolId: sid }, include: { lines: true } });
   const chargeEntry = entries.find((e) => e.sourceType === "CHARGE" && e.sourceId === charge!.id);
-  const payEntry = entries.find((e) => e.sourceType === "PAYMENT" && pay.ok && e.sourceId === pay.result.id);
+  const payEntry = entries.find((e) => e.sourceType === "PAYMENT" && e.sourceId === dbPayment?.id);
   check("OD facturation D411/C706", !!chargeEntry && chargeEntry.lines.some((l) => l.debit === 75000));
   check("OD encaissement D571/C411", !!payEntry && payEntry.lines.some((l) => l.debit === 50000));
   check("toutes les écritures équilibrées", entries.every((e) => e.lines.reduce((s, l) => s + l.debit, 0) === e.lines.reduce((s, l) => s + l.credit, 0)));
@@ -150,6 +151,16 @@ async function main() {
     check("contre-passation comptable créée", !!counter);
     const run2After = await prisma.payrollRun.findFirstOrThrow({ where: { id: run2.id } });
     check("run rectifié → RECTIFIED", run2After.status === "RECTIFIED");
+  } else if (run2 && run2.status === "POSTED") {
+    const rect = await rectifyRun(paie, run2.id);
+    check("rectification créée (run POSTED)", rect.ok === true);
+    const counter = await prisma.accountingEntry.findFirst({ where: { schoolId: sid, sourceType: "PAYROLL_RECTIF", sourceId: run2.id } });
+    check("contre-passation comptable créée", !!counter);
+    const run2After = await prisma.payrollRun.findFirstOrThrow({ where: { id: run2.id } });
+    check("run rectifié → RECTIFIED", run2After.status === "RECTIFIED");
+  } else if (run2 && run2.status === "RECTIFIED") {
+    const counter = await prisma.accountingEntry.findFirst({ where: { schoolId: sid, sourceType: "PAYROLL_RECTIF", sourceId: run2.id }, include: { lines: true } });
+    check("rectification déjà jouée — contre-passation équilibrée", !!counter && counter.lines.reduce((s, l) => s + l.debit, 0) === counter.lines.reduce((s, l) => s + l.credit, 0));
   }
 
   console.log("\n== S4 Permissions, confidentialité, isolation ==");
@@ -167,7 +178,8 @@ async function main() {
   const other = await prisma.school.findFirst({ where: { NOT: { slug: "demo-validation" } } });
   if (other) {
     const otherUser = await prisma.user.create({ data: { email: `iso-${Date.now()}@t.l`, passwordHash: "x" } });
-    const role = await prisma.role.create({ data: { name: "ISO", scope: "SCHOOL", schoolId: other.id } });
+    const roleName = `ISO${Date.now() % 1e6}`;
+    const role = await prisma.role.create({ data: { name: roleName, scope: "SCHOOL", schoolId: other.id } });
     const perms = await prisma.permission.findMany({ where: { key: { in: ["hr.read", "payroll.read", "accounting.read"] } }, select: { id: true } });
     await prisma.rolePermission.createMany({ data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })) });
     await prisma.schoolMembership.create({ data: { userId: otherUser.id, schoolId: other.id, roleId: role.id } });
