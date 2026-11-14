@@ -111,3 +111,9 @@ Moteur paie : `SalaryComponent` (grammaire fixed/percent/rate_x_qty/table, bases
 Non-régressions : H12 68/68, CG-1→6 84/84, RH-1→6 rejouées vertes.
 Paramètres CNSS/fiscaux BF : moteur configurable, aucun taux activé (isRegulatory exclu du calcul).
 Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi, paramètres réglementaires officiels.
+
+## Point technique migrations (post RH-8)
+- Verifie : 62/62 migrations `migrate deploy` propres sur namespace neuf (schema migcheck) — aucune correction manuelle.
+- `migrate diff` DB migrée vs schema.prisma : zero derive.
+- `prisma.config.ts` : `shadowDatabaseUrl` optionnel ajoute (Prisma 7).
+- CI : branches lot0 (nav-permissions, ci-github) fusionnees dans main ; nouveau job `migrations` (deploy depuis zero + detection de derive) pour detecter les migrations defectueuses.

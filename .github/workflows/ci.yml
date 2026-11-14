@@ -64,3 +64,31 @@ jobs:
         run: npx tsx scripts/h12/bootstrap-accounting-permissions.ts
       - name: Recette comptabilite H12
         run: npx tsx scripts/h12/comptabilite-recette.ts
+
+  migrations:
+    name: Migrations sur base neuve (detection derive)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ecomschool
+          POSTGRES_PASSWORD: ecomschool
+          POSTGRES_DB: ecomschool_mig
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ecomschool"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ecomschool:ecomschool@localhost:5432/ecomschool_mig?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Toutes les migrations s'appliquent depuis zero
+        run: npx prisma migrate deploy
+      - name: Aucune derive schema.prisma vs migrations
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
