@@ -34,9 +34,10 @@ export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<
   const exercise = exerciseFor(exs, run.periodEnd);
   if (!exercise) return err("NO_OPEN_EXERCISE");
   const journal = await prisma.accountingJournal.findFirst({ where: { schoolId: ctx.schoolId, code: "OD" } });
-  const [c66, c422, c431, c425] = await Promise.all([
+  const [c66, c422, c431, cAdv] = await Promise.all([
     acc(ctx.schoolId, "66"), acc(ctx.schoolId, "422"), acc(ctx.schoolId, "431"),
-    acc(ctx.schoolId, "425"), // avances et acomptes au personnel
+    // Avances et acomptes au personnel : 421 (plan de démarrage), 425 toléré.
+    acc(ctx.schoolId, "421").then((a) => a ?? acc(ctx.schoolId, "425")),
   ]);
   if (!journal || !c66 || !c422 || !c431) return err("MISSING_ACCOUNTS");
 
@@ -44,7 +45,7 @@ export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<
   const ded = run.payslips.reduce((s, p) => s + p.deductions, 0);
   const emp = run.payslips.reduce((s, p) => s + p.employerCost, 0);
   const net = run.payslips.reduce((s, p) => s + p.net, 0);
-  // Recouvrements d'avances → 425 (créance personnel), pas 431 (dettes
+  // Recouvrements d'avances → 421 (créance personnel), pas 431 (dettes
   // sociales). Retenues pour absences → réduction du coût 66 (salaire
   // non couru), pas une dette à reverser.
   const slipIds = run.payslips.map((p) => p.id);
@@ -57,7 +58,7 @@ export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<
       .reduce((x, l) => x + (l.amount ?? 0), 0),
     0,
   );
-  if (advances > 0 && !c425) return err("MISSING_ACCOUNTS");
+  if (advances > 0 && !cAdv) return err("MISSING_ACCOUNTS");
   const social = ded - absence - advances;
 
   // B3 : écriture + marquage POSTED/postedEntryId dans UNE transaction —
@@ -74,7 +75,7 @@ export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<
       ...(emp > 0 ? [{ accountId: c66.id, debit: emp, label: "Charges patronales" }] : []),
       { accountId: c422.id, credit: net, label: "Net à payer" },
       ...(social + emp > 0 ? [{ accountId: c431.id, credit: social + emp, label: "Retenues + charges à reverser" }] : []),
-      ...(advances > 0 && c425 ? [{ accountId: c425.id, credit: advances, label: "Recouvrement avances personnel" }] : []),
+      ...(advances > 0 && cAdv ? [{ accountId: cAdv.id, credit: advances, label: "Recouvrement avances personnel" }] : []),
     ],
   }, markPosted);
   if (!created) {

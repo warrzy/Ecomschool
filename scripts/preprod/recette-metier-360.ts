@@ -145,7 +145,7 @@ async function main() {
   if (!exN1) {
     await openExercise(compta, { name: `${nextEnd.getFullYear()}`, startDate: new Date(nextEnd.getFullYear(), 0, 1), endDate: new Date(nextEnd.getFullYear(), 11, 31) });
   }
-  let run2 = await prisma.payrollRun.findFirst({ where: { schoolId: sid, periodStart: next } });
+  let run2 = await prisma.payrollRun.findFirst({ where: { schoolId: sid, periodStart: next, rectifiesRunId: null } });
   if (!run2) {
     const r = await createRun(paie, { periodStart: next, periodEnd: nextEnd });
     if (r.ok) run2 = await prisma.payrollRun.findFirstOrThrow({ where: { id: r.result.id } });
@@ -161,8 +161,10 @@ async function main() {
     // Le plafond s'applique au net avant recouvrement : net_avant = net + recouvrement
     check(`recouvrement ≤ ${capBp / 100} % du net (plafond configuré, indicatif)`, slip2 !== null && rec !== null && rec.amount <= Math.floor(((slip2.net + rec.amount) * capBp) / 10000) + 1 && slip2.net > 0);
     check("retenue d'avance tracée (AdvanceRecovery)", !!rec && rec.amount > 0 && rec.amount <= 20000);
-    await validateRun(paie, run2.id);
+    const v2 = await validateRun(paie, run2.id);
+    if (!v2.ok) console.warn("  validateRun N+1:", v2.error);
     const p2 = await postPayrollToAccounting(paie, run2.id);
+    if (!p2.ok) console.warn("  postPayroll N+1:", p2.error);
     check("run N+1 comptabilisé", p2.ok === true);
     const rect = await rectifyRun(paie, run2.id);
     check("rectification créée", rect.ok === true);
