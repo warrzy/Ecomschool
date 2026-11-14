@@ -39,11 +39,35 @@ fi
 if git -C "$APP_REPO" rev-parse --verify --quiet "origin/$APP_REF" >/dev/null; then
   APP_REF="origin/$APP_REF"
 elif ! git -C "$APP_REPO" rev-parse --verify --quiet "$APP_REF" >/dev/null; then
-  APP_REF="origin/$APP_REF"
+  echo "ERREUR : ref '$APP_REF' introuvable (ni locale ni distante)"; exit 1
+fi
+RESOLVED_COMMIT=$(git -C "$APP_REPO" rev-parse "$APP_REF")
+echo "Ref résolue : $APP_REF → ${RESOLVED_COMMIT:0:10}"
+
+# Garde anti-régression : la ref doit être un descendant (ou l'égal) du commit
+# actuellement servi. Retour arrière volontaire : ALLOW_DOWNGRADE=1.
+if [ -d "$APP_CURRENT" ] && [ "${ALLOW_DOWNGRADE:-0}" != "1" ]; then
+  PREV_COMMIT=$(git -C "$APP_CURRENT" rev-parse HEAD 2>/dev/null || true)
+  if [ -n "$PREV_COMMIT" ] && [ "$PREV_COMMIT" != "$RESOLVED_COMMIT" ] \
+     && ! git -C "$APP_REPO" merge-base --is-ancestor "$PREV_COMMIT" "$RESOLVED_COMMIT"; then
+    echo "ERREUR : ${RESOLVED_COMMIT:0:10} n'est pas un descendant du commit servi ${PREV_COMMIT:0:10}."
+    echo "         Bascule refusée (ALLOW_DOWNGRADE=1 pour forcer un retour arrière)."
+    exit 1
+  fi
 fi
 # Worktree isolé, HEAD détaché : le répertoire de la version en cours n'est
 # jamais touché et plusieurs releases issues de la même branche coexistent.
 git -C "$APP_REPO" worktree add --detach "$RELEASE" "$APP_REF"
+
+# Validation précoce : une release sans ces fichiers ne peut pas être servie —
+# abandon AVANT npm ci/build/bascule (cas réel : ref obsolète sans deploy/).
+for f in package.json prisma/schema.prisma deploy/pm2/ecosystem.config.cjs; do
+  [ -f "$RELEASE/$f" ] || {
+    echo "ERREUR : $f absent de la release — bascule refusée."
+    git -C "$APP_REPO" worktree remove --force "$RELEASE"
+    exit 1
+  }
+done
 
 cd "$RELEASE"
 ln -sfn "$APP_SHARED/.env" .env
@@ -69,18 +93,38 @@ echo "== 6/8 Build =="
 npm run build
 
 echo "== 7/8 Bascule atomique =="
+PREV_RELEASE=$(readlink -f "$APP_CURRENT" 2>/dev/null || true)
 ln -sfn "$RELEASE" "$APP_CURRENT.tmp" && mv -T "$APP_CURRENT.tmp" "$APP_CURRENT"
 
 PM2_APP=${PM2_APP:-ecomschool-preprod}
 echo "== 8/8 Redémarrage PM2 ($PM2_APP uniquement) =="
+
+# Retour arrière automatique : démarrage raté ou service muet → release précédente.
+rollback_release() {
+  echo "!! ÉCHEC — restauration de la release précédente : $PREV_RELEASE"
+  if [ -n "$PREV_RELEASE" ] && [ -d "$PREV_RELEASE" ]; then
+    ln -sfn "$PREV_RELEASE" "$APP_CURRENT.tmp" && mv -T "$APP_CURRENT.tmp" "$APP_CURRENT"
+    pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
+    pm2 start "$PREV_RELEASE/deploy/pm2/ecosystem.config.cjs" --only "$PM2_APP" || true
+    pm2 save
+  fi
+  exit 1
+}
+
 # delete+start : en mode fork, reload = restart équivalent, et delete+start
 # garantit que le cwd `current` est re-résolu vers la NOUVELLE release
 # (un reload peut conserver le chemin résolu précédemment).
 # Interruption : ~2 s, identique à un reload fork.
 pm2 delete "$PM2_APP" >/dev/null 2>&1 || true
 pm2 start "$APP_CURRENT/deploy/pm2/ecosystem.config.cjs" \
-  --only "$PM2_APP"
+  --only "$PM2_APP" || rollback_release
 pm2 save
+
+# Vérification post-bascule : le service doit répondre (sinon rollback auto).
+APP_PORT=${APP_PORT:-3001}
+sleep 4
+curl -sf -o /dev/null --max-time 15 "http://127.0.0.1:${APP_PORT}/login" || rollback_release
+echo "Service OK sur :$APP_PORT"
 
 # Nettoyage : conserve les KEEP_RELEASES dernières releases.
 cd "$APP_RELEASES"
