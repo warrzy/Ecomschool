@@ -6,7 +6,7 @@ import {
 } from "@/lib/services/accounting";
 import {
   installPlanAction, upsertAccountAction, upsertMappingAction,
-  openExerciseAction, closeExerciseAction, generateAction,
+  openExerciseAction, closeExerciseAction, generateAction, manualEntryAction,
 } from "./actions";
 
 export const instant = false;
@@ -254,7 +254,42 @@ export default async function ComptabilitePage(props: {
               <a key={j.id} className={BTN} href={`/app/comptabilite/export?kind=journal&exercise=${currentEx.id}&journal=${j.id}`}>Journal {j.code}</a>
             ))}
             <a className={BTN} href={`/app/comptabilite/export?kind=balance&exercise=${currentEx.id}`}>Balance</a>
+            <form action="/app/comptabilite/export" method="get" className="flex items-center gap-2">
+              <input type="hidden" name="kind" value="ledger" />
+              <input type="hidden" name="exercise" value={currentEx.id} />
+              <select name="account" required className="rounded border px-2 py-1 text-sm">
+                <option value="">Grand livre — choisir un compte…</option>
+                {(accs.ok ? accs.result : []).map((a) => (
+                  <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                ))}
+              </select>
+              <button className={BTN} type="submit">Exporter</button>
+            </form>
           </div>
+        </section>
+      ) : null}
+
+      {manage && currentEx ? (
+        <section className="rounded-lg border p-4">
+          <h2 className="mb-3 font-medium">Écriture manuelle (OD) — {currentEx.name}</h2>
+          <form action={manualEntryAction} className="space-y-2 text-sm">
+            <div className="flex flex-wrap gap-2">
+              <select name="journalId" required className="rounded border px-2 py-1">
+                {(jours.ok ? jours.result : []).map((j) => (
+                  <option key={j.id} value={j.id}>{j.code} — {j.label}</option>
+                ))}
+              </select>
+              <input type="hidden" name="exerciseId" value={currentEx.id} />
+              <input name="date" type="date" required className="rounded border px-2 py-1" />
+              <input name="description" required placeholder="Motif" className="min-w-48 flex-1 rounded border px-2 py-1" />
+            </div>
+            <textarea
+              name="lines" required rows={3}
+              placeholder='[{"accountId":"<id>","debit":10000},{"accountId":"<id>","credit":10000}] — débit = crédit requis'
+              className="w-full rounded border px-2 py-1 font-mono text-xs"
+            />
+            <button className={BTN} type="submit">Poster l'écriture</button>
+          </form>
         </section>
       ) : null}
     </div>

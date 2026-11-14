@@ -63,3 +63,22 @@ export async function generateAction() {
   await svc.generateEntries({ userId: t.userId, schoolId: t.schoolId });
   revalidatePath("/app/comptabilite");
 }
+
+/** CG-1 : saisie manuelle d'une OD (journal, exercice, lignes JSON). */
+export async function manualEntryAction(fd: FormData) {
+  const t = await requireSchoolPermission("accounting.manage");
+  const lines = JSON.parse(String(fd.get("lines") ?? "[]")) as {
+    accountId: string; debit?: number; credit?: number; label?: string;
+  }[];
+  await svc.createManualEntry(
+    { userId: t.userId, schoolId: t.schoolId },
+    {
+      journalId: String(fd.get("journalId") ?? ""),
+      exerciseId: String(fd.get("exerciseId") ?? ""),
+      date: new Date(String(fd.get("date") ?? "")),
+      description: String(fd.get("description") ?? ""),
+      lines,
+    },
+  );
+  revalidatePath("/app/comptabilite");
+}

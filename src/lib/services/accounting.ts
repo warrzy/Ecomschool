@@ -347,7 +347,7 @@ export function exerciseFor(
 
 type GenStats = {
   payments: number; cancels: number; refunds: number;
-  expenses: number; incomplete: number; skipped: number;
+  expenses: number; charges: number; incomplete: number; skipped: number;
 };
 
 /**
@@ -366,7 +366,7 @@ export async function openExercises(schoolId: string) {
 
 export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenStats>> {
   if (!(await hasPerm(ctx, "accounting.manage"))) return err("FORBIDDEN");
-  const stats: GenStats = { payments: 0, cancels: 0, refunds: 0, expenses: 0, incomplete: 0, skipped: 0 };
+  const stats: GenStats = { payments: 0, cancels: 0, refunds: 0, expenses: 0, charges: 0, incomplete: 0, skipped: 0 };
   const exercises = await openExercises(ctx.schoolId);
   if (exercises.length === 0) return err("NO_OPEN_EXERCISE");
   const maps = await mapsByKey(ctx);
@@ -502,6 +502,34 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
       ],
     })) stats.expenses++;
     else stats.skipped++;
+  }
+
+  // --- Créances scolaires → engagement (exercices ACCRUAL uniquement) ---
+  const hasAccrual = exercises.some((e) => e.mode === "ACCRUAL");
+  if (hasAccrual) {
+    const receivable = maps.get("FALLBACK:RECEIVABLE");
+    const charges = await prisma.studentFeeCharge.findMany({
+      where: { schoolId: ctx.schoolId },
+      select: { id: true, amount: true, createdAt: true, categoryId: true },
+    });
+    for (const c of charges) {
+      if (posted.has(`CHARGE:${c.id}`)) continue;
+      const ex = exerciseFor(exercises, c.createdAt);
+      if (!ex || ex.mode !== "ACCRUAL") { stats.skipped++; continue; }
+      const product = maps.get(`CAT:${c.categoryId}`) ?? maps.get("FALLBACK:CAT");
+      if (!receivable || !product) { stats.incomplete++; continue; }
+      const lines: Line[] = [
+        { accountId: receivable.accountId, debit: c.amount, label: `Créance ${c.id}` },
+        { accountId: product.accountId, credit: c.amount },
+      ];
+      if (await postEntrySafe(ctx, {
+        journalId: receivable.journalId ?? product.journalId ?? odd.id,
+        exerciseId: ex.id, date: c.createdAt,
+        description: `Facturation — créance scolaire ${c.id}`,
+        sourceType: "CHARGE", sourceId: c.id, lines,
+      })) stats.charges++;
+      else stats.skipped++;
+    }
   }
 
   await logAudit({
