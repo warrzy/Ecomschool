@@ -59,7 +59,8 @@ async function main() {
   check("UNPAID sans consommer le solde", bal3.ok === true && bal3.result[0].used === 10);
 
   const cx = await cancelLeave(ctx, r1id);
-  check("annulation restaure le solde", cx.ok === true && (await balancesFor(ctx, emp, y)).result![0].used === 0);
+  const balC = await balancesFor(ctx, emp, y);
+  check("annulation restaure le solde", cx.ok === true && balC.ok === true && balC.result[0].used === 0);
   const cx2 = await cancelLeave(ctx, r1id);
   check("re-annulation refusée", !cx2.ok);
 

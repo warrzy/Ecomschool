@@ -85,6 +85,7 @@ export const appNav: NavItem[] = [
   { label: "Tiers", href: "/app/comptabilite/tiers", permission: "accounting.read", section: "Finances", icon: I.users },
   { label: "États financiers", href: "/app/comptabilite/etats", permission: "accounting.read", section: "Finances", icon: I.chart },
   { label: "Personnel", href: "/app/rh", permission: "hr.read", section: "Finances", icon: I.users },
+  { label: "Paie", href: "/app/rh/paie", permission: "payroll.read", section: "Finances", icon: I.chart },
   { label: "Immobilisations", href: "/app/comptabilite/immobilisations", permission: "accounting.read", section: "Finances", icon: I.chart },
   { label: "Rapprochement", href: "/app/comptabilite/rapprochement", permission: "accounting.read", section: "Finances", icon: I.chart },
   { label: "Trésorerie", href: "/app/treasury", permission: "treasury.read", section: "Finances", icon: I.wallet },

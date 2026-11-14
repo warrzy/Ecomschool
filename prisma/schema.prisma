@@ -4027,6 +4027,7 @@ model Employee {
   user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   contracts EmployeeContract[]
+  payslips  Payslip[]
   documents EmployeeDocument[]
   leaveBalances  LeaveBalance[]
   leaveRequests  LeaveRequest[]
@@ -4144,4 +4145,98 @@ model StaffAttendance {
 
   @@unique([employeeId, date])
   @@index([schoolId])
+}
+
+// ---------- RH-3 : moteur de paie (paramétrable, sans taux réglementaire activé) ----------
+
+enum SalaryComponentKind {
+  EARNING
+  DEDUCTION
+  EMPLOYER_CHARGE
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  VALIDATED
+  POSTED
+  RECTIFIED
+  CANCELLED
+}
+
+/** Composant de salaire versionné — formule déterministe, jamais de code arbitraire. */
+model SalaryComponent {
+  id       String @id @default(cuid())
+  schoolId String
+
+  code  String
+  label String
+  kind  SalaryComponentKind
+  /** Grammaire : fixed | percent | rate_x_qty | table — bases nommées. */
+  formula Json
+  /** Ordre d'évaluation dans le pipeline. */
+  order Int @default(0)
+
+  version    Int       @default(1)
+  activeFrom DateTime
+  activeTo   DateTime?
+
+  /** Paramètre réglementaire (CNSS, fiscal…) : inactif tant que non vérifié officiellement. */
+  isRegulatory Boolean @default(false)
+  enabled      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, code, version])
+  @@index([schoolId])
+}
+
+/** Campagne de paie — DRAFT → VALIDATED → POSTED ; RECTIFIED/CANCELLED finaux. */
+model PayrollRun {
+  id       String @id @default(cuid())
+  schoolId String
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  status        PayrollRunStatus @default(DRAFT)
+  validatedById String?
+  validatedAt   DateTime?
+  /** RH-5 : écriture OD postée — lu par la garde PAYROLL_UNPOSTED de la clôture. */
+  postedEntryId String?
+  /** RH-6 : run de rectification de ce run. */
+  rectifiesRunId String?
+
+  payslips Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([schoolId])
+}
+
+/** Bulletin — immuable une fois le run validé (corrections = contre-run RH-6). */
+model Payslip {
+  id         String @id @default(cuid())
+  runId      String
+  run        PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  contractId    String?
+  baseSalary    Int
+  gross         Int
+  deductions    Int
+  employerCost  Int @default(0)
+  net           Int
+
+  /** Détail calculé : [{code,label,kind,amount,formula}]. */
+  lines Json
+  /** Règles figées au moment du calcul — jamais recalculées. */
+  formulaSnapshot Json
+
+  createdAt DateTime @default(now())
+
+  @@unique([runId, employeeId])
+  @@index([employeeId])
 }
