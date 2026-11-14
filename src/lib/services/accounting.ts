@@ -258,7 +258,7 @@ export async function closeExercise(ctx: SchoolCtx, exerciseId: string) {
 
 // ---------- Génération des écritures ----------
 
-export type Line = { accountId: string; debit?: number; credit?: number; label?: string };
+export type Line = { accountId: string; debit?: number; credit?: number; label?: string; thirdPartyId?: string };
 
 function nextEntryRef(seq: number, year: number) {
   return `EC-${year}-${String(seq).padStart(5, "0")}`;
@@ -307,6 +307,7 @@ async function createEntry(
         create: input.lines.map((l, i) => ({
           accountId: l.accountId, debit: l.debit ?? 0,
           credit: l.credit ?? 0, label: l.label ?? null, sortOrder: i,
+          thirdPartyId: l.thirdPartyId ?? null,
         })),
       },
     },
@@ -386,6 +387,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
   const payments = await prisma.payment.findMany({
     where: { schoolId: ctx.schoolId, status: "VALIDATED" },
     include: {
+      student: { select: { firstName: true, lastName: true } },
       allocations: {
         include: {
           installment: { include: { charge: { select: { categoryId: true } } } },
@@ -400,10 +402,24 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     if (!ex) { stats.skipped++; continue; }
     const mid = maps.get(`METHOD:${p.method}`);
     const credits = new Map<string, number>();
+    let paymentThirdParty: string | undefined;
     if (ex.mode === "ACCRUAL") {
       // Engagement : le règlement solde la créance 411, le produit est né à la facturation.
       const receivable = maps.get("FALLBACK:RECEIVABLE")?.accountId;
       if (receivable) credits.set(receivable, p.amount);
+      // Auxiliaire élève sur la ligne 411 — requis pour le lettrage.
+      if (receivable && p.studentId) {
+        const tp = await prisma.accountingThirdParty.upsert({
+          where: { schoolId_kind_refId: { schoolId: ctx.schoolId, kind: "STUDENT", refId: p.studentId } },
+          create: {
+            schoolId: ctx.schoolId, kind: "STUDENT", refId: p.studentId,
+            name: `${p.student.firstName} ${p.student.lastName}`,
+            collectiveAccountId: receivable,
+          },
+          update: {},
+        });
+        paymentThirdParty = tp.id;
+      }
     } else {
       for (const a of p.allocations) {
         const accId = maps.get(`CAT:${a.installment.charge.categoryId}`)?.accountId
@@ -414,7 +430,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     if (!mid || credits.size === 0) { stats.incomplete++; continue; }
     const lines: Line[] = [
       { accountId: mid.accountId, debit: p.amount, label: `Encaissement ${p.receiptNumber ?? ""}`.trim() },
-      ...Array.from(credits).map(([accId, amt]) => ({ accountId: accId, credit: amt })),
+      ...Array.from(credits).map(([accId, amt]) => ({ accountId: accId, credit: amt, thirdPartyId: paymentThirdParty })),
     ];
     if (await postEntrySafe(ctx, {
       journalId: mid.journalId ?? odd.id, exerciseId: ex.id,
@@ -510,7 +526,7 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     const receivable = maps.get("FALLBACK:RECEIVABLE");
     const charges = await prisma.studentFeeCharge.findMany({
       where: { schoolId: ctx.schoolId },
-      select: { id: true, amount: true, createdAt: true, categoryId: true },
+      select: { id: true, amount: true, createdAt: true, categoryId: true, studentId: true, student: { select: { firstName: true, lastName: true } } },
     });
     for (const c of charges) {
       if (posted.has(`CHARGE:${c.id}`)) continue;
@@ -518,8 +534,18 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
       if (!ex || ex.mode !== "ACCRUAL") { stats.skipped++; continue; }
       const product = maps.get(`CAT:${c.categoryId}`) ?? maps.get("FALLBACK:CAT");
       if (!receivable || !product) { stats.incomplete++; continue; }
+      // Auxiliaire élève : provisionné automatiquement (idempotent).
+      const tp = await prisma.accountingThirdParty.upsert({
+        where: { schoolId_kind_refId: { schoolId: ctx.schoolId, kind: "STUDENT", refId: c.studentId } },
+        create: {
+          schoolId: ctx.schoolId, kind: "STUDENT", refId: c.studentId,
+          name: `${c.student.firstName} ${c.student.lastName}`,
+          collectiveAccountId: receivable.accountId,
+        },
+        update: {},
+      });
       const lines: Line[] = [
-        { accountId: receivable.accountId, debit: c.amount, label: `Créance ${c.id}` },
+        { accountId: receivable.accountId, debit: c.amount, label: `Créance ${c.id}`, thirdPartyId: tp.id },
         { accountId: product.accountId, credit: c.amount },
       ];
       if (await postEntrySafe(ctx, {
