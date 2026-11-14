@@ -20,11 +20,11 @@ async function main() {
 
   await installStarterPlan(ctx);
   const now = new Date();
-  const ex = await prisma.accountingExercise.findFirst({ where: { schoolId: school.id, isOpen: true } })
+  const ex = await prisma.accountingExercise.findFirst({ where: { schoolId: school.id, status: "OPEN" } })
     ?? (await openExercise(ctx, {
       name: `${now.getFullYear()}`,
       startDate: new Date(now.getFullYear(), 0, 1), endDate: new Date(now.getFullYear(), 11, 31),
-    })).then((r) => (r.ok ? prisma.accountingExercise.findFirstOrThrow({ where: { schoolId: school.id, isOpen: true } }) : null));
+    })).then((r) => (r.ok ? prisma.accountingExercise.findFirstOrThrow({ where: { schoolId: school.id, status: "OPEN" } }) : null));
   console.log("Exercice comptable :", ex?.name ?? "—");
 
   const staff = [
