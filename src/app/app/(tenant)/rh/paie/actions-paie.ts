@@ -54,3 +54,11 @@ export async function postPayrollAction(fd: FormData) {
   const r = await postPayrollToAccounting({ userId: t.userId, schoolId: t.schoolId }, id);
   back(r.ok ? `?run=${id}&ok=OD+de+paie+comptabilisée` : `?err=${r.error}`);
 }
+
+export async function rectifyRunAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { rectifyRun } = await import("@/lib/services/hr/payrollPosting");
+  const id = String(fd.get("id"));
+  const r = await rectifyRun({ userId: t.userId, schoolId: t.schoolId }, id);
+  back(r.ok ? `?run=${r.result.newRunId}&ok=Rectification+créée` : `?err=${r.error}`);
+}

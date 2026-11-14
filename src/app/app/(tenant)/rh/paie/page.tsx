@@ -1,7 +1,7 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listComponents, listRuns, getRun } from "@/lib/services/hr/payroll";
-import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction, postPayrollAction } from "./actions-paie";
+import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction, postPayrollAction, rectifyRunAction } from "./actions-paie";
 
 const BTN = "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50";
 const INP = "rounded border px-2 py-1 text-sm";
@@ -65,6 +65,9 @@ export default async function PaiePage(props: { searchParams: Promise<{ run?: st
               <td className="space-x-2 text-right">
                 {canManage && r.status === "VALIDATED" ? (
                   <form action={postPayrollAction} className="inline"><input type="hidden" name="id" value={r.id} /><button className="text-xs text-purple-700 underline">Comptabiliser</button></form>
+                ) : null}
+                {canManage && (r.status === "VALIDATED" || r.status === "POSTED") ? (
+                  <form action={rectifyRunAction} className="inline"><input type="hidden" name="id" value={r.id} /><button className="text-xs text-orange-700 underline">Rectifier</button></form>
                 ) : null}
                 {canManage && r.status === "DRAFT" ? (
                   <>
