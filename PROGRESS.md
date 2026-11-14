@@ -142,3 +142,26 @@ Prochaine étape possible : exports paie complémentaires, PDF bulletin enrichi,
 - Anomalie observée : recordPayment a renvoyé une erreur sur un appel dont le paiement a commité (retry → OVERPAYMENT correctement refusé, aucune donnée en double) — à investiguer en tâche de fond.
 - demo-admin@demo.ecomschool.test / Demo-Admin-2026! ajouté (rôle DEMO_ADMIN, 21 permissions).
 - Deploy durci : fusionné main (f39e09d) + présent dans la release courante — sera dans toute prochaine release.
+
+## RH-9 — Corrections post-recette 360° (2026-11-22)
+
+Correctifs des deux anomalies de la recette métier + cap avances configurable.
+
+### `recordPayment` — fiabilité post-commit (`src/lib/services/finance/payments.ts`)
+- Filet 1 : épuisement des retries → lookup par `idempotencyKey` avant de propager l'échec.
+- Filet 2 : erreur non retriable (timeout/coupure) après commit → lookup `idempotencyKey` dans le catch externe ; un paiement réellement enregistré n'est jamais présenté comme échoué. Aucun doublon : la clé unique `schoolId+idempotencyKey` demeure le garde-fou.
+
+### Dotations de congés assistées (`leaves.ts`, migration `20261122_rh9_dotations_config`)
+- `LeaveRule` (unique `schoolId+type`) : règles configurées par l'établissement, **aucun droit légal présumé**.
+- `upsertLeaveRule` / `listLeaveRules` / `provisionLeaveBalances` (dotation assistée tous employés actifs, ne crée que les soldes manquants — les corrections via `setEntitlement` sont préservées) / `provisionForEmployee` (auto à l'activation d'un contrat).
+- UI `/app/rh` : carte « Dotations de congés » (règles + provisionnement annuel).
+
+### Plafond avances configurable (`payroll.ts`, `PayrollConfig.advanceCapBp`)
+- `computeRun` lit `PayrollConfig.advanceCapBp` (points de base, défaut 3000 = 30 %) — **valeur indicative non réglementaire**, libellé explicite dans l'UI `/app/rh/paie`.
+- `setAdvanceCap` : 0–10000 pb, entier uniquement, audité.
+
+### Recette 360° corrigée
+- Sous-totaux réels par scénario (`subtotal()`) — le total affiché = checks exécutés.
+- S2 : dotation via règles+provisionnement (plus de `setEntitlement` manuel).
+- S3 : période N+1 = lendemain du dernier run principal (anti-RUN_OVERLAP) + ouverture auto de l'exercice couvrant N+1 ; plafond lu depuis `PayrollConfig`.
+- Résultat preprod : **30/30 PASS** ; RH-9 isolé **11/11** ; non-régressions schéma vierge : RH-2 16/16, RH-3 23/23, RH-4 17/17, RH-5 14/14, RH-6 15/15, RH-7/8 13/13. Migration 63 appliquée sur preprod (additive).

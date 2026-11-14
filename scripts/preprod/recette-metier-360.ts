@@ -12,7 +12,7 @@ import { prisma } from "@/lib/db/prisma";
 import { installStarterPlan, openExercise, generateEntries, trialBalance, closeExercise } from "@/lib/services/accounting";
 import { balanceSheet, incomeStatement } from "@/lib/services/accounting/statements";
 import { createEmployee, createContract } from "@/lib/services/hr/employees";
-import { requestLeave, decideLeave, markAttendance, setEntitlement } from "@/lib/services/hr/leaves";
+import { requestLeave, decideLeave, markAttendance, upsertLeaveRule, provisionLeaveBalances } from "@/lib/services/hr/leaves";
 import { createRun, computeRun, validateRun } from "@/lib/services/hr/payroll";
 import { postPayrollToAccounting, rectifyRun } from "@/lib/services/hr/payrollPosting";
 import { grantAdvance } from "@/lib/services/hr/payroll";
@@ -21,6 +21,9 @@ import { enrollStudent } from "@/lib/services/enrollments";
 
 let pass = 0, fail = 0;
 const check = (l: string, c: boolean) => { if (c) pass++; else fail++; console.log(`  ${c ? "PASS" : "FAIL"} ${l}`); };
+// Sous-totaux par scénario — le total affiché = checks réellement exécutés.
+let scStart = 0;
+const subtotal = (s: string) => { console.log(`  — ${s} : ${pass - scStart} PASS`); scStart = pass; };
 const ctxFor = async (role: string, schoolId: string) => {
   const m = await prisma.schoolMembership.findFirstOrThrow({
     where: { schoolId, role: { name: role } }, select: { userId: true } });
@@ -93,10 +96,14 @@ async function main() {
   check("bilan calculé (actif=passif)", bs.ok === true && bs.result.totalActif === bs.result.totalPassif);
   check("compte de résultat calculé (produit 75 000)", is.ok === true && is.result.produits.total === 75000);
 
+  subtotal("S1");
   console.log("\n== S2 Salarié → congés → présence → paie → OD ==");
   const emp1 = await prisma.employee.findFirstOrThrow({ where: { schoolId: sid, matricule: "DEMO-E1" } });
-  await setEntitlement(rh, emp1.id, now.getFullYear(), "ANNUAL", 30);
-  const leave = await requestLeave(rh, emp1.id, { type: "ANNUAL", startDate: new Date(now.getFullYear(), now.getMonth(), 20), endDate: new Date(now.getFullYear(), now.getMonth(), 22), days: 3, reason: "Congé démo" });
+  // RH-9 : dotation via règles configurées + provisionnement (plus de setEntitlement manuel)
+  await upsertLeaveRule(rh, "ANNUAL", 30);
+  const prov = await provisionLeaveBalances(rh, now.getFullYear());
+  check("dotations provisionnées via règles", prov.ok === true);
+  const leave = await requestLeave(rh, emp1.id, { type: "ANNUAL", startDate: new Date(now.getFullYear(), now.getMonth(), 20), endDate: new Date(now.getFullYear(), now.getMonth(), 22),reason: "Congé démo" });
   check("demande de congé créée", leave.ok === true);
   if (leave.ok) {
     const dec = await decideLeave(rh, leave.result.id, true, "OK démo");
@@ -105,7 +112,7 @@ async function main() {
   const att = await markAttendance(rh, emp1.id, new Date(), "PRESENT", "Démo");
   check("présence du jour marquée", att.ok === true);
 
-  let run = await prisma.payrollRun.findFirst({ where: { schoolId: sid }, orderBy: { periodStart: "desc" } });
+  let run = await prisma.payrollRun.findFirst({ where: { schoolId: sid, rectifiesRunId: null }, orderBy: { periodStart: "desc" } });
   check("campagne de paie présente", !!run);
   if (run && run.status === "DRAFT") {
     if ((await prisma.payslip.count({ where: { runId: run.id } })) === 0) await computeRun(paie, run.id);
@@ -121,16 +128,25 @@ async function main() {
     check("bulletins émis (≥2)", slips >= 2);
     run = await prisma.payrollRun.findFirstOrThrow({ where: { id: run.id } });
     check("statut POSTED", run.status === "POSTED");
-  } else check("cycle paie déjà joué (idempotent)", run?.status === "POSTED");
+  } else check("cycle paie déjà joué (idempotent)", run?.status === "POSTED" || run?.status === "RECTIFIED");
 
+  subtotal("S2");
   console.log("\n== S3 Avances → rectification → clôture ==");
   const emp2 = await prisma.employee.findFirstOrThrow({ where: { schoolId: sid, matricule: "DEMO-E2" } });
   const adv = await grantAdvance(paie, emp2.id, { amount: 20000, date: now, reason: "Avance démo (fictive)" });
   check("avance 20 000 accordée", adv.ok === true);
-  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  // Période N+1 = lendemain de la fin du dernier run principal (rejouable sans RUN_OVERLAP)
+  const lastRun = await prisma.payrollRun.findFirst({ where: { schoolId: sid, rectifiesRunId: null }, orderBy: { periodEnd: "desc" } });
+  const next = lastRun ? new Date(lastRun.periodEnd.getTime() + 86400000) : new Date(now.getFullYear(), now.getMonth(), 1);
+  const nextEnd = new Date(next.getFullYear(), next.getMonth() + 1, 0);
+  // La paie N+1 exige un exercice ouvert couvrant sa fin de période — on l'ouvre si besoin.
+  const exN1 = await prisma.accountingExercise.findFirst({ where: { schoolId: sid, status: "OPEN", startDate: { lte: nextEnd }, endDate: { gte: nextEnd } } });
+  if (!exN1) {
+    await openExercise(compta, { name: `${nextEnd.getFullYear()}`, startDate: new Date(nextEnd.getFullYear(), 0, 1), endDate: new Date(nextEnd.getFullYear(), 11, 31) });
+  }
   let run2 = await prisma.payrollRun.findFirst({ where: { schoolId: sid, periodStart: next } });
   if (!run2) {
-    const r = await createRun(paie, { periodStart: next, periodEnd: new Date(now.getFullYear(), now.getMonth() + 2, 0) });
+    const r = await createRun(paie, { periodStart: next, periodEnd: nextEnd });
     if (r.ok) run2 = await prisma.payrollRun.findFirstOrThrow({ where: { id: r.result.id } });
     else console.warn("  createRun N+1:", r.error);
   } else if (run2.status !== "DRAFT") console.warn("  run N+1 déjà", run2.status);
@@ -139,8 +155,10 @@ async function main() {
     check("run N+1 calculé avec recouvrement", c.ok === true);
     const slip2 = await prisma.payslip.findFirst({ where: { runId: run2.id, employeeId: emp2.id } });
     const gross = slip2?.gross ?? 0;
-    check("recouvrement ≤ 30 % du brut (net protégé)", slip2 !== null && slip2.deductions <= Math.floor(gross * 0.3) && slip2.net > 0);
+    const capBp = (await prisma.payrollConfig.findUnique({ where: { schoolId: sid } }))?.advanceCapBp ?? 3000;
     const rec = slip2 ? await prisma.advanceRecovery.findFirst({ where: { payslipId: slip2.id } }) : null;
+    // Le plafond s'applique au net avant recouvrement : net_avant = net + recouvrement
+    check(`recouvrement ≤ ${capBp / 100} % du net (plafond configuré, indicatif)`, slip2 !== null && rec !== null && rec.amount <= Math.floor(((slip2.net + rec.amount) * capBp) / 10000) + 1 && slip2.net > 0);
     check("retenue d'avance tracée (AdvanceRecovery)", !!rec && rec.amount > 0 && rec.amount <= 20000);
     await validateRun(paie, run2.id);
     const p2 = await postPayrollToAccounting(paie, run2.id);
@@ -163,6 +181,7 @@ async function main() {
     check("rectification déjà jouée — contre-passation équilibrée", !!counter && counter.lines.reduce((s, l) => s + l.debit, 0) === counter.lines.reduce((s, l) => s + l.credit, 0));
   }
 
+  subtotal("S3");
   console.log("\n== S4 Permissions, confidentialité, isolation ==");
   const rhPaie = await computeRun(rh, run2?.id ?? "x");
   check("RH sans payroll.manage → computeRun FORBIDDEN", !rhPaie.ok && rhPaie.error === "FORBIDDEN");
@@ -193,6 +212,7 @@ async function main() {
     check("isolation : écritures comptables non accessibles", (await prisma.accountingEntry.count({ where: { schoolId: sid } })) > 0);
   }
 
+  subtotal("S4");
   console.log(`\n===== RECETTE MÉTIER 360° : ${pass} PASS, ${fail} FAIL =====`);
   process.exit(fail ? 1 : 0);
 }

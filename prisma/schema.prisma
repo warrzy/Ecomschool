@@ -4096,6 +4096,20 @@ enum LeaveStatus {
   CANCELLED
 }
 
+/** Règle de dotation de congés — configurée par l'établissement, aucun droit légal présumé. */
+model LeaveRule {
+  id       String @id @default(cuid())
+  schoolId String
+
+  type         LeaveType
+  entitledDays Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, type])
+}
+
 /** Solde de congés par employé, année et type (en jours). */
 model LeaveBalance {
   id         String @id @default(cuid())
@@ -4271,6 +4285,18 @@ model Advance {
 
   @@index([schoolId])
   @@index([employeeId])
+}
+
+/** Configuration paie de l'établissement — valeurs par défaut indicatives, pas réglementaires. */
+model PayrollConfig {
+  id       String @id @default(cuid())
+  schoolId String @unique
+
+  /** Plafond de recouvrement des avances en points de base (3000 = 30 %). Valeur indicative configurable. */
+  advanceCapBp Int @default(3000)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model AdvanceRecovery {

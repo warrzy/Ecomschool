@@ -171,9 +171,11 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
         if (c.kind === "DEDUCTION") deductions += amount;
         if (c.kind === "EMPLOYER_CHARGE") employerCost += amount;
       }
-      // RH-4 : recouvrement des avances — plafond 30 % du net, FIFO par date.
+      // RH-4 : recouvrement des avances — plafond configurable (PayrollConfig.advanceCapBp,
+      // 3000 pb = 30 % par défaut, valeur indicative non réglementaire), FIFO par date.
+      const capBp = (await tx.payrollConfig.findUnique({ where: { schoolId: ctx.schoolId }, select: { advanceCapBp: true } }))?.advanceCapBp ?? 3000;
       let net = gross - deductions;
-      const cap = Math.floor(net * 0.3);
+      const cap = Math.floor((net * capBp) / 10000);
       let recovered = 0;
       const advances = await tx.advance.findMany({
         where: { employeeId: e.id, schoolId: ctx.schoolId, remaining: { gt: 0 }, status: { in: ["GRANTED", "RECOVERING"] } },
@@ -209,6 +211,25 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
   const n = await prisma.payslip.count({ where: { runId: run.id } });
   await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "payroll.run.compute", entity: "PayrollRun", entityId: runId, metadata: { payslips: n } });
   return ok({ payslips: n });
+}
+
+/** Configuration paie de l'établissement — plafond avances en points de base (3000 = 30 %, indicatif non réglementaire). */
+export async function getPayrollConfig(ctx: Ctx) {
+  if (!(await has(ctx, "payroll.read"))) return err("FORBIDDEN");
+  const c = await prisma.payrollConfig.findUnique({ where: { schoolId: ctx.schoolId } });
+  return ok({ advanceCapBp: c?.advanceCapBp ?? 3000 });
+}
+
+export async function setAdvanceCap(ctx: Ctx, advanceCapBp: number) {
+  if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
+  if (!Number.isInteger(advanceCapBp) || advanceCapBp < 0 || advanceCapBp > 10000) return err("INVALID_INPUT");
+  await prisma.payrollConfig.upsert({
+    where: { schoolId: ctx.schoolId },
+    create: { schoolId: ctx.schoolId, advanceCapBp },
+    update: { advanceCapBp },
+  });
+  await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "payroll.config.set_cap", entity: "PayrollConfig", metadata: { advanceCapBp } });
+  return ok({ advanceCapBp });
 }
 
 export async function createRun(ctx: Ctx, input: { periodStart: Date; periodEnd: Date }): Promise<Res<{ id: string }>> {

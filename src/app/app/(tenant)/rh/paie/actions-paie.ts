@@ -62,3 +62,10 @@ export async function rectifyRunAction(fd: FormData) {
   const r = await rectifyRun({ userId: t.userId, schoolId: t.schoolId }, id);
   back(r.ok ? `?run=${r.result.newRunId}&ok=Rectification+créée` : `?err=${r.error}`);
 }
+
+export async function setAdvanceCapAction(fd: FormData) {
+  const t = await requireSchoolPermission("payroll.manage");
+  const { setAdvanceCap } = await import("@/lib/services/hr/payroll");
+  const r = await setAdvanceCap({ userId: t.userId, schoolId: t.schoolId }, Math.round(Number(fd.get("capPercent")) * 100));
+  redirect(`/app/rh/paie?${r.ok ? "ok=Plafond+avances+mis+à+jour" : `err=${r.error}`}`);
+}

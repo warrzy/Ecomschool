@@ -5,6 +5,7 @@
  * Les jours sont calendaires (simple) ; UNPAID ne consomme pas de solde.
  */
 import { prisma } from "@/lib/db/prisma";
+import { Prisma } from "@prisma/client";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { logAudit } from "@/lib/services/audit";
 
@@ -91,6 +92,50 @@ export async function setEntitlement(ctx: Ctx, employeeId: string, year: number,
     update: { entitled: entitledDays },
   });
   return ok({ id: employeeId });
+}
+
+// ---------- Règles de dotation (configurées par l'établissement — aucun droit légal présumé) ----------
+
+export async function upsertLeaveRule(ctx: Ctx, type: LeaveType, entitledDays: number) {
+  if (!(await has(ctx, "hr.manage"))) return err("FORBIDDEN");
+  if (entitledDays < 0) return err("INVALID_INPUT");
+  const r = await prisma.leaveRule.upsert({
+    where: { schoolId_type: { schoolId: ctx.schoolId, type } },
+    create: { schoolId: ctx.schoolId, type, entitledDays },
+    update: { entitledDays },
+  });
+  return ok({ id: r.id });
+}
+
+export async function listLeaveRules(ctx: Ctx) {
+  if (!(await has(ctx, "hr.read"))) return err("FORBIDDEN");
+  return ok(await prisma.leaveRule.findMany({ where: { schoolId: ctx.schoolId }, orderBy: { type: "asc" } }));
+}
+
+/** Applique les règles à UN employé — ne crée que les soldes manquants (les corrections RH via setEntitlement sont préservées). */
+export async function provisionForEmployee(tx: Prisma.TransactionClient, schoolId: string, employeeId: string, year: number) {
+  const rules = await tx.leaveRule.findMany({ where: { schoolId } });
+  for (const r of rules) {
+    await tx.leaveBalance.upsert({
+      where: { employeeId_year_type: { employeeId, year, type: r.type } },
+      create: { employeeId, year, type: r.type, entitled: r.entitledDays },
+      update: {}, // jamais d'écrasement d'une dotation corrigée manuellement
+    });
+  }
+  return rules.length;
+}
+
+/** Dotation assistée : provisionne les soldes de l'année pour tous les employés actifs, selon les règles. */
+export async function provisionLeaveBalances(ctx: Ctx, year: number) {
+  if (!(await has(ctx, "hr.manage"))) return err("FORBIDDEN");
+  const rules = await prisma.leaveRule.findMany({ where: { schoolId: ctx.schoolId } });
+  if (rules.length === 0) return err("NO_RULES");
+  const employees = await prisma.employee.findMany({ where: { schoolId: ctx.schoolId, status: "ACTIVE" }, select: { id: true } });
+  await prisma.$transaction(async (tx) => {
+    for (const e of employees) await provisionForEmployee(tx, ctx.schoolId, e.id, year);
+  });
+  await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "hr.leave.provision", entity: "LeaveRule", metadata: { year, employees: employees.length, rules: rules.length } });
+  return ok({ employees: employees.length, rules: rules.length });
 }
 
 export async function listLeaves(ctx: Ctx, filter?: { employeeId?: string; status?: string; from?: Date; to?: Date }) {

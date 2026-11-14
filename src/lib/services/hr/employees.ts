@@ -101,9 +101,16 @@ export async function createContract(ctx: Ctx, employeeId: string, input: {
         if (parent.count === 0) throw new Error("AMEND_TARGET_INVALID");
       }
       const { activate, ...data } = input;
-      return tx.employeeContract.create({
+      const created = await tx.employeeContract.create({
         data: { employeeId, ...data, status: activate ? "ACTIVE" : "DRAFT" },
       });
+      // RH-9 : activation → dotation automatique des congés selon les règles
+      // configurées (ne crée que les soldes manquants, sans droit légal présumé).
+      if (activate) {
+        const { provisionForEmployee } = await import("@/lib/services/hr/leaves");
+        await provisionForEmployee(tx, ctx.schoolId, employeeId, input.startDate.getFullYear());
+      }
+      return created;
     });
     await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: input.amendsContractId ? "hr.contract.amend" : "hr.contract.create", entity: "EmployeeContract", entityId: c.id });
     return ok({ id: c.id });

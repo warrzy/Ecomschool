@@ -1,10 +1,11 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { listEmployees, getEmployee } from "@/lib/services/hr/employees";
-import { listLeaves, balancesFor } from "@/lib/services/hr/leaves";
+import { listLeaves, balancesFor, listLeaveRules } from "@/lib/services/hr/leaves";
 import { hrDashboard } from "@/lib/services/hr/dashboard";
 import { createEmployeeAction, createContractAction, activateContractAction, departEmployeeAction, addDocumentAction,
-  requestLeaveAction, decideLeaveAction, cancelLeaveAction, setEntitlementAction, markAttendanceAction } from "./actions";
+  requestLeaveAction, decideLeaveAction, cancelLeaveAction, setEntitlementAction, markAttendanceAction,
+  upsertLeaveRuleAction, provisionLeavesAction } from "./actions";
 
 const BTN = "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50";
 const INP = "rounded border px-2 py-1 text-sm";
@@ -23,6 +24,7 @@ export default async function RhPage(props: { searchParams: Promise<{ id?: strin
   const leaves = sp.id ? await listLeaves(ctx, { employeeId: sp.id }) : null;
   const bals = sp.id ? await balancesFor(ctx, sp.id, year) : null;
   const dash = await hrDashboard(ctx);
+  const rules = canManage ? await listLeaveRules(ctx) : null;
   const d = dash.ok ? dash.result : null;
 
   return (
@@ -96,6 +98,24 @@ export default async function RhPage(props: { searchParams: Promise<{ id?: strin
               </tr>
             ))}
           </tbody></table>
+        </section>
+      ) : null}
+
+      {canManage ? (
+        <section className="rounded-lg border p-4">
+          <h2 className="mb-1 font-semibold">Dotations de congés ({year})</h2>
+          <p className="mb-2 text-xs text-slate-500">{"Règles définies par l'établissement — aucun droit légal n'est présumé. Les corrections par employé restent possibles via « Définir droit »."}</p>
+          {(rules?.ok ? rules.result : []).length > 0 ? (
+            <p className="mb-2 text-sm">{(rules?.ok ? rules.result : []).map((r) => `${r.type}: ${r.entitledDays} j`).join(" · ")}</p>
+          ) : <p className="mb-2 text-sm text-amber-700">Aucune règle configurée — les demandes de congés ne peuvent pas être approuvées sans dotation.</p>}
+          <div className="flex flex-wrap gap-2">
+            <form action={upsertLeaveRuleAction} className="flex flex-wrap gap-2">
+              <select name="type" className={INP}><option>ANNUAL</option><option>SICK</option><option>MATERNITY</option><option>OTHER</option></select>
+              <input required name="days" type="number" min="0" placeholder="Jours/an" className={INP + " w-24"} />
+              <button className={BTN} type="submit">Enregistrer la règle</button>
+            </form>
+            <form action={provisionLeavesAction}><button className={BTN} type="submit">Provisionner {year} (tous les employés)</button></form>
+          </div>
         </section>
       ) : null}
 

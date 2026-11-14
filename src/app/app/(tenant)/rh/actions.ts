@@ -101,3 +101,18 @@ export async function markAttendanceAction(fd: FormData) {
     String(fd.get("note") ?? "") || undefined);
   back(empId, "&ok=Présence+pointée");
 }
+
+export async function upsertLeaveRuleAction(fd: FormData) {
+  const t = await requireSchoolPermission("hr.manage");
+  const { upsertLeaveRule } = await import("@/lib/services/hr/leaves");
+  const r = await upsertLeaveRule({ userId: t.userId, schoolId: t.schoolId },
+    String(fd.get("type")) as never, Number(fd.get("days")));
+  redirect(`/app/rh?${r.ok ? "ok=Règle+enregistrée" : `err=${r.error}`}`);
+}
+
+export async function provisionLeavesAction() {
+  const t = await requireSchoolPermission("hr.manage");
+  const { provisionLeaveBalances } = await import("@/lib/services/hr/leaves");
+  const r = await provisionLeaveBalances({ userId: t.userId, schoolId: t.schoolId }, new Date().getFullYear());
+  redirect(`/app/rh?${r.ok ? `ok=Dotations+provisionnées+(${r.result.employees}+employés)` : `err=${r.error}`}`);
+}

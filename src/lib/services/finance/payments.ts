@@ -404,7 +404,21 @@ export async function recordPayment(
         if (code !== "P2034") throw e;
       }
     }
-    if (!payment) throw lastError;
+    if (!payment) {
+      // Garde "commité malgré l'erreur" : timeout/coupure ou P2034 au commit —
+      // la tentative a pu réussir côté serveur. Un paiement réellement
+      // enregistré ne doit JAMAIS être présenté comme échoué : on vérifie la
+      // clé d'idempotence avant de propager l'échec.
+      const committed = await prisma.payment.findFirst({
+        where: { schoolId: ctx.schoolId, idempotencyKey },
+        select: { id: true, receiptNumber: true },
+      });
+      if (committed?.receiptNumber) {
+        payment = { id: committed.id, receiptNumber: committed.receiptNumber };
+      } else {
+        throw lastError;
+      }
+    }
 
     await logAudit({
       actorId: ctx.userId,
@@ -422,6 +436,16 @@ export async function recordPayment(
   } catch (e) {
     if ((e as Error)?.message === "OVERPAYMENT") {
       return { ok: false, error: "OVERPAYMENT" };
+    }
+    // Dernier filet : une erreur non retriable (timeout, coupure réseau…) peut
+    // survenir APRÈS le commit côté serveur. Si le paiement existe réellement
+    // sous cette clé d'idempotence, on le renvoie — jamais de faux échec.
+    const committed = await prisma.payment.findFirst({
+      where: { schoolId: ctx.schoolId, idempotencyKey },
+      select: { id: true, receiptNumber: true },
+    });
+    if (committed?.receiptNumber) {
+      return { ok: true, result: { id: committed.id, receiptNumber: committed.receiptNumber } };
     }
     return { ok: false, error: "CREATE_FAILED" };
   }

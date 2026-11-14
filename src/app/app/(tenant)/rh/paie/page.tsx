@@ -1,7 +1,7 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import { listComponents, listRuns, getRun } from "@/lib/services/hr/payroll";
-import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction, postPayrollAction, rectifyRunAction } from "./actions-paie";
+import { listComponents, listRuns, getRun, getPayrollConfig } from "@/lib/services/hr/payroll";
+import { upsertComponentAction, createRunAction, computeRunAction, validateRunAction, cancelRunAction, postPayrollAction, rectifyRunAction, setAdvanceCapAction } from "./actions-paie";
 
 const BTN = "rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-50";
 const INP = "rounded border px-2 py-1 text-sm";
@@ -14,6 +14,8 @@ export default async function PaiePage(props: { searchParams: Promise<{ run?: st
   const ctx = { userId: t.userId, schoolId: t.schoolId };
   const canManage = await userHasSchoolPermission({ ...ctx, permissionKey: "payroll.manage" });
   const [comps, runs] = await Promise.all([listComponents(ctx), listRuns(ctx)]);
+  const cfg = canManage ? await getPayrollConfig(ctx) : null;
+  const capPct = cfg?.ok ? cfg.result.advanceCapBp / 100 : 30;
   const run = sp.run ? await getRun(ctx, sp.run) : null;
 
   return (
@@ -53,6 +55,18 @@ export default async function PaiePage(props: { searchParams: Promise<{ run?: st
           </form>
         ) : null}
       </section>
+
+      {canManage ? (
+        <section className="rounded-lg border p-3">
+          <h2 className="mb-1 font-semibold">Plafond de recouvrement des avances</h2>
+          <p className="mb-2 text-xs text-slate-500">{"Valeur indicative configurable par l'établissement — non présentée comme une obligation réglementaire validée."}</p>
+          <form action={setAdvanceCapAction} className="flex items-center gap-2">
+            <input required name="capPercent" type="number" min="0" max="100" step="0.5" defaultValue={capPct} className={INP + " w-24"} />
+            <span className="text-sm">% du net</span>
+            <button className={BTN} type="submit">Enregistrer</button>
+          </form>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border">
         <h2 className="border-b bg-slate-50 p-2 font-semibold">Campagnes de paie</h2>
