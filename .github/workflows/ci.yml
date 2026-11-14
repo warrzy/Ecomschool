@@ -17,6 +17,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Audit sécurité des dépendances (bloquant sur high/critical)
+        run: npm audit --audit-level=high --omit=dev
+      - name: Audit incluant devDependencies (rapport non bloquant)
+        run: npm audit --audit-level=moderate || true
       - run: npx prisma generate
       - run: npm run typecheck
       - run: npm run lint

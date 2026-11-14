@@ -32,6 +32,7 @@ const ACCOUNTS: { email: string; envSuffix: string; perms: string[]; label: stri
     perms: [
       "academic.read", "academic.manage", "student.read", "student.manage", "enrollment.read", "enrollment.manage",
       "classroom.read", "classroom.manage", "finance.read", "finance.manage", "finance.configure",
+      "finance.reports.read", "announcements.read", "announcements.manage",
       "treasury.read", "expenses.read", "expenses.create",
       "accounting.read", "accounting.manage", "accounting.export",
       "hr.read", "hr.manage", "payroll.read", "payroll.manage",

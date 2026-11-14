@@ -1,77 +1,247 @@
+import "../lib/recette-guard";
 /**
- * Jeu de données DÉMO — école « ÉCOLE DÉMO VALIDATION » (préprod uniquement).
- * Employés fictifs + run de paie CALCULÉ mais non validé — paramètres fictifs,
- * aucune retenue réglementaire. Idempotent (matricules DEMO-*).
- * Utilise les comptes cloisonnés : RH_DEMO (employés), PAIE_DEMO (paie),
- * COMPTABLE_DEMO (plan/exercice) — séparation des fonctions.
+ * Jeu de données de démonstration — ÉCOLE DÉMO VALIDATION (preprod).
+ * Données 100 % fictives mais réalistes (contexte ouest-africain), pour la
+ * recette utilisateur et les démonstrations commerciales.
+ *
+ * Idempotent : chaque entité est retrouvée par une clé naturelle avant
+ * création — relancer le script ne crée aucun doublon.
+ *
+ * Exécution (tunnel DB ouvert) :
+ *   ALLOW_RECETTE=1 DATABASE_URL=... npx tsx scripts/preprod/demo-data.ts
  */
 import "dotenv/config";
 import { prisma } from "@/lib/db/prisma";
+import { enrollStudent } from "@/lib/services/enrollments";
+import { recordPayment } from "@/lib/services/finance/payments";
 import { createEmployee, createContract } from "@/lib/services/hr/employees";
-import { upsertComponent, createRun, computeRun } from "@/lib/services/hr/payroll";
-import { installStarterPlan, openExercise } from "@/lib/services/accounting";
+import { upsertLeaveRule, provisionLeaveBalances, requestLeave } from "@/lib/services/hr/leaves";
+import { ensureDefaultExpenseCategories, createExpense, payExpense } from "@/lib/services/finance/expenses";
+import { createAnnouncement } from "@/lib/services/announcements";
 
 const SLUG = "demo-validation";
-const ctxFor = async (roleName: string, schoolId: string) => {
+let pass = 0, created = 0;
+const note = (label: string, isNew: boolean) => {
+  pass++;
+  if (isNew) created++;
+  console.log(`  ${isNew ? "＋" : "="} ${label}`);
+};
+
+async function ctxOf(role: string, schoolId: string) {
   const m = await prisma.schoolMembership.findFirstOrThrow({
-    where: { schoolId, role: { name: roleName } }, select: { userId: true },
+    where: { schoolId, role: { name: role } }, select: { userId: true },
   });
   return { userId: m.userId, schoolId };
-};
+}
+
+const STUDENTS: { mat: string; first: string; last: string; sex: "MALE" | "FEMALE"; birth: string }[] = [
+  { mat: "D-E001", first: "Awa", last: "Ouédraogo", sex: "FEMALE", birth: "2014-03-12" },
+  { mat: "D-E002", first: "Ibrahim", last: "Sawadogo", sex: "MALE", birth: "2014-07-02" },
+  { mat: "D-E003", first: "Mariam", last: "Compaoré", sex: "FEMALE", birth: "2013-11-25" },
+  { mat: "D-E004", first: "Souleymane", last: "Kaboré", sex: "MALE", birth: "2013-05-18" },
+  { mat: "D-E005", first: "Fatoumata", last: "Zongo", sex: "FEMALE", birth: "2012-09-30" },
+  { mat: "D-E006", first: "Yacouba", last: "Traoré", sex: "MALE", birth: "2012-01-14" },
+  { mat: "D-E007", first: "Salimata", last: "Nikiéma", sex: "FEMALE", birth: "2014-06-08" },
+  { mat: "D-E008", first: "Moussa", last: "Sanon", sex: "MALE", birth: "2013-02-27" },
+  { mat: "D-E009", first: "Rokia", last: "Ilboudo", sex: "FEMALE", birth: "2012-10-05" },
+  { mat: "D-E010", first: "Adama", last: "Tiendrébéogo", sex: "MALE", birth: "2014-04-19" },
+  { mat: "D-E011", first: "Bibata", last: "Pale", sex: "FEMALE", birth: "2013-08-22" },
+  { mat: "D-E012", first: "Issouf", last: "Bamogo", sex: "MALE", birth: "2012-12-11" },
+];
+
+const EMPLOYEES: { mat: string; first: string; last: string; cat: "TEACHING" | "NON_TEACHING"; pos: string; salary: number }[] = [
+  { mat: "D-P001", first: "Harmonie", last: "Kientega", cat: "TEACHING", pos: "Enseignante de mathématiques", salary: 145000 },
+  { mat: "D-P002", first: "Prosper", last: "Some", cat: "TEACHING", pos: "Enseignant de français", salary: 138000 },
+  { mat: "D-P003", first: "Nadège", last: "Yaméogo", cat: "TEACHING", pos: "Enseignante de SVT", salary: 132000 },
+  { mat: "D-P004", first: "Boukary", last: "Ouattara", cat: "NON_TEACHING", pos: "Secrétaire de direction", salary: 95000 },
+  { mat: "D-P005", first: "Clarisse", last: "Nana", cat: "NON_TEACHING", pos: "Comptable", salary: 120000 },
+];
 
 async function main() {
   const school = await prisma.school.findUniqueOrThrow({ where: { slug: SLUG } });
-  const rh = await ctxFor("RH_DEMO", school.id);
-  const paie = await ctxFor("PAIE_DEMO", school.id);
-  const compta = await ctxFor("COMPTABLE_DEMO", school.id);
-
-  const plan = await installStarterPlan(compta);
+  const sid = school.id;
+  const admin = await ctxOf("DEMO_ADMIN", sid);
+  const compta = await ctxOf("COMPTABLE_DEMO", sid);
+  const rh = await ctxOf("RH_DEMO", sid);
+  const paie = await ctxOf("PAIE_DEMO", sid);
   const now = new Date();
-  let ex = await prisma.accountingExercise.findFirst({ where: { schoolId: school.id, status: "OPEN" } });
-  if (!ex) {
-    const r = await openExercise(compta, {
-      name: `${now.getFullYear()}`,
-      startDate: new Date(now.getFullYear(), 0, 1), endDate: new Date(now.getFullYear(), 11, 31),
+  console.log(`École : ${school.name}`);
+
+  // ---------- Année scolaire ----------
+  const year = (await prisma.academicYear.findFirst({ where: { schoolId: sid, isCurrent: true } }))
+    ?? await prisma.academicYear.create({
+      data: { schoolId: sid, name: "2026-2027", startDate: new Date("2026-09-01"), endDate: new Date("2027-06-30"), isCurrent: true },
     });
-    if (r.ok) ex = await prisma.accountingExercise.findFirstOrThrow({ where: { schoolId: school.id, status: "OPEN" } });
-  }
-  console.log("Compta :", plan.ok ? "plan OK" : plan.error, "| exercice :", ex?.name ?? "—");
+  note(`année scolaire ${year.name}`, false);
 
-  const staff = [
-    { matricule: "DEMO-E1", firstName: "Awa", lastName: "Fictive", category: "TEACHING" as const, salary: 150000, position: "Institutrice (démo)" },
-    { matricule: "DEMO-E2", firstName: "Karim", lastName: "Fictif", category: "NON_TEACHING" as const, salary: 90000, position: "Comptable (démo)" },
+  // ---------- Niveaux & classes ----------
+  const LEVELS = ["Sixième", "Cinquième", "Quatrième", "Troisième"] as const;
+  const CLASSES = [
+    { name: "6e A", lvl: "Sixième" }, { name: "6e B", lvl: "Sixième" },
+    { name: "5e A", lvl: "Cinquième" }, { name: "4e A", lvl: "Quatrième" }, { name: "3e A", lvl: "Troisième" },
+  ] as const;
+  const rooms: Record<string, { id: string; levelId: string }> = {};
+  for (const c of CLASSES) {
+    const lvl = (await prisma.level.findFirst({ where: { schoolId: sid, name: c.lvl } }))
+      ?? await prisma.level.create({ data: { schoolId: sid, name: c.lvl } });
+    const room = (await prisma.classroom.findFirst({ where: { schoolId: sid, name: c.name, academicYearId: year.id } }))
+      ?? await prisma.classroom.create({ data: { schoolId: sid, academicYearId: year.id, levelId: lvl.id, name: c.name, capacity: 45 } });
+    rooms[c.name] = { id: room.id, levelId: lvl.id };
+    note(`classe ${c.name}`, (await prisma.enrollment.count({ where: { classroomId: room.id } })) === 0);
+  }
+
+  // ---------- Grille tarifaire ----------
+  const CATS = [
+    { code: "SCOL", label: "Scolarité annuelle" },
+    { code: "INSC", label: "Frais d'inscription" },
+    { code: "CANT", label: "Cantine (optionnel)" },
   ];
-  for (const s of staff) {
-    let emp = await prisma.employee.findFirst({ where: { schoolId: school.id, matricule: s.matricule } });
-    if (!emp) {
-      const r = await createEmployee(rh, { matricule: s.matricule, firstName: s.firstName, lastName: s.lastName, category: s.category, hireDate: new Date(now.getFullYear(), 0, 15) });
-      if (r.ok) emp = await prisma.employee.findFirstOrThrow({ where: { id: r.result.id } });
-      else console.warn("  employé", s.matricule, ":", r.error);
-    }
-    if (emp && !(await prisma.employeeContract.count({ where: { employeeId: emp.id, status: "ACTIVE" } }))) {
-      const c = await createContract(rh, emp.id, { type: "CDI", position: s.position, startDate: new Date(now.getFullYear(), 0, 15), baseSalary: s.salary, activate: true });
-      if (!c.ok) console.warn("  contrat", s.matricule, ":", c.error);
-    }
+  const cats: Record<string, string> = {};
+  for (const c of CATS) {
+    const cat = (await prisma.feeCategory.findFirst({ where: { schoolId: sid, code: c.code } }))
+      ?? await prisma.feeCategory.create({ data: { schoolId: sid, ...c } });
+    cats[c.code] = cat.id;
   }
-  console.log("Employés démo :", await prisma.employee.count({ where: { schoolId: school.id } }));
+  const TARIFFS = [
+    { cat: "SCOL", amount: 75000, lvl: "Sixième", mandatory: true },
+    { cat: "SCOL", amount: 75000, lvl: "Cinquième", mandatory: true },
+    { cat: "SCOL", amount: 85000, lvl: "Quatrième", mandatory: true },
+    { cat: "SCOL", amount: 85000, lvl: "Troisième", mandatory: true },
+    { cat: "INSC", amount: 15000, lvl: null, mandatory: true },
+    { cat: "CANT", amount: 60000, lvl: null, mandatory: false },
+  ];
+  for (const t of TARIFFS) {
+    const levelId = t.lvl ? (await prisma.level.findFirstOrThrow({ where: { schoolId: sid, name: t.lvl } })).id : null;
+    const exists = await prisma.feeTariff.findFirst({
+      where: { schoolId: sid, academicYearId: year.id, categoryId: cats[t.cat], levelId, classroomId: null },
+    });
+    if (!exists) {
+      await prisma.feeTariff.create({
+        data: { schoolId: sid, academicYearId: year.id, categoryId: cats[t.cat], levelId, amount: t.amount, mandatory: t.mandatory, status: "ACTIVE" },
+      });
+      note(`tarif ${t.cat} ${t.lvl ?? "global"} ${t.amount}`, true);
+    } else note(`tarif ${t.cat} ${t.lvl ?? "global"}`, false);
+  }
 
-  const comp = await upsertComponent(paie, {
-    code: "PRIME_DEMO", label: "Prime de démonstration (fictive)", kind: "EARNING",
-    formula: { type: "percent", base: "base_salary", rate: 0.1 }, order: 10, activeFrom: new Date("2020-01-01"),
+  // ---------- Élèves + inscriptions (→ créances auto via M10) ----------
+  const roomCycle = ["6e A", "6e B", "5e A", "4e A", "3e A"];
+  for (let i = 0; i < STUDENTS.length; i++) {
+    const s = STUDENTS[i];
+    let student = await prisma.student.findFirst({ where: { schoolId: sid, matricule: s.mat } });
+    if (!student) {
+      student = await prisma.student.create({
+        data: {
+          schoolId: sid, matricule: s.mat, firstName: s.first, lastName: s.last,
+          sex: s.sex, birthDate: new Date(s.birth),
+        },
+      });
+    }
+    const room = rooms[roomCycle[i % roomCycle.length]];
+    const enr = await prisma.enrollment.findFirst({
+      where: { schoolId: sid, studentId: student.id, academicYearId: year.id },
+    });
+    if (!enr) {
+      const r = await enrollStudent(admin, { studentId: student.id, classroomId: room.id, academicYearId: year.id });
+      note(`inscription ${s.first} ${s.last} → ${roomCycle[i % roomCycle.length]}${r.ok ? "" : ` (${r.error})`}`, r.ok);
+    } else note(`inscription ${s.first} ${s.last}`, false);
+  }
+
+  // ---------- Paiements partiels (parcours caisse) ----------
+  const payments = [
+    { mat: "D-E001", amount: 50000 }, { mat: "D-E002", amount: 90000 },
+    { mat: "D-E003", amount: 40000 }, { mat: "D-E005", amount: 100000 },
+    { mat: "D-E007", amount: 30000 }, { mat: "D-E010", amount: 85000 },
+  ];
+  for (const p of payments) {
+    const st = await prisma.student.findFirstOrThrow({ where: { schoolId: sid, matricule: p.mat } });
+    const already = await prisma.payment.findFirst({
+      where: { schoolId: sid, studentId: st.id, amount: p.amount, status: "VALIDATED" },
+    });
+    if (already) { note(`paiement ${p.mat} ${p.amount} (existant)`, false); continue; }
+    const r = await recordPayment(admin, {
+      studentId: st.id, academicYearId: year.id, amount: p.amount,
+      method: "CASH", paidAt: new Date(now.getFullYear(), now.getMonth(), Math.min(now.getDate(), 25)),
+      observation: "Règlement scolarité (démo)",
+      idempotencyKey: `DEMO-PAY-${p.mat}-${p.amount}`,
+    });
+    note(`paiement ${p.mat} ${p.amount}${r.ok ? ` → ${r.result.receiptNumber}` : ` (${r.error})`}`, r.ok);
+  }
+
+  // ---------- Personnel RH ----------
+  for (const e of EMPLOYEES) {
+    let emp = await prisma.employee.findFirst({ where: { schoolId: sid, matricule: e.mat } });
+    if (!emp) {
+      const r = await createEmployee(rh, {
+        matricule: e.mat, firstName: e.first, lastName: e.last, category: e.cat, hireDate: new Date("2026-09-01"),
+      });
+      if (r.ok) emp = await prisma.employee.findFirstOrThrow({ where: { id: r.result.id } });
+      else { note(`employé ${e.first} ${e.last} (${r.error})`, false); continue; }
+      note(`employé ${e.first} ${e.last}`, true);
+    } else note(`employé ${e.first} ${e.last}`, false);
+    const contract = await prisma.employeeContract.findFirst({ where: { employeeId: emp.id } });
+    if (!contract) {
+      // activate:true → dotations de congés provisionnées automatiquement (RH-9).
+      const c = await createContract(rh, emp.id, {
+        type: "CDI", position: e.pos, startDate: new Date("2026-09-01"), baseSalary: e.salary, activate: true,
+      });
+      note(`contrat CDI ${e.first} ${e.last} ${e.salary} F`, c.ok);
+    }
+  }
+
+  // ---------- Règles de dotation + demande de congé en attente ----------
+  await upsertLeaveRule(rh, "ANNUAL", 30);
+  await upsertLeaveRule(rh, "SICK", 10);
+  await provisionLeaveBalances(rh, now.getFullYear());
+  note("dotations congés provisionnées", false);
+  const emp1 = await prisma.employee.findFirstOrThrow({ where: { schoolId: sid, matricule: "D-P002" } });
+  const pending = await prisma.leaveRequest.findFirst({
+    where: { schoolId: sid, employeeId: emp1.id, status: "PENDING" },
   });
-  if (!comp.ok) console.warn("  composant :", comp.error);
-  const month = new Date(now.getFullYear(), now.getMonth(), 1);
-  let run = await prisma.payrollRun.findFirst({ where: { schoolId: school.id, periodStart: month } });
-  if (!run) {
-    const r = await createRun(paie, { periodStart: month, periodEnd: new Date(now.getFullYear(), now.getMonth() + 1, 0) });
-    if (r.ok) run = await prisma.payrollRun.findFirstOrThrow({ where: { id: r.result.id } });
-    else console.warn("  run :", r.error);
+  if (!pending) {
+    const lr = await requestLeave(rh, emp1.id, {
+      type: "ANNUAL",
+      startDate: new Date(now.getFullYear(), now.getMonth() + 1, 9),
+      endDate: new Date(now.getFullYear(), now.getMonth() + 1, 13),
+      reason: "Congés familiaux (démo — à approuver par le responsable RH)",
+    });
+    note("demande de congé en attente (à traiter dans /app/rh)", lr.ok);
+  } else note("demande de congé en attente", false);
+
+  // ---------- Dépenses ----------
+  await ensureDefaultExpenseCategories(compta);
+  const catFourn = await prisma.expenseCategory.findFirst({ where: { schoolId: sid } });
+  const EXPENSES = [
+    { label: "Fournitures de bureau — rentrée", amount: 85000, ben: "Librairie du Centre (fictif)" },
+    { label: "Réfection tableau salle 3e A", amount: 45000, ben: "Menuiserie Sawadogo (fictif)" },
+    { label: "Abonnement connexion internet", amount: 25000, ben: "Fournisseur Internet (fictif)" },
+  ];
+  for (const x of EXPENSES) {
+    const exists = await prisma.expense.findFirst({ where: { schoolId: sid, label: x.label } });
+    if (exists) { note(`dépense « ${x.label} »`, false); continue; }
+    const r = await createExpense(compta, {
+      categoryId: catFourn!.id, label: x.label, amount: x.amount, beneficiary: x.ben,
+      academicYearId: year.id, expenseAt: now,
+    });
+    if (r.ok) {
+      await payExpense(compta, r.result.id, { method: "CASH", paidAt: now });
+      note(`dépense payée « ${x.label} »`, true);
+    } else note(`dépense « ${x.label} » (${r.error})`, false);
   }
-  if (run && run.status === "DRAFT") {
-    const c = await computeRun(paie, run.id);
-    console.log("Run paie démo :", c.ok ? `${c.result.payslips} bulletin(s) — statut DRAFT (non validé, fictif)` : c.error);
-  } else {
-    console.log("Run paie démo déjà présent :", run?.status);
-  }
+
+  // ---------- Annonce ----------
+  const ann = await prisma.announcement.findFirst({ where: { schoolId: sid, title: { contains: "conseil" } } });
+  if (!ann) {
+    const a = await createAnnouncement(admin, {
+      title: "Conseil d'école du premier trimestre",
+      body: "Le conseil d'école se tiendra le samedi 12 décembre à 9 h en salle polyvalente. Ordre du jour : bilan pédagogique, finances et vie scolaire. (Annonce fictive de démonstration.)",
+      audience: "ALL",
+      publish: true,
+    });
+    note("annonce publiée (conseil d'école)", a.ok);
+  } else note("annonce", false);
+
+  console.log(`\n=== DONNÉES DÉMO : ${pass} contrôles, ${created} nouvelles entités ===`);
+  await prisma.$disconnect();
 }
-main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());
+
+main().catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });

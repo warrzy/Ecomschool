@@ -237,3 +237,24 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - ⏳ `npm audit` en CI (9 vulnérabilités modérées transitives dev) ; logs structurés/APM
 - ⏳ Discipline, cantine/transport : modules absents (couverture fonctionnelle, pas anomalie)
 - ⏳ `restore.sh` ne rejoue pas les migrations post-restore (documenté dans le script)
+
+## PRÉPARATION COMMERCIALISATION (2026-11-14/15)
+
+### Sécurité & exploitation
+- `deploy/nginx/00-ecomschool-ratelimit.conf` : zones ecom_api 10 r/s, ecom_auth 2 r/s (/api/auth/), 30 conn/IP — contexte http, procédure sudo documentée.
+- Confs site : `limit_req`/`limit_conn` + en-têtes sécurité + bloc `/api/auth/` anti brute-force ; protection preprod préparée (basic auth htpasswd ou IP allowlist, commentée, activation sudo).
+- CI : `npm audit --audit-level=high --omit=dev` bloquant + rapport dev non bloquant (audit prod actuel : 2 modérées transitives uniquement).
+- **Restore-drill exécuté** : dump pre-migrate → base témoin `ecomschool_verify`, 122 tables en 3 s, checksums OK, jamais la base applicative. Vérif hebdo déjà cronée.
+- M6 complété : comptes démo re-seedés sur `SEED_DEMO_PASSWORD` (env serveur) — les anciens mots de passe de l'historique git sont révoqués.
+
+### Recette utilisateur
+- `scripts/preprod/demo-data.ts` : jeu fictif réaliste idempotent — 5 classes, 12 élèves inscrits (créances auto), 6 paiements reçus REC-*, 5 employés CDI actifs + dotations, congé en attente, 3 dépenses payées, annonce.
+- `scripts/preprod/ui-smoke.ts` : Playwright navigateur réel → **16/16 PASS** (login, 13 pages avec données, cloisonnement demo-rh/paie).
+- DEMO_ADMIN : +`finance.reports.read`, `announcements.read/manage` (24 permissions).
+- `docs/recette/GUIDE_RECETTE_UTILISATEUR.md` : parcours par rôle avec refus attendus.
+
+### Docs & checklist
+- `docs/utilisateur/GUIDE_ADMIN_ETABLISSEMENT.md` : prise en main + config initiale + cycles.
+- `docs/exploitation/SECURITE_ET_EXPLOITATION.md` : runbook nginx, preprod, sauvegardes, rollback, monitoring.
+- `docs/exploitation/CHECKLIST_MISE_EN_PRODUCTION.md` : pré-vol → premier établissement → conformité → J+7.
+- `docs/reglementaire/PARAMETRES_PAIE_BF.md` : paramètres CNSS/ITS à valider, mécanisme isRegulatory, modèles de formules vides — **aucun taux inventé**.
