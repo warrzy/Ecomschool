@@ -4028,6 +4028,7 @@ model Employee {
 
   contracts EmployeeContract[]
   payslips  Payslip[]
+  advances  Advance[]
   documents EmployeeDocument[]
   leaveBalances  LeaveBalance[]
   leaveRequests  LeaveRequest[]
@@ -4239,4 +4240,45 @@ model Payslip {
 
   @@unique([runId, employeeId])
   @@index([employeeId])
+}
+
+// ---------- RH-4 : avances sur salaire (retenue ≤ 30 % du net) ----------
+
+enum AdvanceStatus {
+  GRANTED
+  RECOVERING
+  RECOVERED
+  CANCELLED
+}
+
+/** Avance consentie à un employé — recouvrée par retenues sur les bulletins. */
+model Advance {
+  id         String @id @default(cuid())
+  schoolId   String
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  amount    Int
+  remaining Int
+  date      DateTime
+  reason    String?
+  status    AdvanceStatus @default(GRANTED)
+
+  recoveries AdvanceRecovery[]
+  createdAt  DateTime @default(now())
+
+  @@index([schoolId])
+  @@index([employeeId])
+}
+
+model AdvanceRecovery {
+  id        String @id @default(cuid())
+  advanceId String
+  advance   Advance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  payslipId String?
+  amount    Int
+  createdAt DateTime @default(now())
+
+  @@index([advanceId])
 }

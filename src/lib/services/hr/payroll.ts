@@ -134,6 +134,18 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
   });
   const snapshot = components.map((c) => ({ code: c.code, version: c.version, formula: c.formula }));
   await prisma.$transaction(async (tx) => {
+    // Recalcul DRAFT : restaurer les avances déjà recouvrées par le calcul précédent.
+    const oldSlips = await tx.payslip.findMany({ where: { runId: run.id }, select: { id: true } });
+    const oldRecs = await tx.advanceRecovery.findMany({
+      where: { payslipId: { in: oldSlips.map((s) => s.id) } },
+    });
+    for (const r of oldRecs) {
+      await tx.advance.update({
+        where: { id: r.advanceId },
+        data: { remaining: { increment: r.amount }, status: "RECOVERING" },
+      });
+    }
+    await tx.advanceRecovery.deleteMany({ where: { id: { in: oldRecs.map((r) => r.id) } } });
     await tx.payslip.deleteMany({ where: { runId: run.id } });
     for (const e of employees) {
       const contract = e.contracts[0];
@@ -150,8 +162,23 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
         if (c.kind === "DEDUCTION") deductions += amount;
         if (c.kind === "EMPLOYER_CHARGE") employerCost += amount;
       }
-      const net = gross - deductions;
-      await tx.payslip.create({
+      // RH-4 : recouvrement des avances — plafond 30 % du net, FIFO par date.
+      let net = gross - deductions;
+      const cap = Math.floor(net * 0.3);
+      let recovered = 0;
+      const advances = await tx.advance.findMany({
+        where: { employeeId: e.id, schoolId: ctx.schoolId, remaining: { gt: 0 }, status: { in: ["GRANTED", "RECOVERING"] } },
+        orderBy: { date: "asc" },
+      });
+      for (const a of advances) {
+        if (recovered >= cap) break;
+        const take = Math.min(a.remaining, cap - recovered);
+        recovered += take;
+        lines.push({ code: "AVANCE", label: `Recouvrement avance du ${a.date.toISOString().slice(0, 10)}`, kind: "DEDUCTION", amount: take, formula: { type: "fixed", amount: take } });
+      }
+      net -= recovered;
+      deductions += recovered;
+      const slip = await tx.payslip.create({
         data: {
           runId: run.id, employeeId: e.id, contractId: contract.id,
           baseSalary: contract.baseSalary, gross, deductions, employerCost, net,
@@ -159,6 +186,15 @@ export async function computeRun(ctx: Ctx, runId: string): Promise<Res<{ payslip
           formulaSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         },
       });
+      let left = recovered;
+      for (const a of advances) {
+        if (left <= 0) break;
+        const take = Math.min(a.remaining, left);
+        left -= take;
+        const newRemaining = a.remaining - take;
+        await tx.advance.update({ where: { id: a.id }, data: { remaining: newRemaining, status: newRemaining === 0 ? "RECOVERED" : "RECOVERING" } });
+        await tx.advanceRecovery.create({ data: { advanceId: a.id, payslipId: slip.id, amount: take } });
+      }
     }
   });
   const n = await prisma.payslip.count({ where: { runId: run.id } });
@@ -224,4 +260,34 @@ export async function getPayslip(ctx: Ctx, payslipId: string) {
     include: { employee: true, run: { select: { periodStart: true, periodEnd: true, status: true } } },
   });
   return p ? ok(p) : err("NOT_FOUND");
+}
+
+// ---------- RH-4 : avances ----------
+
+export async function grantAdvance(ctx: Ctx, employeeId: string, input: { amount: number; date: Date; reason?: string }) {
+  if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
+  const emp = await prisma.employee.findFirst({ where: { id: employeeId, schoolId: ctx.schoolId, status: "ACTIVE" }, select: { id: true } });
+  if (!emp || input.amount <= 0) return err("INVALID_INPUT");
+  const a = await prisma.advance.create({
+    data: { schoolId: ctx.schoolId, employeeId, amount: input.amount, remaining: input.amount, date: input.date, reason: input.reason ?? null },
+  });
+  await logAudit({ actorId: ctx.userId, schoolId: ctx.schoolId, action: "payroll.advance.grant", entity: "Advance", entityId: a.id, metadata: { amount: input.amount } });
+  return ok({ id: a.id });
+}
+
+export async function listAdvances(ctx: Ctx, employeeId?: string) {
+  if (!(await has(ctx, "payroll.read"))) return err("FORBIDDEN");
+  return ok(await prisma.advance.findMany({
+    where: { schoolId: ctx.schoolId, ...(employeeId ? { employeeId } : {}) },
+    include: { employee: { select: { matricule: true, firstName: true, lastName: true } }, recoveries: true },
+    orderBy: { date: "desc" },
+  }));
+}
+
+export async function cancelAdvance(ctx: Ctx, advanceId: string) {
+  if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
+  const a = await prisma.advance.findFirst({ where: { id: advanceId, schoolId: ctx.schoolId }, include: { recoveries: { select: { id: true } } } });
+  if (!a || a.recoveries.length > 0) return err("NOT_FOUND_OR_LOCKED");
+  await prisma.advance.update({ where: { id: a.id }, data: { status: "CANCELLED", remaining: 0 } });
+  return ok({ id: advanceId });
 }
