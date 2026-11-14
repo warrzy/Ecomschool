@@ -17,6 +17,14 @@ const ACCOUNTS: { email: string; password: string; perms: string[]; label: strin
     perms: ["hr.read", "hr.manage"] },
   { email: "demo-paie@demo.ecomschool.test", password: "Demo-Paie-2026!", label: "PAIE_DEMO",
     perms: ["payroll.read", "payroll.manage", "hr.read"] },
+  { email: "demo-admin@demo.ecomschool.test", password: "Demo-Admin-2026!", label: "DEMO_ADMIN",
+    perms: [
+      "academic.read", "academic.manage", "students.read", "students.manage", "enrollment.read", "enrollment.manage",
+      "classroom.read", "classroom.manage", "finance.read", "finance.manage", "finance.configure",
+      "fees.read", "fees.manage", "payments.read", "payments.create", "treasury.read", "expenses.read", "expenses.create",
+      "accounting.read", "accounting.manage", "accounting.export",
+      "hr.read", "hr.manage", "payroll.read", "payroll.manage",
+    ] },
 ];
 
 async function main() {
