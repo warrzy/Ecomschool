@@ -590,15 +590,27 @@ export async function generateEntries(ctx: SchoolCtx): Promise<AcctResult<GenSta
     });
     const ex = exerciseFor(exercises, r.confirmedAt ?? new Date());
     const mid = maps.get(`METHOD:${r.payment!.method}`);
-    const revenueAcc = orig?.lines.find((l) => l.credit > 0)?.accountId;
-    if (!orig || !ex || !mid || !revenueAcc) { stats.skipped++; continue; }
+    // Ventilation : le remboursement reprend les CRÉDITS d'origine au
+    // prorata (une seule ligne quand il n'y en a qu'une) — pas la
+    // première ligne pour tout le montant.
+    const creditLines = orig?.lines.filter((l) => l.credit > 0) ?? [];
+    const totalCredit = creditLines.reduce((s, l) => s + l.credit, 0);
+    if (!orig || !ex || !mid || totalCredit <= 0) { stats.skipped++; continue; }
+    let allocated = 0;
+    const debitLines = creditLines.map((l, i) => {
+      const share = i === creditLines.length - 1
+        ? r.amount - allocated
+        : Math.round((r.amount * l.credit) / totalCredit);
+      allocated += share;
+      return { accountId: l.accountId, debit: share, label: "Reversement", thirdPartyId: l.thirdPartyId ?? undefined };
+    }).filter((l) => l.debit > 0);
     if (await tryPost("REFUND", r.id, {
       journalId: orig.journalId, exerciseId: ex.id,
       date: r.confirmedAt ?? new Date(),
       description: `Remboursement ${r.payment!.receiptNumber ?? r.id} — ${r.reason}`,
       sourceType: "REFUND", sourceId: r.id,
       lines: [
-        { accountId: revenueAcc, debit: r.amount, label: "Reversement" },
+        ...debitLines,
         { accountId: mid.accountId, credit: r.amount },
       ],
     })) stats.refunds++;
