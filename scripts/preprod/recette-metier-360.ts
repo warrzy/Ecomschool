@@ -65,7 +65,7 @@ async function main() {
   let charge = await prisma.studentFeeCharge.findFirst({ where: { schoolId: sid, studentId: student.id } });
   if (!charge) {
     charge = await prisma.studentFeeCharge.create({
-      data: { schoolId: sid, studentId: student.id, academicYearId: year.id, categoryId: feeCat.id, label: "Scolarité T1 (démo)", amount: 75000 },
+      data: { schoolId: sid, studentId: student.id, academicYearId: year.id, categoryId: feeCat.id, amount: 75000 },
     });
     await prisma.feeInstallment.create({ data: { schoolId: sid, studentId: student.id, academicYearId: year.id, chargeId: charge.id, dueDate: new Date(now.getFullYear(), now.getMonth(), 28), amount: 75000 } });
   }
