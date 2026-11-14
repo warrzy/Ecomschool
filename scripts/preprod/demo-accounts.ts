@@ -1,8 +1,12 @@
 /**
  * Comptes de démonstration — préproduction uniquement.
- * Crée une école « ÉCOLE DÉMO VALIDATION » + 3 comptes cloisonnés :
- *   demo-compta / demo-rh / demo-paie @demo.ecomschool.test
- * Séparation des fonctions : compta ≠ RH ≠ paie (confidentialité des salaires).
+ * Crée une école « ÉCOLE DÉMO VALIDATION » + 6 comptes cloisonnés :
+ *   demo-admin / demo-compta / demo-rh / demo-paie / demo-enseignant / demo-parent
+ *   @demo.ecomschool.test
+ * Séparation des fonctions : compta ≠ RH ≠ paie (confidentialité des salaires),
+ * portails enseignant (/teacher) et parent (/parent) avec leurs fiches liées.
+ * Les noms de rôle TEACHER et PARENT sont exigés par les layouts des portails
+ * (redirection /app → /parent, garde /teacher).
  * Idempotent (upserts). Exécution : npx tsx scripts/preprod/demo-accounts.ts
  */
 import "dotenv/config";
@@ -37,6 +41,14 @@ const ACCOUNTS: { email: string; envSuffix: string; perms: string[]; label: stri
       "accounting.read", "accounting.manage", "accounting.export",
       "hr.read", "hr.manage", "payroll.read", "payroll.manage",
     ] },
+  // Portail enseignant : le layout /teacher exige roleName === "TEACHER"
+  // et une fiche Teacher reliée (créée par demo-data.ts).
+  { email: "demo-enseignant@demo.ecomschool.test", envSuffix: "ENSEIGNANT", label: "TEACHER",
+    perms: ["schedules.read", "sessions.read", "attendance.read", "grades.read", "assessments.read", "results.read"] },
+  // Portail parent : le layout /app redirige roleName === "PARENT" vers /parent,
+  // qui exige la permission portal.parent + une fiche Guardian reliée.
+  { email: "demo-parent@demo.ecomschool.test", envSuffix: "PARENT", label: "PARENT",
+    perms: ["portal.parent", "notifications.read"] },
 ];
 
 async function main() {

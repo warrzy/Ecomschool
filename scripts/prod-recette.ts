@@ -19,8 +19,12 @@ async function main() {
   ids.push(schoolA.id, schoolB.id);
   ok(true, "2 écoles créées");
 
+  // Mot de passe éphémère fourni par l'environnement — jamais commité.
+  const recPw = process.env.RECETTE_ACCOUNT_PASSWORD ?? "";
+  if (recPw.length < 12)
+    throw new Error("RECETTE_ACCOUNT_PASSWORD requis (≥12 caractères)");
   const adm = await platformCreateSchoolAdmin("cmw7y9zbe0000tulbggz5kuvo", schoolA.id,
-    { email: "admin.rec-a@test.local", password: "Recette#2026!", firstName: "Admin", lastName: "Recette" });
+    { email: "admin.rec-a@test.local", password: recPw, firstName: "Admin", lastName: "Recette" });
   ok(adm.ok, "admin école A créé");
 
   const student = await prisma.student.create({ data: {

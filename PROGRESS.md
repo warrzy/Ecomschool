@@ -258,3 +258,13 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - `docs/exploitation/SECURITE_ET_EXPLOITATION.md` : runbook nginx, preprod, sauvegardes, rollback, monitoring.
 - `docs/exploitation/CHECKLIST_MISE_EN_PRODUCTION.md` : pré-vol → premier établissement → conformité → J+7.
 - `docs/reglementaire/PARAMETRES_PAIE_BF.md` : paramètres CNSS/ITS à valider, mécanisme isRegulatory, modèles de formules vides — **aucun taux inventé**.
+
+## RECETTE UI MULTI-PROFILS (2026-11-15)
+
+- `demo-accounts.ts` : +2 comptes — `demo-enseignant` (rôle TEACHER, 6 perms, fiche Teacher liée) et `demo-parent` (rôle PARENT, `portal.parent`, Guardian + 2 liens élèves). Cloisonnement vérifié : 6/6 memberships limités à demo-validation.
+- `demo-data.ts` : fiche Teacher, Guardian, StudentGuardian — **réexécution : 44 contrôles, 0 nouvelle entité** (idempotence prouvée, doublon annonce corrigé via `mode: insensitive`).
+- `ui-smoke.ts` réécrit : 6 profils, collecte erreurs console/pageerror/requêtes ≥500, menus par permission — **43 PASS, 0 FAIL** sur preprod.
+- Gardes anti-prod prouvées : `ALLOW_DEMO_SEED` requis, `ALLOW_RECETTE=1` requis, URL prod refusée.
+- `prod-recette.ts` : mot de passe commité `Recette#2026!` → `RECETTE_ACCOUNT_PASSWORD` env (cohérence M6).
+- Aucun secret dans les sorties/scripts (scan : seul le faux mot de passe du test négatif g3 reste, volontaire).
+- Guide recette mis à jour : parcours enseignant + parent détaillés, refus attendus.

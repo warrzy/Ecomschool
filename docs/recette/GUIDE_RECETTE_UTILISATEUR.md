@@ -9,6 +9,8 @@ Toutes les données sont fictives (élèves D-E001→D-E012, employés D-P001→
 | `demo-compta@demo.ecomschool.test` | Comptabilité + trésorerie + dépenses | idem |
 | `demo-rh@demo.ecomschool.test` | RH (employés/congés) — **sans** paie | idem |
 | `demo-paie@demo.ecomschool.test` | Paie — **sans** gestion RH | idem |
+| `demo-enseignant@demo.ecomschool.test` | Enseignant — portail `/teacher` | idem |
+| `demo-parent@demo.ecomschool.test` | Parent — portail `/parent`, 2 enfants rattachés | idem |
 
 > Le cloisonnement fait partie de la recette : certains refus attendus sont
 > volontaires et prouvent la confidentialité des salaires.
@@ -59,12 +61,27 @@ Toutes les données sont fictives (élèves D-E001→D-E012, employés D-P001→
 5. Encart « Assiduité » : base mensuelle, congés sans solde, absences.
 6. **Refus attendus** : `/app/rh` création employé → 403.
 
-## E. Enseignant / Parent / Élève (portails)
+## E. Enseignant (`demo-enseignant`)
 
-- Portail parent `/parent` : enfants, factures, reçus PDF, annonces,
-  notifications (« tout marquer lu »), demandes administratives.
-- Portail élève `/student` : bulletins, emploi du temps.
-- Portail enseignant `/teacher` : saisie des notes, absences.
+1. Connexion → `/teacher` — espace enseignant (séances du jour, appels à
+   faire, évaluations à saisir). La fiche enseignant « Harmonie Kientega »
+   est rattachée au compte.
+2. « Mon emploi du temps » — vue hebdomadaire.
+3. **Refus attendus** : `/app/rh`, `/app/rh/paie`, `/app/comptabilite`,
+   `/app/students` → 403 (un enseignant n'a pas accès aux données RH,
+   financières ni à la liste complète des élèves).
+
+## F. Parent (`demo-parent`)
+
+1. Connexion → **redirection automatique vers `/parent`** (le rôle
+   PARENT n'accède pas à `/app`).
+2. Deux enfants rattachés : **Awa Ouédraogo** (6e, mère) et
+   **Mariam Compaoré** (tutrice) — onglets de suivi par enfant.
+3. Onglet « Aperçu » : classe, inscription, encadrés.
+4. Onglets finances : créances et paiements de l'enfant, reçus PDF.
+5. Annonces publiées visibles ; notifications (« tout marquer lu »).
+6. **Refus attendus** : toute URL `/app/...` redirige vers `/parent` —
+   un parent ne voit jamais les données des autres élèves.
 
 ## Critères de succès
 

@@ -228,8 +228,50 @@ async function main() {
     } else note(`dépense « ${x.label} » (${r.error})`, false);
   }
 
+  // ---------- Portails : fiche enseignant + tuteur parent ----------
+  // demo-enseignant : fiche Teacher reliée au compte (garde /teacher).
+  const teacherUser = await prisma.user.findUniqueOrThrow({
+    where: { email: "demo-enseignant@demo.ecomschool.test" }, select: { id: true },
+  });
+  const teacher = (await prisma.teacher.findFirst({ where: { schoolId: sid, userId: teacherUser.id } }))
+    ?? await prisma.teacher.create({
+      data: { schoolId: sid, userId: teacherUser.id, firstName: "Harmonie", lastName: "Kientega", status: "ACTIVE" },
+    });
+  note("fiche enseignant rattachée (demo-enseignant → /teacher)", false);
+
+  // demo-parent : fiche Guardian reliée + rattachement à deux élèves.
+  const parentUser = await prisma.user.findUniqueOrThrow({
+    where: { email: "demo-parent@demo.ecomschool.test" }, select: { id: true },
+  });
+  const guardian = (await prisma.guardian.findFirst({ where: { schoolId: sid, userId: parentUser.id } }))
+    ?? await prisma.guardian.create({
+      data: {
+        schoolId: sid, userId: parentUser.id,
+        firstName: "Clémentine", lastName: "Ouédraogo", phone: "+226 70 00 00 00",
+        email: "demo-parent@demo.ecomschool.test", status: "ACTIVE",
+      },
+    });
+  const PARENT_CHILDREN = [
+    { mat: "D-E001", rel: "MOTHER" as const },   // Awa Ouédraogo — mère
+    { mat: "D-E003", rel: "GUARDIAN" as const }, // Mariam Compaoré — tutrice
+  ];
+  for (const pc of PARENT_CHILDREN) {
+    const st = await prisma.student.findFirstOrThrow({ where: { schoolId: sid, matricule: pc.mat } });
+    const link = await prisma.studentGuardian.findFirst({
+      where: { schoolId: sid, studentId: st.id, guardianId: guardian.id, relation: pc.rel },
+    });
+    if (!link) {
+      await prisma.studentGuardian.create({
+        data: { schoolId: sid, studentId: st.id, guardianId: guardian.id, relation: pc.rel },
+      });
+      note(`lien parent ${pc.mat} (${pc.rel})`, true);
+    } else note(`lien parent ${pc.mat} (${pc.rel})`, false);
+  }
+
   // ---------- Annonce ----------
-  const ann = await prisma.announcement.findFirst({ where: { schoolId: sid, title: { contains: "conseil" } } });
+  const ann = await prisma.announcement.findFirst({
+    where: { schoolId: sid, title: { contains: "conseil", mode: "insensitive" } },
+  });
   if (!ann) {
     const a = await createAnnouncement(admin, {
       title: "Conseil d'école du premier trimestre",
