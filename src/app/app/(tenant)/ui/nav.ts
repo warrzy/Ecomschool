@@ -92,6 +92,7 @@ export const appNav: NavItem[] = [
   { label: "Mes encaissements", href: "/app/fees/my-payments", permission: "finance.receipts.read", section: "Finances", icon: I.file },
   // Brique documentaire transversale (G2-A).
   { label: "Documents", href: "/app/documents", permission: "documents.read", section: "Administration", icon: I.file },
+  { label: "Documents administratifs", href: "/app/documents-administratifs", permission: "administrative-docs.read", section: "Administration", icon: I.file },
   { label: "Demandes parents", href: "/app/demandes", permission: "administrative-requests.manage", section: "Administration", icon: I.clipboard },
 
   { label: "Utilisateurs", href: "/app/users", permission: "user.read", section: "Administration", icon: I.users },
