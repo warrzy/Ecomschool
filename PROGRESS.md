@@ -268,3 +268,10 @@ Audit indépendant : NO-GO → phase de stabilisation complète autorisée en au
 - `prod-recette.ts` : mot de passe commité `Recette#2026!` → `RECETTE_ACCOUNT_PASSWORD` env (cohérence M6).
 - Aucun secret dans les sorties/scripts (scan : seul le faux mot de passe du test négatif g3 reste, volontaire).
 - Guide recette mis à jour : parcours enseignant + parent détaillés, refus attendus.
+
+## ENVIRONNEMENT DE DÉMONSTRATION COMMERCIALE (2026-11-15)
+
+- `demo-data.ts` enrichi pédagogie : période T1, 5 matières + coefficients par classe, emploi du temps hebdo (4 créneaux), 10 séances DONE/PLANNED + cahier de textes, devoir PUBLIÉ 6e A (3 notes), absence + retard. Re-run : **0 nouvelle entité**.
+- `demo-screenshots.ts` : **19 captures réelles** → `docs/demo/screenshots/` (login, dashboards admin/compta/paie, bulletin de paie, portails enseignant/parent avec notes et absences).
+- Livrables : `docs/demo/PARCOURS_DEMONSTRATION.md` (script 45 min / 6 actes), `docs/utilisateur/GUIDE_UTILISATEUR.md` (captures embarquées), `docs/recette/CHECKLIST_RECETTE_METIER.md` (46 contrôles), `docs/commercial/DOSSIER_PRESENTATION.md` (positionnement BF).
+- `MATRICE_COMMERCIALISATION.md` : validée par smoke UI 43/43.

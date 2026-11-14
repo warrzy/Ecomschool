@@ -268,6 +268,183 @@ async function main() {
     } else note(`lien parent ${pc.mat} (${pc.rel})`, false);
   }
 
+  // ---------- Pédagogie : périodes, matières, emploi du temps, notes ----------
+  const period1 = (await prisma.academicPeriod.findFirst({
+    where: { schoolId: sid, academicYearId: year.id, name: "Trimestre 1" },
+  })) ?? await prisma.academicPeriod.create({
+    data: {
+      schoolId: sid, academicYearId: year.id, name: "Trimestre 1", number: 1,
+      type: "TRIMESTER", startDate: new Date("2026-09-01"), endDate: new Date("2026-12-20"),
+    },
+  });
+  note(`période ${period1.name}`, false);
+
+  const SUBJECTS = [
+    { name: "Mathématiques", code: "MATH" }, { name: "Français", code: "FRA" },
+    { name: "SVT", code: "SVT" }, { name: "Anglais", code: "ANG" },
+    { name: "Histoire-Géographie", code: "HG" },
+  ];
+  const subjects: Record<string, string> = {};
+  for (const su of SUBJECTS) {
+    const row = (await prisma.subject.findFirst({ where: { schoolId: sid, name: su.name } }))
+      ?? await prisma.subject.create({ data: { schoolId: sid, ...su } });
+    subjects[su.code] = row.id;
+  }
+  note("5 matières", false);
+
+  // Matières par classe (coefficients plausibles du secondaire).
+  const classSubjects: { room: string; code: string; coef: number; teacher?: string }[] = [
+    { room: "6e A", code: "MATH", coef: 4, teacher: teacher.id },
+    { room: "6e A", code: "FRA", coef: 4 }, { room: "6e A", code: "HG", coef: 2 },
+    { room: "5e A", code: "MATH", coef: 4, teacher: teacher.id },
+    { room: "5e A", code: "FRA", coef: 4 }, { room: "5e A", code: "ANG", coef: 3 },
+    { room: "4e A", code: "MATH", coef: 4 }, { room: "4e A", code: "SVT", coef: 3 },
+    { room: "3e A", code: "MATH", coef: 4 }, { room: "3e A", code: "FRA", coef: 4 },
+  ];
+  for (const cs of classSubjects) {
+    const exists = await prisma.classroomSubject.findFirst({
+      where: { classroomId: rooms[cs.room].id, subjectId: subjects[cs.code] },
+    });
+    if (!exists) {
+      await prisma.classroomSubject.create({
+        data: {
+          schoolId: sid, classroomId: rooms[cs.room].id, subjectId: subjects[cs.code],
+          coefficient: cs.coef, teacherId: cs.teacher ?? null,
+        },
+      });
+      note(`matière ${cs.code} → ${cs.room}`, true);
+      if (cs.teacher) {
+        await prisma.teachingAssignment.create({
+          data: {
+            schoolId: sid, teacherId: cs.teacher, classroomId: rooms[cs.room].id,
+            subjectId: subjects[cs.code], academicYearId: year.id,
+          },
+        });
+      }
+    }
+  }
+
+  // Emploi du temps de la semaine pour l'enseignant démo (7h30=450 …).
+  const SLOTS: { room: string; day: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY"; start: number; end: number }[] = [
+    { room: "6e A", day: "MONDAY", start: 450, end: 570 },
+    { room: "6e A", day: "THURSDAY", start: 600, end: 720 },
+    { room: "5e A", day: "TUESDAY", start: 480, end: 600 },
+    { room: "5e A", day: "FRIDAY", start: 840, end: 960 },
+  ];
+  for (const sl of SLOTS) {
+    const exists = await prisma.courseSchedule.findFirst({
+      where: {
+        schoolId: sid, academicYearId: year.id, classroomId: rooms[sl.room].id,
+        teacherId: teacher.id, weekday: sl.day, startMin: sl.start,
+      },
+    });
+    if (!exists) {
+      await prisma.courseSchedule.create({
+        data: {
+          schoolId: sid, academicYearId: year.id, classroomId: rooms[sl.room].id,
+          subjectId: subjects.MATH, teacherId: teacher.id,
+          weekday: sl.day, startMin: sl.start, endMin: sl.end,
+          validFrom: year.startDate,
+        },
+      });
+      note(`créneau ${sl.room} ${sl.day} ${sl.start}–${sl.end}`, true);
+    }
+  }
+
+  // Séances passées (DONE) et à venir (PLANNED) alignées sur les créneaux.
+  const WD: Record<string, number> = { SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6 };
+  const day0 = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  for (let back = -10; back <= 7; back++) {
+    const d = new Date(now); d.setDate(d.getDate() + back);
+    const wd = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][d.getDay()];
+    const slot = SLOTS.find((s) => s.day === wd);
+    if (!slot) continue;
+    const sessionDate = day0(d);
+    const exists = await prisma.courseSession.findFirst({
+      where: { schoolId: sid, teacherId: teacher.id, date: sessionDate, startMin: slot.start },
+    });
+    if (exists) continue;
+    const session = await prisma.courseSession.create({
+      data: {
+        schoolId: sid, academicYearId: year.id, classroomId: rooms[slot.room].id,
+        subjectId: subjects.MATH, teacherId: teacher.id,
+        date: sessionDate, startMin: slot.start, endMin: slot.end,
+        status: back < 0 ? "DONE" : "PLANNED",
+      },
+    });
+    if (back === -3) {
+      await prisma.courseContent.create({
+        data: {
+          sessionId: session.id, theme: "Les fractions", chapter: "Chapitre 3",
+          objective: "Additionner et comparer des fractions",
+          content: "Rappels sur les fractions équivalentes, mise au même dénominateur, exercices d'application.",
+          homework: "Exercices 12 à 15 page 42 (démo)",
+        },
+      });
+    }
+    note(`séance ${slot.room} ${sessionDate.toISOString().slice(0, 10)}`, true);
+  }
+
+  // Types d'évaluation + un devoir PUBLIÉ avec notes (visible portail parent).
+  const devoir = (await prisma.assessmentType.findFirst({ where: { schoolId: sid, code: "DEVOIR" } }))
+    ?? await prisma.assessmentType.create({
+      data: { schoolId: sid, code: "DEVOIR", name: "Devoir surveillé", defaultCoefficient: 1 },
+    });
+  const assessDate = new Date(now); assessDate.setDate(assessDate.getDate() - 12);
+  const assessment = (await prisma.assessment.findFirst({
+    where: { schoolId: sid, title: { contains: "Devoir n°1 de Mathématiques" } },
+  })) ?? await prisma.assessment.create({
+    data: {
+      schoolId: sid, academicYearId: year.id, academicPeriodId: period1.id,
+      classroomId: rooms["6e A"].id, subjectId: subjects.MATH, teacherId: teacher.id,
+      typeId: devoir.id, title: "Devoir n°1 de Mathématiques — 6e A",
+      date: assessDate, maxScore: 20, coefficient: 2, status: "PUBLISHED",
+      description: "Fractions et opérations (démo)",
+    },
+  });
+  const enrolled6A = await prisma.enrollment.findMany({
+    where: { schoolId: sid, classroomId: rooms["6e A"].id, academicYearId: year.id },
+    select: { studentId: true },
+  });
+  const demoGrades = [14.5, 11, 16.5, 9.5, 13];
+  for (let i = 0; i < enrolled6A.length; i++) {
+    const g = await prisma.grade.findFirst({
+      where: { schoolId: sid, assessmentId: assessment.id, studentId: enrolled6A[i].studentId },
+    });
+    if (!g) {
+      await prisma.grade.create({
+        data: {
+          schoolId: sid, assessmentId: assessment.id, studentId: enrolled6A[i].studentId,
+          value: demoGrades[i % demoGrades.length], status: "ENTERED",
+        },
+      });
+    }
+  }
+  note(`devoir publié 6e A (${enrolled6A.length} notes)`, false);
+
+  // Appels journaliers : une absence et un retard représentatifs.
+  const DAILY: { mat: string; daysAgo: number; status: "ABSENT" | "LATE"; reason: string; dur?: number }[] = [
+    { mat: "D-E003", daysAgo: 6, status: "ABSENT", reason: "Maladie (justificatif parental apporté)", dur: 480 },
+    { mat: "D-E001", daysAgo: 3, status: "LATE", reason: "Transport", dur: 15 },
+  ];
+  for (const d of DAILY) {
+    const st = await prisma.student.findFirstOrThrow({ where: { schoolId: sid, matricule: d.mat } });
+    const date = new Date(now); date.setDate(date.getDate() - d.daysAgo);
+    const day = day0(date);
+    const exists = await prisma.attendanceRecord.findFirst({
+      where: { schoolId: sid, studentId: st.id, date: day, sessionId: null },
+    });
+    if (!exists) {
+      await prisma.attendanceRecord.create({
+        data: {
+          schoolId: sid, studentId: st.id, date: day, status: d.status,
+          durationMin: d.dur, reason: d.reason, recordedById: admin.userId,
+        },
+      });
+      note(`assiduité ${d.mat} ${d.status}`, true);
+    }
+  }
+
   // ---------- Annonce ----------
   const ann = await prisma.announcement.findFirst({
     where: { schoolId: sid, title: { contains: "conseil", mode: "insensitive" } },

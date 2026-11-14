@@ -1,6 +1,6 @@
-# Matrice de commercialisation — ECOM-SCHOOL (post-stabilisation, commit cbd51a4)
+# Matrice de commercialisation — ECOM-SCHOOL (recette UI validée)
 
-État validé par : recette métier 360° **30/30** sur préproduction, recette de stabilisation **44/44**, tests ciblés **34/34**, non-régressions RH **98/98**, 64/64 migrations propres depuis zéro.
+État validé par : recette métier 360° **30/30** sur préproduction, recette de stabilisation **44/44**, tests ciblés **34/34**, non-régressions RH **98/98**, 64/64 migrations propres depuis zéro, **smoke UI Playwright 43/43** sur 6 profils (navigateur réel).
 
 ## ✅ Complètes — commercialisables telles quelles
 
