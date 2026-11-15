@@ -16,11 +16,10 @@ import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { fmtMoney } from "@/lib/format/money";
+import { currencyLabel, moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "—");
 
 const METHOD_LABELS: Record<string, string> = {
@@ -43,6 +42,11 @@ export default async function ExpensesPage(props: {
 }) {
   const tenant = await requireSchoolPermission("expenses.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
+  const cur = currencyLabel(school?.currency);
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) =>
     typeof sp[k] === "string" ? (sp[k] as string) : undefined;
@@ -262,7 +266,7 @@ export default async function ExpensesPage(props: {
               <input aria-label="Libellé" name="label" required className={`mt-1 w-full ${input}`} placeholder="Ex. Facture électricité octobre" />
             </label>
             <label className="block text-sm">
-              Montant (FCFA) <span aria-hidden="true" className="text-red-600">*</span>
+              Montant ({cur}) <span aria-hidden="true" className="text-red-600">*</span>
               <input aria-label="Montant" name="amount" type="number" min={1} step={1} required className={`mt-1 w-full ${input}`} />
             </label>
             <label className="block text-sm">

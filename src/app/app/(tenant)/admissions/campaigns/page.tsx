@@ -20,6 +20,7 @@ import {
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { currencyLabel } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -50,7 +51,7 @@ export default async function AdmissionsCampaignsPage(props: {
   const error = str("error");
   const editId = str("edit");
 
-  const [campaigns, years, levels, privacyText] = await Promise.all([
+  const [campaigns, years, levels, privacyText, school] = await Promise.all([
     listCampaigns({ userId: tenant.userId, schoolId: tenant.schoolId }),
     prisma.academicYear.findMany({
       where: { schoolId: tenant.schoolId },
@@ -63,7 +64,11 @@ export default async function AdmissionsCampaignsPage(props: {
       select: { id: true, name: true },
     }),
     getPrivacyText(tenant.schoolId),
+    prisma.school.findUnique({
+      where: { id: tenant.schoolId }, select: { currency: true },
+    }),
   ]);
+  const cur = currencyLabel(school?.currency);
   const editing = editId ? campaigns.find((c) => c.id === editId) : undefined;
   const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
   const capStats = new Map<
@@ -197,7 +202,7 @@ export default async function AdmissionsCampaignsPage(props: {
                 </span>
               </label>
               <label className="block text-sm">
-                Frais de candidature (FCFA)
+                Frais de candidature ({cur})
                 <input
                   aria-label="Frais de candidature"
                   name="applicationFee"

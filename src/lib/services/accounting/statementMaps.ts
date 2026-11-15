@@ -7,7 +7,11 @@
  * OBJET DÉCLARATIF : OHADA reste le mapping par défaut (non-régression
  * garantie), un autre référentiel fournit le sien via le pack
  * comptable ou `School.settings.statementMapping`.
- *
+ */
+
+import { countryDefaults } from "@/lib/config/countries";
+
+/**
  * Chaque section se définit par :
  *   - classes : valeurs de `AccountingAccount.classNumber` retenues —
  *     clé de regroupement libre que chaque plan définit (OHADA = 1-7) ;
@@ -58,19 +62,56 @@ export const OHADA_STATEMENT_MAPPING: StatementMapping = {
   },
 };
 
-type SettingsWithMapping = { statementMapping?: unknown };
+type SettingsWithMapping = {
+  statementMapping?: unknown;
+  /** Référentiel déclaré explicitement pour l'établissement (prioritaire
+   * sur le défaut pays — ex. une école du Ghana tenant ses livres en
+   * SYSCOHADA pour un groupe OHADA). */
+  accountingFramework?: unknown;
+};
+
+export type StatementMappingResolution =
+  | { ok: true; mapping: StatementMapping }
+  | { ok: false; error: "STATEMENT_MAPPING_MISSING" | "STATEMENT_MAPPING_INVALID" };
+
+function isValidMapping(m: unknown): m is StatementMapping {
+  const c = m as Partial<StatementMapping> | null;
+  return !!(
+    c && typeof c === "object"
+    && Array.isArray(c.balanceSheet?.actif) && c.balanceSheet.actif.length > 0
+    && Array.isArray(c.balanceSheet?.passif) && c.balanceSheet.passif.length > 0
+    && Array.isArray(c.incomeStatement?.charges) && c.incomeStatement.charges.length > 0
+    && Array.isArray(c.incomeStatement?.produits) && c.incomeStatement.produits.length > 0
+  );
+}
 
 /**
- * Résout le mapping d'états d'une école :
- * `School.settings.statementMapping` (surcharge explicite) → OHADA.
- * Une surcharge invalide est ignorée — jamais d'état cassé.
+ * Résout le mapping d'états d'une école — sécurisé :
+ *  - surcharge `School.settings.statementMapping` valide → utilisée ;
+ *  - sinon le repli OHADA n'est autorisé QUE si le référentiel de
+ *    l'établissement est OHADA (déclaré via `settings.accountingFramework`
+ *    ou déduit de `School.country` via COUNTRY_DEFAULTS) ;
+ *  - pour tout autre référentiel, un mapping absent ou invalide produit
+ *    une erreur explicite — jamais d'état potentiellement incorrect.
  */
-export function statementMappingFor(settings: unknown): StatementMapping {
-  const m = (settings as SettingsWithMapping | null)?.statementMapping;
-  if (m && typeof m === "object") {
-    const cand = m as Partial<StatementMapping>;
-    if (cand.balanceSheet?.actif?.length && cand.incomeStatement?.charges?.length)
-      return cand as StatementMapping;
-  }
-  return OHADA_STATEMENT_MAPPING;
+export function statementMappingFor(input: {
+  country?: string | null;
+  settings?: unknown;
+}): StatementMappingResolution {
+  const settings = input.settings as SettingsWithMapping | null | undefined;
+  const explicit = settings?.statementMapping;
+  if (explicit != null && isValidMapping(explicit)) return { ok: true, mapping: explicit };
+
+  const declared = typeof settings?.accountingFramework === "string"
+    ? settings.accountingFramework : undefined;
+  const framework = declared ?? countryDefaults(input.country ?? "")?.accountingFramework;
+  const isOhada = framework === "OHADA_SYSCOHADA";
+
+  if (explicit != null)
+    return isOhada
+      ? { ok: true, mapping: OHADA_STATEMENT_MAPPING }
+      : { ok: false, error: "STATEMENT_MAPPING_INVALID" };
+  return isOhada
+    ? { ok: true, mapping: OHADA_STATEMENT_MAPPING }
+    : { ok: false, error: "STATEMENT_MAPPING_MISSING" };
 }

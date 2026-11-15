@@ -47,19 +47,25 @@ function evalSection(
   return sec(def.label, lines);
 }
 
-/** Mapping d'états de l'école (surcharge settings → OHADA par défaut). */
+/**
+ * Mapping d'états de l'école — résolution sécurisée : repli OHADA
+ * uniquement si le référentiel de l'école est OHADA (déclaré ou déduit
+ * du pays) ; sinon erreur explicite, aucun état généré.
+ */
 async function mappingOf(ctx: Ctx) {
   const school = await prisma.school.findUnique({
-    where: { id: ctx.schoolId }, select: { settings: true },
+    where: { id: ctx.schoolId }, select: { country: true, settings: true },
   });
-  return statementMappingFor(school?.settings);
+  return statementMappingFor({ country: school?.country, settings: school?.settings });
 }
 
 export async function incomeStatement(
   ctx: Ctx, exerciseId: string,
 ): Promise<AcctResult<{ charges: Section; produits: Section; resultat: number }>> {
   if (!(await has(ctx, "accounting.read"))) return err("FORBIDDEN");
-  const [balance, mapping] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  const [balance, resolved] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  if (!resolved.ok) return err(resolved.error);
+  const mapping = resolved.mapping;
   const charges = sec("Charges", mapping.incomeStatement.charges
     .flatMap((d) => evalSection(d, balance).lines));
   const produits = sec("Produits", mapping.incomeStatement.produits
@@ -71,7 +77,9 @@ export async function balanceSheet(
   ctx: Ctx, exerciseId: string,
 ): Promise<AcctResult<{ actif: Section[]; passif: Section[]; totalActif: number; totalPassif: number; resultat: number }>> {
   if (!(await has(ctx, "accounting.read"))) return err("FORBIDDEN");
-  const [balance, mapping] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  const [balance, resolved] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  if (!resolved.ok) return err(resolved.error);
+  const mapping = resolved.mapping;
   const actif = mapping.balanceSheet.actif.map((d) => evalSection(d, balance));
   const passif = mapping.balanceSheet.passif.map((d) => evalSection(d, balance));
   const is = await incomeStatement(ctx, exerciseId);

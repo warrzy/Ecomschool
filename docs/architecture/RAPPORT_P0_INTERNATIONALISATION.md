@@ -70,3 +70,49 @@ Points vérifiés notamment : équivalence bit-à-bit `fmtMoney` vs ancien litt�
 
 - Merger `feat/i18n-p0` en `main` après revue — aucune migration à jouer.
 - Optionnel après merge : `tsx scripts/i18n/backfill-payroll-maps.ts` sur preprod/prod (idempotent, ajoute les 4 mappings ; sans lui le repli hérité fonctionne).
+
+---
+
+## Addendum — durcissements post-revue (avant merge)
+
+### 1. `statementMapping` sécurisé (demande explicite)
+
+`statementMappingFor` retourne désormais une **résolution** (`ok/mapping` ou `ok:false/error`), plus un mapping muet :
+
+- surcharge `settings.statementMapping` **valide** → utilisée (tout référentiel) ;
+- repli OHADA **uniquement** si référentiel `OHADA_SYSCOHADA` — déclaré via `settings.accountingFramework` ou déduit de `School.country` ;
+- école non-OHADA + mapping **absent** → `STATEMENT_MAPPING_MISSING` ;
+- école non-OHADA + mapping **invalide** → `STATEMENT_MAPPING_INVALID` ;
+- `incomeStatement`/`balanceSheet`/`statementCsv` propagent l'erreur — **aucun état potentiellement incorrect n'est généré**.
+
+Échappatoire légitime : une école GH tenant ses livres en SYSCOHADA peut déclarer `settings.accountingFramework = "OHADA_SYSCOHADA"` → repli autorisé (décision explicite, pas implicite).
+
+### 2. Audit libellés « FCFA » — soldé
+
+| Cas | Statut |
+|---|---|
+| `admissions/campaigns` « Frais de candidature (FCFA) » | **Corrigé** → `({cur})` devise école |
+| `expenses` « Montant (FCFA) » + `fmt` | **Corrigé** → `moneyFormatter(école)` + `({cur})` |
+| `fees/settings` placeholder « Montant FCFA » + `fmt` | **Corrigé** |
+| `treasury` `unit="FCFA"` + `fmt` | **Corrigé** → `unit={cur}` + formateur école |
+| `parent` « Montant à payer (FCFA) » + `fmtN` | **Corrigé** → formateur école (le parent voit la devise de l'école) |
+| `immobilisations` « Coût FCFA » + indices SYSCOHADA « (2x)/(28x)/(68x) » | **Corrigé** → `({cur})`, indices de classes retirés (couplage OHADA) |
+| `platform/plans` placeholders « Prix … FCFA » vs labels « (XOF) » | **Harmonisé** → XOF (devise de facturation plateforme — décision P2) |
+| `page.tsx` « 90 000 F CFA » (tarifs publics) | Documenté P2 — pricing plateforme en XOF |
+| `paiements-mobile/actions.ts` `currency:"XOF"` | **Corrigé** → devise école (rejet explicite `INVALID_CURRENCY` si provider incompatible) |
+| `parentPayments.ts` `currency:"XOF"` | **Corrigé** → devise école |
+| `refunds.ts` `currency:"XOF"` | **Corrigé** → `intent.currency` (remboursement dans la devise de l'intention) |
+| `mobileIntents.ts` gate `!== "XOF"` | **Conservé** — providers UEMOA XOF-only ; échec explicite, jamais d'intention en mauvaise devise. P2 : adaptateurs GH/NG |
+| `billing.ts` / `payments.ts` | XOF plateforme / déjà school-aware — OK |
+
+**Zéro littéral « FCFA » restant dans `src/`** hors `format/money.ts`.
+
+### 3. Tests ajoutés (60 assertions, 0 échec)
+
+- Négatifs multi-devises (EUR/GHS), compact négatif, arrondis (XOF 0 déc. `999,9→1 000`, GHS 2 déc.), devise inconnue → code ISO ;
+- `checkCountryCoherence` : NG+GHS rejeté, FR+EUR ok, pays inconnu → `COUNTRY_UNKNOWN` ;
+- `statementMappingFor` : 8 cas (BF/GH/FR, invalide, framework déclaré, mapping valide, pays inconnu) ;
+- **Écoles multi-pays** : GH → `STATEMENT_MAPPING_MISSING` sur bilan + résultat ; +OHADA déclaré → états générés ; +mapping invalide → `INVALID` ;
+- **Compat existant** : école aux défauts schéma (BF/XOF, `settings:null`) → OHADA + bilan équilibré.
+
+Suites : `test-i18n-p0` **60/60** · `test-stabilisation` **44/44** · `tsc` propre.

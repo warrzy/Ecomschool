@@ -34,6 +34,14 @@ async function main() {
   check("fmtMoneyCompactM", fmtMoneyCompactM(1.2345) === "1,2 M");
   check("moneyFormatter école GHS", moneyFormatter({ currency: "GHS", locale: "en-GH" })(999) === `${(999).toLocaleString("en-GH", { minimumFractionDigits: 2 })} GH₵`);
   check("moneyFormatter défaut école", moneyFormatter({})(5000) === oldFmt(5000));
+  // Montants négatifs multi-devises
+  check("fmtMoney EUR négatif", fmtMoney(-1234.56, { currency: "EUR" }) === `${(-1234.56).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
+  check("fmtMoney GHS négatif", fmtMoney(-50, { currency: "GHS", locale: "en-GH" }) === `${(-50).toLocaleString("en-GH", { minimumFractionDigits: 2 })} GH₵`);
+  check("compact négatif", fmtMoney(-1_500_000, { compact: true }) === `${(-1.5).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} M FCFA`);
+  // Arrondis : XOF 0 décimale, GHS 2 décimales
+  check("arrondi XOF 999.9 → 1 000", fmtMoney(999.9) === `${(999.9).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} FCFA`);
+  check("arrondi GHS 2 décimales", fmtMoney(1234.567, { currency: "GHS" }) === `${(1234.567).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GH₵`);
+  check("devise inconnue → code ISO", fmtMoney(10, { currency: "ZZZ" }) === `${(10).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} ZZZ`);
 
   // ========== C5 : registre pays + cohérence ==========
   console.log("== C5 : registre pays ==");
@@ -45,11 +53,14 @@ async function main() {
   check("cohérence GH+GHS ok", checkCountryCoherence({ country: "GH", currency: "GHS" }).ok);
   const mis = checkCountryCoherence({ country: "GH", currency: "XOF" });
   check("incohérence GH+XOF → CURRENCY_MISMATCH", !mis.ok && !("ok" in mis && mis.ok) && (mis as { error: string }).error === "CURRENCY_MISMATCH");
+  check("incohérence NG+GHS → CURRENCY_MISMATCH", (() => { const r = checkCountryCoherence({ country: "NG", currency: "GHS" }); return !r.ok && (r as { error: string }).error === "CURRENCY_MISMATCH"; })());
+  check("cohérence FR+EUR ok", checkCountryCoherence({ country: "FR", currency: "EUR" }).ok);
+  check("pays inconnu → COUNTRY_UNKNOWN", (() => { const r = checkCountryCoherence({ country: "ZZ", currency: "XOF" }); return !r.ok && (r as { error: string }).error === "COUNTRY_UNKNOWN"; })());
   check("≥8 pays disponibles", availableCountries().length >= 8);
 
   // ========== Fixtures : école + plan + exercice ==========
-  const mk = async (tag: string, keys: string[]) => {
-    const s = await prisma.school.create({ data: { name: `I18N ${tag}`, code: `I8${tag}${ts}`, slug: `i8-${tag.toLowerCase()}-${ts}` } });
+  const mk = async (tag: string, keys: string[], schoolData: Record<string, unknown> = {}) => {
+    const s = await prisma.school.create({ data: { name: `I18N ${tag}`, code: `I8${tag}${ts}`, slug: `i8-${tag.toLowerCase()}-${ts}`, ...schoolData } });
     const u = await prisma.user.create({ data: { email: `i8${tag}-${ts}@t.l`, passwordHash: "x" } });
     const role = await prisma.role.create({ data: { name: `I8_${tag}`, scope: "SCHOOL", schoolId: s.id } });
     const perms = await prisma.permission.findMany({ where: { key: { in: keys } }, select: { id: true } });
@@ -139,8 +150,58 @@ async function main() {
   check("surcharge settings prise en compte", bs2.ok && bs2.result.actif[0].label === "Immobilisations (surcharge)");
   await prisma.school.update({ where: { id: ctxS.schoolId }, data: { settings: { statementMapping: { invalid: true } } } });
   const bs3 = await balanceSheet(ctxS, exS.result.id);
-  check("surcharge invalide → repli OHADA", bs3.ok && bs3.result.actif[0].label === "Actif immobilisé");
-  check("statementMappingFor(null) → OHADA", statementMappingFor(null).framework === "SYSCOHADA");
+  check("surcharge invalide → repli OHADA (référentiel OHADA)", bs3.ok && bs3.result.actif[0].label === "Actif immobilisé");
+
+  // ========== C3b : résolution sécurisée — unitaire ==========
+  console.log("== C3b : repli OHADA conditionnel ==");
+  const rBf = statementMappingFor({ country: "BF" });
+  check("BF absent → OHADA", rBf.ok && rBf.mapping.framework === "SYSCOHADA");
+  const rGh = statementMappingFor({ country: "GH" });
+  check("GH absent → STATEMENT_MAPPING_MISSING", !rGh.ok && rGh.error === "STATEMENT_MAPPING_MISSING");
+  const rFr = statementMappingFor({ country: "FR" });
+  check("FR absent → STATEMENT_MAPPING_MISSING", !rFr.ok && rFr.error === "STATEMENT_MAPPING_MISSING");
+  const rGhInv = statementMappingFor({ country: "GH", settings: { statementMapping: { invalid: true } } });
+  check("GH invalide → STATEMENT_MAPPING_INVALID", !rGhInv.ok && rGhInv.error === "STATEMENT_MAPPING_INVALID");
+  const rGhDecl = statementMappingFor({ country: "GH", settings: { accountingFramework: "OHADA_SYSCOHADA" } });
+  check("GH + framework OHADA déclaré → OHADA", rGhDecl.ok && rGhDecl.mapping.framework === "SYSCOHADA");
+  const rGhDeclInv = statementMappingFor({ country: "GH", settings: { accountingFramework: "OHADA_SYSCOHADA", statementMapping: { bad: 1 } } });
+  check("GH déclaré OHADA + mapping invalide → repli OHADA", rGhDeclInv.ok);
+  const rCustom = statementMappingFor({ country: "GH", settings: { statementMapping: OHADA_STATEMENT_MAPPING } });
+  check("GH + mapping valide → utilisé", rCustom.ok);
+  const rUndef = statementMappingFor({});
+  check("pays inconnu, settings absents → MISSING", !rUndef.ok && rUndef.error === "STATEMENT_MAPPING_MISSING");
+
+  // ========== C3c : écoles multi-pays — états refusés proprement ==========
+  console.log("== C3c : écoles multi-pays ==");
+  const ctxGH = await mk("GH", ["accounting.read", "accounting.manage"], { country: "GH", currency: "GHS", locale: "en-GH", timezone: "Africa/Accra" });
+  await installStarterPlan(ctxGH);
+  const exGH = await openExercise(ctxGH, { name: "2026", startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") });
+  if (!exGH.ok) throw new Error("openExercise GH");
+  const isGH = await incomeStatement(ctxGH, exGH.result.id);
+  check("école GH : compte de résultat refusé (MISSING)", !isGH.ok && isGH.error === "STATEMENT_MAPPING_MISSING");
+  const bsGH = await balanceSheet(ctxGH, exGH.result.id);
+  check("école GH : bilan refusé (MISSING)", !bsGH.ok && bsGH.error === "STATEMENT_MAPPING_MISSING");
+  // Déclaration explicite du référentiel OHADA → états autorisés.
+  await prisma.school.update({ where: { id: ctxGH.schoolId }, data: { settings: { accountingFramework: "OHADA_SYSCOHADA" } } });
+  const isGH2 = await incomeStatement(ctxGH, exGH.result.id);
+  check("école GH + OHADA déclaré → états générés", isGH2.ok);
+  // Mapping invalide sur école non-OHADA → erreur explicite.
+  await prisma.school.update({ where: { id: ctxGH.schoolId }, data: { settings: { statementMapping: { bogus: true } } } });
+  const isGH3 = await incomeStatement(ctxGH, exGH.result.id);
+  check("école GH + mapping invalide → INVALID", !isGH3.ok && isGH3.error === "STATEMENT_MAPPING_INVALID");
+
+  // ========== C3d : compat données existantes (défauts Prisma BF) ==========
+  console.log("== C3d : compat écoles existantes ==");
+  const ctxOld = await mk("OLD", ["accounting.read", "accounting.manage"]); // country/currency = défauts schéma BF/XOF
+  const old = await prisma.school.findUnique({ where: { id: ctxOld.schoolId }, select: { country: true, currency: true } });
+  check("école sans champs explicites → BF/XOF (défauts)", old?.country === "BF" && old?.currency === "XOF");
+  await installStarterPlan(ctxOld);
+  const exOld = await openExercise(ctxOld, { name: "2026", startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") });
+  if (!exOld.ok) throw new Error("openExercise OLD");
+  const isOld = await incomeStatement(ctxOld, exOld.result.id);
+  check("école legacy (settings null) → états OHADA", isOld.ok);
+  const bsOld = await balanceSheet(ctxOld, exOld.result.id);
+  check("école legacy : bilan équilibré", bsOld.ok && bsOld.result.totalActif === bsOld.result.totalPassif);
 
   console.log(`\n${pass} PASS, ${fail} FAIL`);
   if (fail > 0) process.exit(1);

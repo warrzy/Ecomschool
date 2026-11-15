@@ -6,11 +6,9 @@ import {
 } from "@/lib/services/finance/treasury";
 import { DashCard, EmptyState, KpiCard, StatusBadge } from "@/components/ui/dash";
 import { BarList, Donut, FlowBars } from "@/components/ui/charts";
-import { fmtMoney, fmtMoneyCompactM } from "@/lib/format/money";
+import { currencyLabel, fmtMoneyCompactM, moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
-
-const fmt = fmtMoney;
 const fmtShort = (n: number) =>
   n >= 1_000_000
     ? `${fmtMoneyCompactM(n)}`
@@ -31,6 +29,11 @@ export default async function TreasuryPage(props: {
 }) {
   const tenant = await requireSchoolPermission("treasury.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
+  const cur = currencyLabel(school?.currency);
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) =>
     typeof sp[k] === "string" ? (sp[k] as string) : undefined;
@@ -294,7 +297,7 @@ export default async function TreasuryPage(props: {
           className="lg:col-span-2"
         >
           {dash.collectedByMethod.length ? (
-            <BarList items={dash.collectedByMethod} unit="FCFA" />
+            <BarList items={dash.collectedByMethod} unit={cur} />
           ) : (
             <EmptyState message="Aucun encaissement sur la période." />
           )}

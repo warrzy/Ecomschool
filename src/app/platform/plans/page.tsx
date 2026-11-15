@@ -47,8 +47,8 @@ export default async function PlansPage(props: {
             <input aria-label="Code" name="code" placeholder="Code" required className={input} />
             <input aria-label="Nom" name="name" placeholder="Nom" required className={input} />
             <input aria-label="Description" name="description" placeholder="Description" className={input} />
-            <input aria-label="Prix mensuel (XOF)" name="monthlyPrice" type="number" min="0" placeholder="Prix mensuel FCFA" required className={input} />
-            <input aria-label="Prix annuel (XOF)" name="yearlyPrice" type="number" min="0" placeholder="Prix annuel FCFA" required className={input} />
+            <input aria-label="Prix mensuel (XOF)" name="monthlyPrice" type="number" min="0" placeholder="Prix mensuel XOF" required className={input} />
+            <input aria-label="Prix annuel (XOF)" name="yearlyPrice" type="number" min="0" placeholder="Prix annuel XOF" required className={input} />
             <input aria-label="Nombre maximum d'élèves" name="maxStudents" type="number" min="0" placeholder="Max élèves" className={input} />
             <input aria-label="Nombre maximum d'utilisateurs" name="maxUsers" type="number" min="0" placeholder="Max utilisateurs" className={input} />
             <input aria-label="Jours d'essai" name="trialDays" type="number" min="0" placeholder="Essai (j)" className={input} />

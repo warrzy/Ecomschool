@@ -63,6 +63,12 @@ export function fmtMoneyCompactM(millions: number, locale = "fr-FR"): string {
   return `${millions.toLocaleString(locale, { maximumFractionDigits: 1 })} M`;
 }
 
+/** Symbole affiché d'une devise — pour les libellés (« Montant (FCFA) »). */
+export function currencyLabel(currency?: string | null): string {
+  const c = currency ?? "XOF";
+  return CURRENCY_DISPLAY[c] ?? c;
+}
+
 /** Fabrique un formateur lié à la devise/locale d'un établissement. */
 export function moneyFormatter(school: {
   currency?: string | null;
