@@ -203,6 +203,19 @@ async function main() {
   const bsOld = await balanceSheet(ctxOld, exOld.result.id);
   check("école legacy : bilan équilibré", bsOld.ok && bsOld.result.totalActif === bsOld.result.totalPassif);
 
+  // ========== C3e : délégués Prisma du script de purge prod-recette ==========
+  console.log("== C3e : délégués purge prod-recette ==");
+  // Couvre la correction accountingMapping → accountingAccountMap :
+  // les noms utilisés par la boucle deleteMany de prod-recette.ts doivent
+  // exister comme délégués — une renommée future de modèle doit échouer ici.
+  for (const m of ["accountingEntry", "accountingAccountMap", "accountingExercise", "accountingJournal", "accountingAccount"] as const)
+    check(`délégué prisma.${m} existe`, typeof (prisma[m] as unknown as { deleteMany?: unknown }).deleteMany === "function");
+  // Vérifie réellement que deleteMany par schoolId fonctionne sur le delegate
+  // corrigé (comportement exact du script de purge).
+  await prisma.accountingAccountMap.deleteMany({ where: { schoolId: ctxOld.schoolId } });
+  const mapsAfter = await prisma.accountingAccountMap.count({ where: { schoolId: ctxOld.schoolId } });
+  check("accountingAccountMap.deleteMany(schoolId) purge OK", mapsAfter === 0);
+
   console.log(`\n${pass} PASS, ${fail} FAIL`);
   if (fail > 0) process.exit(1);
 }
