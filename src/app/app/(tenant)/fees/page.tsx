@@ -8,10 +8,11 @@ import { generateChargesAction } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const METHOD_LABELS: Record<string, string> = {
   CASH: "Espèces",
   BANK_TRANSFER: "Virement",

@@ -118,12 +118,15 @@ export async function createIntentAction(formData: FormData) {
   const t = await requireSchoolPermission("mobilepayments.manage");
   const p = intentSchema.safeParse(Object.fromEntries(formData));
   if (!p.success) return back(`${BASE}?error=INVALID_INPUT`);
+  const school = await prisma.school.findUnique({
+    where: { id: t.schoolId }, select: { currency: true },
+  });
   const res = await createPaymentIntent(ctx(t), {
     studentId: p.data.studentId,
     academicYearId: p.data.academicYearId,
     providerId: p.data.providerId,
     amount: p.data.amount,
-    currency: "XOF",
+    currency: school?.currency ?? "XOF",
     payerPhone: p.data.payerPhone || null,
     channel: "ADMIN_TEST",
     idempotencyKey: p.data.idempotencyKey || undefined,

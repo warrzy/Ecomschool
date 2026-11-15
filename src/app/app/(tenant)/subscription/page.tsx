@@ -12,10 +12,11 @@ import { requestPlanChange } from "@/lib/services/platform/subscriptions";
 import { redirect } from "next/navigation";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { HelpLink, Notice, NoticeSection } from "@/components/ui/Notice";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const STATUS: Record<string, string> = {
   TRIALING: "Essai gratuit",
   ACTIVE: "Actif",

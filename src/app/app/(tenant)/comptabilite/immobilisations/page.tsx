@@ -1,5 +1,7 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
+import { prisma } from "@/lib/db/prisma";
+import { currencyLabel } from "@/lib/format/money";
 import { listAssets } from "@/lib/services/accounting/assets";
 import { listAccounts } from "@/lib/services/accounting";
 import { createAssetAction, runDepreciationAction, disposeAssetAction } from "../actions-immo";
@@ -13,6 +15,9 @@ export default async function ImmoPage(props: { searchParams: Promise<{ ok?: str
   const t = await requireSchoolPermission("accounting.read");
   const sp = await props.searchParams;
   const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const cur = currencyLabel(
+    (await prisma.school.findUnique({ where: { id: t.schoolId }, select: { currency: true } }))?.currency,
+  );
   const canManage = await userHasSchoolPermission({ ...ctx, permissionKey: "accounting.manage" });
   const [assets, accs] = await Promise.all([listAssets(ctx), listAccounts(ctx)]);
   const list = assets.ok ? assets.result : [];
@@ -63,12 +68,12 @@ export default async function ImmoPage(props: { searchParams: Promise<{ ok?: str
               <input required name="label" placeholder="Libellé" className={INP} />
               <div className="grid grid-cols-3 gap-2">
                 <input required name="acquisitionDate" type="date" className={INP} />
-                <input required name="acquisitionCost" type="number" min="1" placeholder="Coût FCFA" className={INP} />
+                <input required name="acquisitionCost" type="number" min="1" placeholder={`Coût ${cur}`} className={INP} />
                 <input required name="durationMonths" type="number" min="1" placeholder="Durée (mois)" className={INP} />
               </div>
-              <select required name="accountAssetId" className={INP}><option value="">Compte immobilisation (2x)</option>{accOpts}</select>
-              <select required name="accountDepreciationId" className={INP}><option value="">Compte amortissement (28x)</option>{accOpts}</select>
-              <select required name="accountChargeId" className={INP}><option value="">Compte dotation (68x)</option>{accOpts}</select>
+              <select required name="accountAssetId" className={INP}><option value="">Compte immobilisation</option>{accOpts}</select>
+              <select required name="accountDepreciationId" className={INP}><option value="">Compte amortissement</option>{accOpts}</select>
+              <select required name="accountChargeId" className={INP}><option value="">Compte dotation</option>{accOpts}</select>
               <button className={BTN} type="submit">Enregistrer</button>
             </form>
           </section>

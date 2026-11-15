@@ -283,7 +283,7 @@ export async function executeRefund(
       intent: {
         select: {
           id: true, providerRef: true, providerTxId: true,
-          sandboxScript: true, remoteEnv: true,
+          sandboxScript: true, remoteEnv: true, currency: true,
           provider: {
             select: {
               code: true, mode: true, status: true, remoteEnv: true,
@@ -339,7 +339,7 @@ export async function executeRefund(
         intentRef: refund.intent!.providerRef ?? refund.intent!.id,
         providerTxId: refund.intent!.providerTxId ?? "-",
         amount: refund.amount,
-        currency: "XOF",
+        currency: refund.intent!.currency,
         reason: refund.reason,
         idempotencyKey: `rf:${id}`,
         sandboxScript: refund.intent!.sandboxScript as SandboxScript | null,

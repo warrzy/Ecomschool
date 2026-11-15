@@ -165,13 +165,16 @@ export async function createParentPaymentIntent(
     return { ok: false, error: "PROVIDER_UNAVAILABLE" };
   }
 
+  const school = await prisma.school.findUnique({
+    where: { id: ctx.schoolId }, select: { currency: true },
+  });
   const res = await createPaymentIntent(ctx, {
     studentId: input.studentId,
     academicYearId: inst.academicYearId,
     providerId: provider.id,
     feeInstallmentId: inst.id,
     amount: input.amount,
-    currency: "XOF",
+    currency: school?.currency ?? "XOF",
     payerPhone: input.payerPhone ?? null,
     channel: "PARENT_PORTAL",
     allocations: [{ installmentId: inst.id, amount: input.amount }],

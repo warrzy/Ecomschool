@@ -1,5 +1,6 @@
 import type PDFKit from "pdfkit";
 import type { ReportSheet } from "@/lib/services/finance/reports";
+import { fmtMoney } from "@/lib/format/money";
 
 /**
  * Renderer PDF générique des rapports financiers (F3-D).
@@ -20,7 +21,7 @@ const fmtCell = (v: string | number | null) =>
   v == null
     ? ""
     : typeof v === "number"
-      ? `${v.toLocaleString("fr-FR")} FCFA`
+      ? `${fmtMoney(v)}`
       : v;
 
 export function renderFinanceReport(

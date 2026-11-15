@@ -19,6 +19,7 @@ import {
   Trail,
 } from "@/components/ui/decor";
 import { listPublicPlans } from "@/lib/services/platform/plans";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
   },
 };
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} F CFA`;
+const fmt = fmtMoney;
 
 function Icon(props: { d: string; className?: string }) {
   return (

@@ -17,16 +17,20 @@ import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { currencyLabel, moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
-
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
 
 export default async function FeeSettingsPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const tenant = await requireSchoolPermission("finance.configure");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
+  const cur = currencyLabel(school?.currency);
   const sp = (await props.searchParams) ?? {};
   const ok = typeof sp.ok === "string" ? sp.ok : undefined;
   const error = typeof sp.error === "string" ? sp.error : undefined;
@@ -196,7 +200,7 @@ export default async function FeeSettingsPage(props: {
                 <option key={cl.id} value={cl.id}>{cl.name}</option>
               ))}
             </select>
-            <input aria-label="Montant" name="amount" type="number" min="0" placeholder="Montant FCFA" required className={input} />
+            <input aria-label="Montant" name="amount" type="number" min="0" placeholder={`Montant ${cur}`} required className={input} />
             <select
                   aria-label="Plan de paiement" name="paymentPlan" className={input}>
               <option value="SINGLE">Paiement unique</option>

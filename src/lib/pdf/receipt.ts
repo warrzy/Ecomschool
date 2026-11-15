@@ -1,5 +1,6 @@
 import type PDFKit from "pdfkit";
 import { loadSchoolLogo } from "./report-card";
+import { fmtMoney } from "@/lib/format/money";
 
 export type ReceiptSnapshot = {
   receiptNumber: string;
@@ -38,7 +39,7 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 export function formatAmount(amount: number, currency = "XOF") {
-  return `${amount.toLocaleString("fr-FR")} ${currency === "XOF" ? "FCFA" : currency}`;
+  return fmtMoney(amount, { currency });
 }
 
 /**

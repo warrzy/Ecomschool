@@ -13,6 +13,7 @@ import {
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { fmtMoney } from "@/lib/format/money";
 import {
   addReenrollNoteAction,
   batchFinalizeReenrollAction,
@@ -529,7 +530,7 @@ export default async function ReinscriptionsPage(props: {
                 <p className="mt-1 text-xs text-zinc-600">Motif : {detail.decisionReason}</p>
               ) : null}
               {detail.unpaidBalance > 0 ? (
-                <p className="mt-1 text-xs text-amber-700">Solde impayé année source : {detail.unpaidBalance} FCFA</p>
+                <p className="mt-1 text-xs text-amber-700">Solde impayé année source : {fmtMoney(detail.unpaidBalance)}</p>
               ) : null}
               {detail.blockers.length ? (
                 <ul className="mt-2 space-y-1" aria-label="Blocages">

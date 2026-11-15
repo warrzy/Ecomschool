@@ -7,6 +7,7 @@ import {
   getPublicSchool,
 } from "@/lib/services/admissions";
 import ApplicationForm from "@/app/candidature/ui/application-form";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -45,7 +46,7 @@ export default async function CandidatureFormPage(props: {
           {campaign.applicationFee ? (
             <p className="mt-2 text-xs text-zinc-600">
               Frais de candidature :{" "}
-              {campaign.applicationFee.toLocaleString("fr-FR")} FCFA — à
+              {fmtMoney(campaign.applicationFee)} — à
               régler auprès de l&apos;établissement (aucun paiement en ligne
               à ce stade).
             </p>

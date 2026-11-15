@@ -55,6 +55,7 @@ import {
   refreshParentIntentAction,
 } from "./actions";
 import { listPublishedAnnouncements } from "@/lib/services/announcements";
+import { currencyLabel, moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -1024,7 +1025,6 @@ async function FinancesTab({
   pay?: string;
   intentId?: string;
 }) {
-  const fmtN = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
   const stLabel: Record<string, string> = {
     UPCOMING: "À venir",
     PARTIAL: "Partiel",
@@ -1032,8 +1032,13 @@ async function FinancesTab({
     LATE: "En retard",
   };
 
-  const f = await getChildFinances(ctx, studentId);
+  const [f, school] = await Promise.all([
+    getChildFinances(ctx, studentId),
+    prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { currency: true, locale: true } }),
+  ]);
   if (!f) return <Card><p className="text-sm text-red-700">Accès non autorisé.</p></Card>;
+  const fmtN = moneyFormatter(school ?? {});
+  const cur = currencyLabel(school?.currency);
 
   const [overview, providers, intents, tracking, payTarget] = await Promise.all([
     parentFinancesOverview(ctx),
@@ -1153,7 +1158,7 @@ async function FinancesTab({
                 </li>
                 <li>
                   <label className="block text-xs font-medium text-zinc-600">
-                    Montant à payer (FCFA)
+                    Montant à payer ({cur})
                     <input
                       name="amount" type="number" min={1} max={payTarget.remaining}
                       defaultValue={payTarget.remaining} required

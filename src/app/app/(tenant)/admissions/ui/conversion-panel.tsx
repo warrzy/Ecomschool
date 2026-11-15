@@ -5,6 +5,7 @@ import {
   liftConditionsAction,
 } from "@/app/app/(tenant)/admissions/actions";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { fmtMoney } from "@/lib/format/money";
 
 type Preview = NonNullable<Awaited<ReturnType<typeof previewConversion>>>;
 
@@ -24,7 +25,7 @@ const BLOCKER_LABELS: Record<string, string> = {
   classe_complete: "La classe présélectionnée est complète.",
 };
 
-const fmtAmount = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmtAmount = fmtMoney;
 
 /**
  * Parcours de conversion G2-D : prérequis, doublons, choix élève /

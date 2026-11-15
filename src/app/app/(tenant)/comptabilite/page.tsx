@@ -9,10 +9,11 @@ import {
   openExerciseAction, closeExerciseAction, generateAction, manualEntryAction,
   carryForwardAction, migrateAccrualAction,
 } from "./actions";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 
 const INPUT =
