@@ -1,4 +1,5 @@
 import { requireSchoolPermission } from "@/lib/permissions/guard";
+import { prisma } from "@/lib/db/prisma";
 import { KpiCard } from "@/components/ui/dash";
 import {
   listAccounts, listJournals, listMappings, listExercises,
@@ -9,11 +10,10 @@ import {
   openExerciseAction, closeExerciseAction, generateAction, manualEntryAction,
   carryForwardAction, migrateAccrualAction,
 } from "./actions";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 
 const INPUT =
@@ -26,6 +26,10 @@ export default async function ComptabilitePage(props: {
 }) {
   const t = await requireSchoolPermission("accounting.read");
   const ctx = { userId: t.userId, schoolId: t.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: t.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const sp = (await props.searchParams) ?? {};
   const exId = typeof sp.exercise === "string" ? sp.exercise : undefined;
   const can = (k: string) =>

@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   const [bs, is, ex, school] = await Promise.all([
     balanceSheet(ctx, exerciseId), incomeStatement(ctx, exerciseId),
     exerciseOf(ctx, exerciseId),
-    prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }),
+    prisma.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, currency: true } }),
   ]);
   if (!bs.ok || !is.ok || !ex) return new NextResponse("État indisponible", { status: 400 });
 
@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
     meta: [`Exercice : ${ex.name}`, `Total actif : ${bs.result.totalActif.toLocaleString("fr-FR")} — Total passif : ${bs.result.totalPassif.toLocaleString("fr-FR")}`, `Résultat : ${is.result.resultat.toLocaleString("fr-FR")}`],
     notes: ["Mapping par classes de comptes — à valider par le référent comptable."],
     sheets,
+    currency: school?.currency,
   });
   doc.end();
   const pdf = await done;

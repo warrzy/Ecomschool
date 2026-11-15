@@ -140,12 +140,16 @@ export async function recordManualMobileMoney(
   }
 
   try {
+    const school = await prisma.school.findUnique({
+      where: { id: ctx.schoolId }, select: { currency: true },
+    });
     const p = await prisma.payment.create({
       data: {
         schoolId: ctx.schoolId,
         studentId: input.studentId,
         academicYearId: input.academicYearId,
         amount: input.amount,
+        currency: school?.currency ?? "XOF",
         paidAt,
         method: "MOBILE_MONEY_MANUAL",
         status: "PENDING",

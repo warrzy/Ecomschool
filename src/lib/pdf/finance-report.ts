@@ -15,13 +15,14 @@ export type FinanceReportSnapshot = {
   meta: string[];
   notes: string[];
   sheets: ReportSheet[];
+  currency?: string;
 };
 
-const fmtCell = (v: string | number | null) =>
+const fmtCell = (v: string | number | null, currency: string) =>
   v == null
     ? ""
     : typeof v === "number"
-      ? `${fmtMoney(v)}`
+      ? `${fmtMoney(v, { currency })}`
       : v;
 
 export function renderFinanceReport(
@@ -104,7 +105,7 @@ export function renderFinanceReport(
       }
       row.forEach((v, i) => {
         const isAmount = /xof|montant|part/i.test(sheet.headers[i]);
-        doc.text(fmtCell(v), xs[i] + 2, y, {
+        doc.text(fmtCell(v, s.currency ?? "XOF"), xs[i] + 2, y, {
           width: widths[i] - 4,
           align: isAmount ? "right" : "left",
         });
@@ -121,7 +122,7 @@ export function renderFinanceReport(
       sheet.totals.forEach((v, i) => {
         if (i >= xs.length) return;
         const isAmount = /xof|montant|part/i.test(sheet.headers[i]);
-        doc.text(fmtCell(v), xs[i] + 2, y, {
+        doc.text(fmtCell(v, s.currency ?? "XOF"), xs[i] + 2, y, {
           width: widths[i] - 4,
           align: isAmount ? "right" : "left",
         });

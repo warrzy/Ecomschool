@@ -17,11 +17,10 @@ import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 const PAGE_SIZE = 50;
 const METHOD_LABELS: Record<string, string> = {
@@ -42,6 +41,10 @@ export default async function PaymentsJournalPage(props: {
 }) {
   const tenant = await requireSchoolPermission("finance.reports.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const ok = str("ok");

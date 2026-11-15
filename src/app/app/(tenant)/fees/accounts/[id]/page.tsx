@@ -15,11 +15,10 @@ import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 const INST_LABELS: Record<string, string> = {
   UPCOMING: "À venir",
@@ -62,6 +61,10 @@ export default async function StudentAccountPage(props: {
 }) {
   const tenant = await requireSchoolPermission("finance.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const { id } = await props.params;
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);

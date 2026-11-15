@@ -269,6 +269,7 @@ export async function postPaymentTx(
       studentId: input.studentId,
       academicYearId: input.academicYearId,
       amount: input.amount,
+      currency: input.school?.currency ?? "XOF",
       paidAt: input.paidAt,
       method: input.method,
       reference: input.reference?.trim() || null,

@@ -6,11 +6,10 @@ import { remindAction } from "@/app/app/(tenant)/fees/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { SubmitButton } from "@/components/ui/SubmitButton";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 
 export default async function UnpaidPage(props: {
@@ -18,6 +17,10 @@ export default async function UnpaidPage(props: {
 }) {
   const tenant = await requireSchoolPermission("finance.reports.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const ok = str("ok");

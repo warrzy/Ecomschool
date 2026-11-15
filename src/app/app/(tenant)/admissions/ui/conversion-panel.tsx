@@ -25,7 +25,7 @@ const BLOCKER_LABELS: Record<string, string> = {
   classe_complete: "La classe présélectionnée est complète.",
 };
 
-const fmtAmount = fmtMoney;
+const fmtAmount = (n: number, currency = "XOF") => fmtMoney(n, { currency });
 
 /**
  * Parcours de conversion G2-D : prérequis, doublons, choix élève /
@@ -36,6 +36,7 @@ export function ConversionPanel(props: {
   applicationId: string;
   preview: Preview;
   canDecide: boolean;
+  currency?: string;
 }) {
   const { preview: p } = props;
   const app = p.application;
@@ -113,7 +114,7 @@ export function ConversionPanel(props: {
       {p.campaign.applicationFee != null ? (
         <p className="mt-2 text-xs text-zinc-500">
           Frais de candidature déclarés :{" "}
-          {fmtAmount(p.campaign.applicationFee)} — encaissés au guichet,
+          {fmtAmount(p.campaign.applicationFee, props.currency)} — encaissés au guichet,
           non déduits automatiquement des créances générées.
         </p>
       ) : null}
@@ -134,7 +135,7 @@ export function ConversionPanel(props: {
           <ul className="mt-1 space-y-0.5 text-xs text-zinc-700">
             {p.chargesPreview.map((c, i) => (
               <li key={i}>
-                {c.category} — {fmtAmount(c.amount)}
+                {c.category} — {fmtAmount(c.amount, props.currency)}
                 {c.installments > 1 ? ` en ${c.installments} échéances` : ""}
               </li>
             ))}

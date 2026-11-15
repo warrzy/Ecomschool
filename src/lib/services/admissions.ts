@@ -353,7 +353,7 @@ export async function setCampaignStatus(
 export async function getPublicSchool(slug: string) {
   return prisma.school.findFirst({
     where: { slug, status: "ACTIVE" },
-    select: { id: true, name: true, slug: true, city: true },
+    select: { id: true, name: true, slug: true, city: true, currency: true, locale: true },
   });
 }
 

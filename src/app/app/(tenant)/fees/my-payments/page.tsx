@@ -4,11 +4,10 @@ import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { listPayments, paymentsStats } from "@/lib/services/finance/payments";
 import type { PaymentStatus } from "@prisma/client";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 const tstr = (d: Date) => d.toISOString().slice(11, 16);
 const METHOD_LABELS: Record<string, string> = {
@@ -29,6 +28,10 @@ export default async function MyPaymentsPage(props: {
   // sur l'utilisateur authentifié, sans paramètre navigateur.
   const tenant = await requireSchoolPermission("finance.receipts.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const canPrint = await userHasSchoolPermission({
     userId: tenant.userId,
     schoolId: tenant.schoolId,

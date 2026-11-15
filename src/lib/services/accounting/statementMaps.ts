@@ -74,15 +74,41 @@ export type StatementMappingResolution =
   | { ok: true; mapping: StatementMapping }
   | { ok: false; error: "STATEMENT_MAPPING_MISSING" | "STATEMENT_MAPPING_INVALID" };
 
+const VALID_SIDES = new Set(["debit", "credit"]);
+
+function isValidSection(s: unknown): s is StatementSectionDef {
+  const d = s as Partial<StatementSectionDef> | null;
+  if (!d || typeof d !== "object") return false;
+  if (typeof d.key !== "string" || !d.key.trim()) return false;
+  if (typeof d.label !== "string" || !d.label.trim()) return false;
+  // classes : tableau d'entiers positifs (chiffre de classe comptable,
+  // ex. 1-7 OHADA). Une section sans classes ne sélectionne rien et
+  // produirait un état trompeur.
+  if (!Array.isArray(d.classes) || d.classes.length === 0) return false;
+  if (!d.classes.every((c) => Number.isInteger(c) && c > 0 && c <= 99)) return false;
+  // Classe dupliquée dans la même section : elle serait agrégée deux fois.
+  if (new Set(d.classes).size !== d.classes.length) return false;
+  if (d.side !== "debit" && d.side !== "credit") return false;
+  if (d.sign !== undefined && !VALID_SIDES.has(d.sign)) return false;
+  return true;
+}
+
+function hasDuplicateKeys(sections: StatementSectionDef[]): boolean {
+  return new Set(sections.map((s) => s.key)).size !== sections.length;
+}
+
 function isValidMapping(m: unknown): m is StatementMapping {
   const c = m as Partial<StatementMapping> | null;
-  return !!(
-    c && typeof c === "object"
-    && Array.isArray(c.balanceSheet?.actif) && c.balanceSheet.actif.length > 0
-    && Array.isArray(c.balanceSheet?.passif) && c.balanceSheet.passif.length > 0
-    && Array.isArray(c.incomeStatement?.charges) && c.incomeStatement.charges.length > 0
-    && Array.isArray(c.incomeStatement?.produits) && c.incomeStatement.produits.length > 0
-  );
+  if (!c || typeof c !== "object") return false;
+  if (typeof c.framework !== "string" || !c.framework.trim()) return false;
+  const bs = c.balanceSheet, is = c.incomeStatement;
+  if (!bs || !is) return false;
+  const groups = [bs.actif, bs.passif, is.charges, is.produits];
+  if (!groups.every((g) => Array.isArray(g) && g.length > 0 && g.every(isValidSection)))
+    return false;
+  // Clés de rubrique uniques dans tout le mapping : une clé dupliquée
+  // rendrait l'agrégation par section ambiguë (deux lignes fusionnées).
+  return !hasDuplicateKeys(groups.flat() as StatementSectionDef[]);
 }
 
 /**

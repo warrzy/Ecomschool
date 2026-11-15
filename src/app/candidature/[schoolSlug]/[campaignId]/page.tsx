@@ -46,7 +46,7 @@ export default async function CandidatureFormPage(props: {
           {campaign.applicationFee ? (
             <p className="mt-2 text-xs text-zinc-600">
               Frais de candidature :{" "}
-              {fmtMoney(campaign.applicationFee)} — à
+              {fmtMoney(campaign.applicationFee, { currency: school.currency, locale: school.locale })} — à
               régler auprès de l&apos;établissement (aucun paiement en ligne
               à ce stade).
             </p>

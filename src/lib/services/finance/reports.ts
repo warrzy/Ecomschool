@@ -71,7 +71,6 @@ export type BuiltReport = {
 const MAX_ROWS = 50_000;
 const PAGE = 500;
 
-const fmtXof = fmtMoney;
 const iso = (d: Date | null | undefined) =>
   d ? d.toISOString().slice(0, 10) : "";
 
@@ -176,6 +175,12 @@ export async function buildReport(
   type: ReportType,
   filters: ReportFilters,
 ): Promise<BuiltReport> {
+  const school = await prisma.school.findUnique({
+    where: { id: ctx.schoolId },
+    select: { currency: true, locale: true },
+  });
+  const fmt = (n: number) =>
+    fmtMoney(n, { currency: school?.currency ?? "XOF", locale: school?.locale ?? "fr-FR" });
   const meta: string[] = [];
   if (filters.from || filters.to) {
     meta.push(
@@ -221,7 +226,7 @@ export async function buildReport(
         rowCount: payments.length,
         truncated,
         kpis: [
-          { label: "Encaissements validés", value: fmtXof(validatedTotal) },
+          { label: "Encaissements validés", value: fmt(validatedTotal) },
           { label: "Lignes", value: String(payments.length) },
           { label: "Annulés", value: String(cancelledCount) },
         ],
@@ -260,7 +265,7 @@ export async function buildReport(
         rowCount: rows.length,
         truncated,
         kpis: [
-          { label: "Décaissé", value: fmtXof(disbursed) },
+          { label: "Décaissé", value: fmt(disbursed) },
           { label: "Lignes", value: String(rows.length) },
         ],
       };
@@ -309,9 +314,9 @@ export async function buildReport(
         rowCount: summaryRows.length + monthRows.length,
         truncated: false,
         kpis: [
-          { label: "Encaissements validés", value: fmtXof(d.collectedTotal) },
-          { label: "Décaissé", value: fmtXof(d.disbursedTotal) },
-          { label: "Solde net", value: fmtXof(d.net) },
+          { label: "Encaissements validés", value: fmt(d.collectedTotal) },
+          { label: "Décaissé", value: fmt(d.disbursedTotal) },
+          { label: "Solde net", value: fmt(d.net) },
         ],
       };
     }
@@ -363,7 +368,7 @@ export async function buildReport(
         rowCount: rows.length + prevRows.length,
         truncated: false,
         kpis: [
-          { label: "Solde net", value: fmtXof(d.net) },
+          { label: "Solde net", value: fmt(d.net) },
           { label: "Opérations", value: String(d.collectedCount + d.disbursedCount) },
           { label: "Comparaison", value: prevRows.length ? "période précédente" : "—" },
         ],
@@ -419,7 +424,7 @@ export async function buildReport(
         rowCount: rows.length,
         truncated: false,
         kpis: [
-          { label: "Décaissé", value: fmtXof(total) },
+          { label: "Décaissé", value: fmt(total) },
           { label: "Catégories", value: String(rows.length) },
         ],
       };
@@ -465,7 +470,7 @@ export async function buildReport(
         rowCount: rows.length,
         truncated: false,
         kpis: [
-          { label: "Encaissé", value: fmtXof(total) },
+          { label: "Encaissé", value: fmt(total) },
           { label: "Modes", value: String(rows.length) },
         ],
       };

@@ -79,6 +79,9 @@ export default async function ReinscriptionsPage(props: {
 }) {
   const tenant = await requireSchoolPermission("reenrollments.read");
   const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
   const error = str("error");
@@ -530,7 +533,7 @@ export default async function ReinscriptionsPage(props: {
                 <p className="mt-1 text-xs text-zinc-600">Motif : {detail.decisionReason}</p>
               ) : null}
               {detail.unpaidBalance > 0 ? (
-                <p className="mt-1 text-xs text-amber-700">Solde impayé année source : {fmtMoney(detail.unpaidBalance)}</p>
+                <p className="mt-1 text-xs text-amber-700">Solde impayé année source : {fmtMoney(detail.unpaidBalance, { currency: school?.currency ?? "XOF", locale: school?.locale ?? "fr-FR" })}</p>
               ) : null}
               {detail.blockers.length ? (
                 <ul className="mt-2 space-y-1" aria-label="Blocages">

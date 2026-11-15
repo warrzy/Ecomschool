@@ -56,11 +56,14 @@ export function fmtMoney(n: number, opts: MoneyOptions = {}): string {
 }
 
 /**
- * Format compact en millions, suffixe « M » — usage KPI
- * (ex. `1,2 M`). Sans symbole devise : le contexte l'indique déjà.
+ * Format compact d'un MONTANT BRUT, exprimé en millions avec suffixe
+ * « M » — usage KPI (`1 234 567` → `1,2 M`, `-1 500 000` → `-1,5 M`).
+ * Contrat d'entrée : le paramètre est le montant en unité de devise
+ * (PAS une valeur déjà divisée par 1e6). Sans symbole devise : le
+ * contexte l'indique déjà.
  */
-export function fmtMoneyCompactM(millions: number, locale = "fr-FR"): string {
-  return `${millions.toLocaleString(locale, { maximumFractionDigits: 1 })} M`;
+export function fmtMoneyCompactM(amount: number, locale = "fr-FR"): string {
+  return `${(amount / 1_000_000).toLocaleString(locale, { maximumFractionDigits: 1 })} M`;
 }
 
 /** Symbole affiché d'une devise — pour les libellés (« Montant (FCFA) »). */

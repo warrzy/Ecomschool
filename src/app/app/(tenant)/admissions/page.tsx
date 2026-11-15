@@ -100,6 +100,9 @@ export default async function AdmissionsPage(props: {
 }) {
   const tenant = await requireSchoolPermission("admissions.read");
   const ctx = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true },
+  });
   const sp = (await props.searchParams) ?? {};
   const str = (k: string) =>
     typeof sp[k] === "string" ? (sp[k] as string) : undefined;
@@ -1074,6 +1077,7 @@ export default async function AdmissionsPage(props: {
               applicationId={detail.application.id}
               preview={conversion}
               canDecide={canDecide}
+              currency={school?.currency}
             />
           ) : null}
         </div>

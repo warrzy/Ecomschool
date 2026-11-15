@@ -152,9 +152,13 @@ export async function createFeeTariff(
     if (!cl) return { ok: false, error: "NOT_FOUND" };
   }
   try {
+    const school = await prisma.school.findUnique({
+      where: { id: ctx.schoolId }, select: { currency: true },
+    });
     const t = await prisma.feeTariff.create({
       data: {
         schoolId: ctx.schoolId,
+        currency: school?.currency ?? "XOF",
         academicYearId: input.academicYearId,
         categoryId: input.categoryId,
         levelId: input.levelId ?? null,
@@ -209,6 +213,7 @@ export async function updateFeeTariff(
       return tx.feeTariff.create({
         data: {
           schoolId: t.schoolId,
+          currency: t.currency,
           academicYearId: t.academicYearId,
           categoryId: t.categoryId,
           levelId: t.levelId,
