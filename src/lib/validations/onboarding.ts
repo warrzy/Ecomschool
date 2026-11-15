@@ -28,6 +28,15 @@ export const onboardingCreateSchoolSchema = z.object({
   startDate: z.string().min(4, "Date de début requise"),
   endDate: z.string().min(4, "Date de fin requise"),
   periodType: z.enum(["TRIMESTER", "SEMESTER"]),
+  // I18N-P0 — pays de l'établissement : détermine devise, locale,
+  // fuseau et référentiel par défaut. Code ISO alpha-2 du registre
+  // COUNTRY_DEFAULTS ; la devise est dérivée côté serveur (cohérence
+  // garantie par construction, jamais par le client).
+  country: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .length(2, "Pays : code ISO alpha-2 attendu"),
   adminEmail: z.string().trim().toLowerCase().email("Email de l'administrateur invalide"),
   adminPassword: passwordSchema,
   adminFirstName: z.string().trim().min(2, "Prénom : 2 caractères minimum"),

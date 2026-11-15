@@ -8,6 +8,7 @@ import {
 } from "@/lib/validations/onboarding";
 import { claimSignupRequestForConversion } from "@/lib/services/platform/signup-requests";
 import { hashPassword } from "@/lib/auth/password";
+import { countryDefaults } from "@/lib/config/countries";
 
 export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
   await requirePlatformPermission("platform.schools.manage");
@@ -24,6 +25,17 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
   }
 
   const input = parsed.data;
+
+  // I18N-P0 — le pays doit exister dans le registre et être disponible ;
+  // devise, locale et fuseau sont dérivés du registre (cohérence
+  // garantie : jamais d'école GH en XOF ni BF en EUR).
+  const country = countryDefaults(input.country);
+  if (!country) {
+    return { ok: false as const, error: "COUNTRY_UNKNOWN" as const, field: "country", message: "Pays inconnu du registre" };
+  }
+  if (!country.available) {
+    return { ok: false as const, error: "COUNTRY_UNAVAILABLE" as const, field: "country", message: "Ce pays n'est pas encore ouvert à la création" };
+  }
 
   // Contrôles de doublons explicites (contraintes uniques en base).
   const [codeTaken, slugTaken, emailTaken] = await Promise.all([
@@ -76,10 +88,10 @@ export async function createSchoolOnboarding(raw: OnboardingCreateSchoolInput) {
           phone: input.phone,
           email: input.email,
           website: input.website,
-          country: "BF",
-          currency: "XOF",
-          timezone: "Africa/Ouagadougou",
-          locale: "fr",
+          country: country.code,
+          currency: country.currency,
+          timezone: country.timezone,
+          locale: country.locale,
           status: "ACTIVE",
         },
         select: { id: true },

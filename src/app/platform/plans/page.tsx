@@ -5,10 +5,11 @@ import { listPlans } from "@/lib/services/platform/plans";
 import { listModules } from "@/lib/services/platform/modules";
 import { createPlanAction, updatePlanAction } from "@/app/platform/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 
 export default async function PlansPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

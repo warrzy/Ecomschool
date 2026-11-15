@@ -6,6 +6,7 @@ import {
 } from "@/lib/export/finance";
 import { getTreasuryDashboard } from "@/lib/services/finance/treasury";
 import type { ExpenseStatus, PaymentMethod } from "@prisma/client";
+import { fmtMoney } from "@/lib/format/money";
 
 /**
  * Rapports financiers — lecture seule, mêmes règles que F3-C :
@@ -70,7 +71,7 @@ export type BuiltReport = {
 const MAX_ROWS = 50_000;
 const PAGE = 500;
 
-const fmtXof = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmtXof = fmtMoney;
 const iso = (d: Date | null | undefined) =>
   d ? d.toISOString().slice(0, 10) : "";
 

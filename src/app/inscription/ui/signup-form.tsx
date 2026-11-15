@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { submitSignupRequest } from "@/app/inscription/actions";
+import { fmtMoney } from "@/lib/format/money";
 
 export type SignupPlanOption = {
   code: string;
@@ -144,7 +145,7 @@ export default function SignupForm(props: {
             <option value="">À définir avec ECOM-TOUCH</option>
             {props.plans.map((p) => (
               <option key={p.code} value={p.code}>
-                {p.name} — {p.monthlyPrice.toLocaleString("fr-FR")} F CFA/mois
+                {p.name} — {fmtMoney(p.monthlyPrice)}/mois
               </option>
             ))}
           </select>

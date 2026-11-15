@@ -4,10 +4,11 @@ import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { listPayments, paymentsStats } from "@/lib/services/finance/payments";
 import type { PaymentStatus } from "@prisma/client";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 const tstr = (d: Date) => d.toISOString().slice(11, 16);
 const METHOD_LABELS: Record<string, string> = {

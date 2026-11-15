@@ -11,10 +11,11 @@ import {
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const STATUS: Record<string, string> = {
   ISSUED: "Émise",
   PARTIALLY_PAID: "Partiellement payée",

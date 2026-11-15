@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { trialBalance } from "@/lib/services/accounting";
+import {
+  statementMappingFor,
+  type StatementSectionDef,
+} from "@/lib/services/accounting/statementMaps";
 
 type AcctResult<T> = { ok: true; result: T } | { ok: false; error: string };
 const ok = <T>(r: T): AcctResult<T> => ({ ok: true, result: r });
@@ -30,17 +34,36 @@ function rows(ctx: Ctx, exerciseId: string) {
     r.ok ? r.result.balance : Promise.reject(new Error(r.error)));
 }
 
+/** Évalue une section déclarative du mapping sur la balance. */
+function evalSection(
+  def: StatementSectionDef,
+  balance: { code: string; name: string; classNumber: number; debit: number; credit: number }[],
+): Section {
+  const lines = balance
+    .filter((r) => def.classes.includes(r.classNumber))
+    .map((r) => ({ ...r, solde: r.debit - r.credit }))
+    .filter((r) => (def.sign === "debit" ? r.solde > 0 : def.sign === "credit" ? r.solde < 0 : true))
+    .map((r) => ({ code: r.code, name: r.name, amount: def.side === "debit" ? r.solde : -r.solde }));
+  return sec(def.label, lines);
+}
+
+/** Mapping d'états de l'école (surcharge settings → OHADA par défaut). */
+async function mappingOf(ctx: Ctx) {
+  const school = await prisma.school.findUnique({
+    where: { id: ctx.schoolId }, select: { settings: true },
+  });
+  return statementMappingFor(school?.settings);
+}
+
 export async function incomeStatement(
   ctx: Ctx, exerciseId: string,
 ): Promise<AcctResult<{ charges: Section; produits: Section; resultat: number }>> {
   if (!(await has(ctx, "accounting.read"))) return err("FORBIDDEN");
-  const balance = await rows(ctx, exerciseId);
-  const charges = sec("Charges", balance
-    .filter((r) => r.classNumber === 6)
-    .map((r) => ({ code: r.code, name: r.name, amount: r.debit - r.credit })));
-  const produits = sec("Produits", balance
-    .filter((r) => r.classNumber === 7)
-    .map((r) => ({ code: r.code, name: r.name, amount: r.credit - r.debit })));
+  const [balance, mapping] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  const charges = sec("Charges", mapping.incomeStatement.charges
+    .flatMap((d) => evalSection(d, balance).lines));
+  const produits = sec("Produits", mapping.incomeStatement.produits
+    .flatMap((d) => evalSection(d, balance).lines));
   return ok({ charges, produits, resultat: produits.total - charges.total });
 }
 
@@ -48,19 +71,9 @@ export async function balanceSheet(
   ctx: Ctx, exerciseId: string,
 ): Promise<AcctResult<{ actif: Section[]; passif: Section[]; totalActif: number; totalPassif: number; resultat: number }>> {
   if (!(await has(ctx, "accounting.read"))) return err("FORBIDDEN");
-  const balance = await rows(ctx, exerciseId);
-  const net = balance.map((r) => ({ ...r, solde: r.debit - r.credit }));
-  const actif = [
-    sec("Actif immobilisé", net.filter((r) => r.classNumber === 2).map((r) => ({ code: r.code, name: r.name, amount: r.solde }))),
-    sec("Stocks", net.filter((r) => r.classNumber === 3).map((r) => ({ code: r.code, name: r.name, amount: r.solde }))),
-    sec("Tiers débiteurs", net.filter((r) => r.classNumber === 4 && r.solde > 0).map((r) => ({ code: r.code, name: r.name, amount: r.solde }))),
-    sec("Trésorerie actif", net.filter((r) => r.classNumber === 5 && r.solde > 0).map((r) => ({ code: r.code, name: r.name, amount: r.solde }))),
-  ];
-  const passif = [
-    sec("Capitaux propres", net.filter((r) => r.classNumber === 1).map((r) => ({ code: r.code, name: r.name, amount: -r.solde }))),
-    sec("Dettes", net.filter((r) => r.classNumber === 4 && r.solde < 0).map((r) => ({ code: r.code, name: r.name, amount: -r.solde }))),
-    sec("Trésorerie passif", net.filter((r) => r.classNumber === 5 && r.solde < 0).map((r) => ({ code: r.code, name: r.name, amount: -r.solde }))),
-  ];
+  const [balance, mapping] = await Promise.all([rows(ctx, exerciseId), mappingOf(ctx)]);
+  const actif = mapping.balanceSheet.actif.map((d) => evalSection(d, balance));
+  const passif = mapping.balanceSheet.passif.map((d) => evalSection(d, balance));
   const is = await incomeStatement(ctx, exerciseId);
   const resultat = is.ok ? is.result.resultat : 0;
   // Résultat : bénéfice côté passif (classe 13), perte côté actif — actif = passif garanti.

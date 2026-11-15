@@ -3,10 +3,11 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { listAccounts } from "@/lib/services/finance/accounts";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 
 export default async function AccountsPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;

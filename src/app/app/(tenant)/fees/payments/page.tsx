@@ -17,10 +17,11 @@ import type { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { okMessage } from "@/lib/ui/okLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const dstr = (d: Date) => d.toISOString().slice(0, 10);
 const PAGE_SIZE = 50;
 const METHOD_LABELS: Record<string, string> = {

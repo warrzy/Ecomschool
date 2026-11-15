@@ -8,7 +8,7 @@
  */
 import { prisma } from "@/lib/db/prisma";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
-import { postEntrySafe, openExercises, exerciseFor } from "@/lib/services/accounting";
+import { postEntrySafe, openExercises, exerciseFor, mapsByKey } from "@/lib/services/accounting";
 import { logAudit } from "@/lib/services/audit";
 import { Prisma } from "@prisma/client";
 
@@ -20,6 +20,26 @@ const has = (ctx: Ctx, k: string) => userHasSchoolPermission({ ...ctx, permissio
 
 const acc = (schoolId: string, code: string) =>
   prisma.accountingAccount.findFirst({ where: { schoolId, code }, select: { id: true } });
+
+/**
+ * I18N-P0 — résolution d'un rôle comptable de paie.
+ * Priorité à la clé sémantique `PAYROLL:*` (AccountingAccountMap) ; repli
+ * sur les codes OHADA historiques pour les plans installés avant la
+ * généralisation des clés — aucun plan existant n'est cassé.
+ */
+function payrollAccount(
+  maps: Map<string, { accountId: string }>,
+  schoolId: string,
+  key: string,
+  ...legacyCodes: string[]
+): Promise<{ id: string } | null> {
+  const mapped = maps.get(key);
+  if (mapped) return Promise.resolve({ id: mapped.accountId });
+  return legacyCodes.reduce<Promise<{ id: string } | null>>(
+    (p, code) => p.then((a) => a ?? acc(schoolId, code)),
+    Promise.resolve(null),
+  );
+}
 
 export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<Res<{ entryId: string }>> {
   if (!(await has(ctx, "payroll.manage"))) return err("FORBIDDEN");
@@ -34,10 +54,13 @@ export async function postPayrollToAccounting(ctx: Ctx, runId: string): Promise<
   const exercise = exerciseFor(exs, run.periodEnd);
   if (!exercise) return err("NO_OPEN_EXERCISE");
   const journal = await prisma.accountingJournal.findFirst({ where: { schoolId: ctx.schoolId, code: "OD" } });
+  const maps = await mapsByKey(ctx);
   const [c66, c422, c431, cAdv] = await Promise.all([
-    acc(ctx.schoolId, "66"), acc(ctx.schoolId, "422"), acc(ctx.schoolId, "431"),
-    // Avances et acomptes au personnel : 421 (plan de démarrage), 425 toléré.
-    acc(ctx.schoolId, "421").then((a) => a ?? acc(ctx.schoolId, "425")),
+    payrollAccount(maps, ctx.schoolId, "PAYROLL:EXPENSE", "66"),
+    payrollAccount(maps, ctx.schoolId, "PAYROLL:PAYABLE", "422"),
+    payrollAccount(maps, ctx.schoolId, "PAYROLL:SOCIAL", "431"),
+    // Avances : clé sémantique, puis 421 (plan de démarrage), 425 toléré.
+    payrollAccount(maps, ctx.schoolId, "PAYROLL:ADVANCES", "421", "425"),
   ]);
   if (!journal || !c66 || !c422 || !c431) return err("MISSING_ACCOUNTS");
 

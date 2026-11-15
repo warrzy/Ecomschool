@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createSchoolOnboarding } from "@/app/platform/onboarding/actions";
+import { availableCountries, countryDefaults } from "@/lib/config/countries";
 
 export type OnboardingDefaults = {
   name?: string;
@@ -21,6 +22,7 @@ export default function OnboardingSchoolForm(props: {
   };
 }) {
   const [loading, setLoading] = useState(false);
+  const [country, setCountry] = useState("BF");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [converted, setConverted] = useState<{
@@ -46,6 +48,7 @@ export default function OnboardingSchoolForm(props: {
       email: String(form.get("email") ?? "") || undefined,
       website: String(form.get("website") ?? "") || undefined,
       academicYearName: String(form.get("academicYearName") ?? ""),
+      country: String(form.get("country") ?? "BF"),
       startDate: String(form.get("startDate") ?? ""),
       endDate: String(form.get("endDate") ?? ""),
       periodType: (String(form.get("periodType") ?? "TRIMESTER") as
@@ -149,6 +152,28 @@ export default function OnboardingSchoolForm(props: {
               placeholder="wend-panga"
               required
             />
+          </div>
+          <div className="space-y-1">
+            <label htmlFor="school-country" className="text-sm font-medium text-zinc-800">Pays</label>
+            <select
+              id="school-country"
+              name="country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-brand-500 focus-visible:ring-2 focus-visible:ring-brand-200"
+              required
+            >
+              {availableCountries().map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name} — {c.currency}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-zinc-500">
+              Devise : {countryDefaults(country)?.currency} · Fuseau :{" "}
+              {countryDefaults(country)?.timezone} · Référentiel :{" "}
+              {countryDefaults(country)?.accountingFramework}
+            </p>
           </div>
           <div className="space-y-1">
             <label htmlFor="school-city" className="text-sm font-medium text-zinc-800">Ville</label>

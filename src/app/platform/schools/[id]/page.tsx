@@ -35,6 +35,7 @@ import { okMessage } from "@/lib/ui/okLabels";
 import { roleLabel } from "@/lib/ui/roleLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -55,7 +56,7 @@ const INV_STATUS: Record<string, string> = {
   CANCELLED: "Annulée",
 };
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 
 const TYPES = ["PRIMARY", "MIDDLE", "HIGH", "MIXED", "OTHER"] as const;
 const SYSTEMS = ["TRIMESTER", "SEMESTER", "OTHER"] as const;

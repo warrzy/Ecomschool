@@ -4,6 +4,7 @@ import { sweepSubscriptions } from "@/lib/services/platform/subscriptions";
 import { expireSupportSessions } from "@/lib/services/platform/support";
 import { registerJobHandler } from "@/lib/services/comm/queue";
 import { processDelivery } from "@/lib/services/comm/deliver";
+import { fmtMoney } from "@/lib/format/money";
 
 const day = () => new Date().toISOString().slice(0, 10);
 
@@ -205,7 +206,7 @@ export async function runSchoolAutomations(schoolId: string) {
             userIds,
             type: "FINANCE_REMINDER",
             title: `Rappel d'échéance — ${name}`,
-            body: `${remaining.toLocaleString("fr-FR")} FCFA dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
+            body: `${fmtMoney(remaining)} dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
             link: "/parent",
           });
         }
@@ -276,7 +277,7 @@ export async function runPlatformAutomations() {
         userIds: adminIds,
         type: "FINANCE_REMINDER",
         title: `Facture SaaS échue — ${inv.invoiceNumber}`,
-        body: `${inv.total.toLocaleString("fr-FR")} FCFA dus depuis le ${inv.dueDate.toISOString().slice(0, 10)}.`,
+        body: `${fmtMoney(inv.total)} dus depuis le ${inv.dueDate.toISOString().slice(0, 10)}.`,
         link: "/app/subscription",
       });
       await notifyUsers({
@@ -284,7 +285,7 @@ export async function runPlatformAutomations() {
         userIds: owners,
         type: "FINANCE_REMINDER",
         title: `Impayé SaaS — ${inv.school.name}`,
-        body: `${inv.invoiceNumber} · ${inv.total.toLocaleString("fr-FR")} FCFA · échue`,
+        body: `${inv.invoiceNumber} · ${fmtMoney(inv.total)} · échue`,
         link: "/platform/invoices",
       });
       invoiceAlerts++;

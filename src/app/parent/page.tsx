@@ -55,6 +55,7 @@ import {
   refreshParentIntentAction,
 } from "./actions";
 import { listPublishedAnnouncements } from "@/lib/services/announcements";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -1024,7 +1025,7 @@ async function FinancesTab({
   pay?: string;
   intentId?: string;
 }) {
-  const fmtN = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+  const fmtN = fmtMoney;
   const stLabel: Record<string, string> = {
     UPCOMING: "À venir",
     PARTIAL: "Partiel",

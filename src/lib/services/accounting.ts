@@ -78,6 +78,14 @@ export const SYSCOHADA_STARTER = {
     { key: "FALLBACK:CAT", account: "706", journal: "VE" },
     { key: "FALLBACK:EXPCAT", account: "605", journal: "OD" },
     { key: "FALLBACK:RECEIVABLE", account: "411", journal: "OD" },
+    // I18N-P0 — clés sémantiques de paie : le moteur ne cherche plus les
+    // codes SYSCOHADA (66/422/431/421) mais leur rôle comptable. Les
+    // codes ci-dessous sont la valeur OHADA par défaut ; une école peut
+    // remapper chaque rôle sur son propre plan sans toucher au moteur.
+    { key: "PAYROLL:EXPENSE", account: "66", journal: "OD" },
+    { key: "PAYROLL:PAYABLE", account: "422", journal: "OD" },
+    { key: "PAYROLL:SOCIAL", account: "431", journal: "OD" },
+    { key: "PAYROLL:ADVANCES", account: "421", journal: "OD" },
   ] as const,
 };
 

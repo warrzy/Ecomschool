@@ -5,6 +5,7 @@ import PublicFooter from "@/components/public-footer";
 import Reveal from "@/components/marketing/reveal";
 import { Sparkle } from "@/components/ui/decor";
 import { listPublicPlans } from "@/lib/services/platform/plans";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
     "Formules d'abonnement ECOM-SCHOOL : gestion scolaire complète pour votre établissement.",
 };
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} F CFA`;
+const fmt = fmtMoney;
 
 export default async function TarifsPage() {
   const plans = await listPublicPlans();

@@ -5,10 +5,11 @@ import { listInvoices, listUnpaidInvoices } from "@/lib/services/platform/billin
 import { cancelInvoiceAction } from "@/app/platform/actions";
 import { errorMessage } from "@/lib/ui/errorLabels";
 import { ConfirmPanel } from "@/components/ui/ConfirmPanel";
+import { fmtMoney } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const STATUS: Record<string, string> = {
   ISSUED: "Émise",
   PARTIALLY_PAID: "Partielle",

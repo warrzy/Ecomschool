@@ -6,13 +6,14 @@ import {
 } from "@/lib/services/finance/treasury";
 import { DashCard, EmptyState, KpiCard, StatusBadge } from "@/components/ui/dash";
 import { BarList, Donut, FlowBars } from "@/components/ui/charts";
+import { fmtMoney, fmtMoneyCompactM } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = (n: number) => `${n.toLocaleString("fr-FR")} FCFA`;
+const fmt = fmtMoney;
 const fmtShort = (n: number) =>
   n >= 1_000_000
-    ? `${(n / 1_000_000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} M`
+    ? `${fmtMoneyCompactM(n)}`
     : n >= 1_000
       ? `${Math.round(n / 1_000)} k`
       : `${n}`;
