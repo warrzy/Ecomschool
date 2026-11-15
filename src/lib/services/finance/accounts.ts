@@ -49,6 +49,7 @@ export async function generateCharges(
       levelId: true,
       classroomId: true,
       amount: true,
+      currency: true,
       paymentPlan: true,
       installmentCount: true,
       effectiveFrom: true,
@@ -100,6 +101,7 @@ type TariffForCharge = {
   levelId: string | null;
   classroomId: string | null;
   amount: number;
+  currency: string;
   installmentCount: number;
   effectiveFrom: Date;
 };
@@ -146,6 +148,7 @@ async function applyTariff(
         categoryId: t.categoryId,
         tariffId: t.id,
         amount: t.amount,
+        currency: t.currency,
       },
       select: { id: true },
     });
@@ -154,7 +157,7 @@ async function applyTariff(
       input.schoolId,
       input.studentId,
       input.academicYearId,
-      { amount: t.amount, count: t.installmentCount, from: t.effectiveFrom },
+      { amount: t.amount, currency: t.currency, count: t.installmentCount, from: t.effectiveFrom },
       db,
     );
     return "created";
@@ -170,7 +173,7 @@ async function applyTariff(
           categoryId: t.categoryId,
         },
       },
-      select: { id: true },
+      select: { id: true, currency: true },
     });
     if (
       charge &&
@@ -181,7 +184,7 @@ async function applyTariff(
         input.schoolId,
         input.studentId,
         input.academicYearId,
-        { amount: t.amount, count: t.installmentCount, from: t.effectiveFrom },
+        { amount: t.amount, currency: charge.currency, count: t.installmentCount, from: t.effectiveFrom },
         db,
       );
     }
@@ -245,6 +248,7 @@ export async function generateStudentCharges(
       levelId: true,
       classroomId: true,
       amount: true,
+      currency: true,
       installmentCount: true,
       effectiveFrom: true,
     },
@@ -359,7 +363,7 @@ async function createInstallments(
   schoolId: string,
   studentId: string,
   academicYearId: string,
-  opts: { amount: number; count: number; from: Date },
+  opts: { amount: number; currency?: string; count: number; from: Date },
   db: Prisma.TransactionClient | typeof prisma = prisma,
 ) {
   const n = Math.max(1, opts.count);
@@ -371,6 +375,7 @@ async function createInstallments(
     academicYearId,
     label: `Tranche ${i + 1}/${n}`,
     amount: i === n - 1 ? opts.amount - base * (n - 1) : base,
+    currency: opts.currency ?? "XOF",
     dueDate: new Date(
       Date.UTC(opts.from.getUTCFullYear(), opts.from.getUTCMonth() + i, 1),
     ),

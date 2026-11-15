@@ -139,7 +139,7 @@ export async function runSchoolAutomations(schoolId: string) {
       where: { schoolId, status: "ACTIVE", dueDate: { lte: in3d } },
       include: {
         student: { select: { firstName: true, lastName: true, userId: true } },
-        charge: { select: { amount: true } },
+        charge: { select: { amount: true, currency: true } },
         allocations: {
           where: { payment: { status: "VALIDATED" } },
           select: { amount: true },
@@ -206,7 +206,7 @@ export async function runSchoolAutomations(schoolId: string) {
             userIds,
             type: "FINANCE_REMINDER",
             title: `Rappel d'échéance — ${name}`,
-            body: `${fmtMoney(remaining)} dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
+            body: `${fmtMoney(remaining, { currency: inst.charge.currency })} dus le ${inst.dueDate.toISOString().slice(0, 10)}.`,
             link: "/parent",
           });
         }

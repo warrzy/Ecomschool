@@ -14,12 +14,11 @@ import {
   KpiCard,
 } from "@/components/ui/dash";
 import { BarList, Donut, TrendBars } from "@/components/ui/charts";
-import { fmtMoney, fmtMoneyCompactM } from "@/lib/format/money";
+import { fmtMoneyCompactM, moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
 const d = (v: Date | null) => (v ? v.toISOString().slice(0, 10) : "—");
-const fmt = fmtMoney;
 const fmtShort = (n: number) =>
   n >= 1_000_000
     ? `${fmtMoneyCompactM(n)}`
@@ -49,6 +48,10 @@ const I = {
 
 export default async function DashboardPage() {
   const tenant = await requireSchoolContext();
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const dash = await getSchoolDashboard({ schoolId: tenant.schoolId });
   const canViewAttendance = await userHasSchoolPermission({
     userId: tenant.userId,

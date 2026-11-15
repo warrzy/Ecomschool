@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
   if (format === "pdf") {
     const school = await prisma.school.findUnique({
       where: { id: tenant.schoolId },
-      select: { name: true },
+      select: { name: true, currency: true },
     });
     const doc = new PDFDocument({ size: "A4", layout: "landscape", margin: 36, bufferPages: true });
     const chunks: Buffer[] = [];
@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
       meta: report.meta,
       notes: report.notes,
       sheets: report.sheets,
+      currency: school?.currency,
     });
     doc.end();
     const pdf = await done;

@@ -3,17 +3,20 @@ import { requireSchoolPermission } from "@/lib/permissions/guard";
 import { userHasSchoolPermission } from "@/lib/permissions/rbac";
 import { prisma } from "@/lib/db/prisma";
 import { listAccounts } from "@/lib/services/finance/accounts";
-import { fmtMoney } from "@/lib/format/money";
+import { moneyFormatter } from "@/lib/format/money";
 
 export const instant = false;
 
-const fmt = fmtMoney;
 
 export default async function AccountsPage(props: {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const tenant = await requireSchoolPermission("finance.read");
   const c = { userId: tenant.userId, schoolId: tenant.schoolId };
+  const school = await prisma.school.findUnique({
+    where: { id: tenant.schoolId }, select: { currency: true, locale: true },
+  });
+  const fmt = moneyFormatter(school ?? {});
   const canReport = await userHasSchoolPermission({
     userId: tenant.userId,
     schoolId: tenant.schoolId,

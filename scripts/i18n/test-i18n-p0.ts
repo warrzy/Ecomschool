@@ -31,7 +31,12 @@ async function main() {
   check("fmtMoney GHS", fmtMoney(12345, { currency: "GHS" }) === `${(12345).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} GH₵`);
   check("fmtMoney EUR (2 décimales)", fmtMoney(1000, { currency: "EUR" }) === `${(1000).toLocaleString("fr-FR", { minimumFractionDigits: 2 })} €`);
   check("fmtMoney NGN", fmtMoney(500, { currency: "NGN" }) === `500,00 ₦`);
-  check("fmtMoneyCompactM", fmtMoneyCompactM(1.2345) === "1,2 M");
+  // fmtMoneyCompactM : contrat = MONTANT BRUT en entrée → « x M ».
+  check("compactM < 1 M", fmtMoneyCompactM(500_000) === "0,5 M");
+  check("compactM = 1 M", fmtMoneyCompactM(1_000_000) === "1 M");
+  check("compactM > 1 M", fmtMoneyCompactM(1_234_567) === "1,2 M");
+  check("compactM négatif", fmtMoneyCompactM(-1_500_000) === "-1,5 M");
+  check("compactM petit montant", fmtMoneyCompactM(999) === "0 M");
   check("moneyFormatter école GHS", moneyFormatter({ currency: "GHS", locale: "en-GH" })(999) === `${(999).toLocaleString("en-GH", { minimumFractionDigits: 2 })} GH₵`);
   check("moneyFormatter défaut école", moneyFormatter({})(5000) === oldFmt(5000));
   // Montants négatifs multi-devises
@@ -215,6 +220,100 @@ async function main() {
   await prisma.accountingAccountMap.deleteMany({ where: { schoolId: ctxOld.schoolId } });
   const mapsAfter = await prisma.accountingAccountMap.count({ where: { schoolId: ctxOld.schoolId } });
   check("accountingAccountMap.deleteMany(schoolId) purge OK", mapsAfter === 0);
+
+  // ========== C7 : propagation devise — tarifs, dépenses, paiements, reçus ==========
+  console.log("== C7 : propagation devise multi-pays ==");
+  const { createFeeTariff } = await import("@/lib/services/finance/fees");
+  const { createExpense, createExpenseCategory } = await import("@/lib/services/finance/expenses");
+  const { postPaymentTx } = await import("@/lib/services/finance/payments");
+  const { formatAmount } = await import("@/lib/pdf/receipt");
+
+  const mkYear = async (ctx: { schoolId: string }) =>
+    prisma.academicYear.create({
+      data: { schoolId: ctx.schoolId, name: "2026-2027", startDate: new Date("2026-09-01"), endDate: new Date("2027-06-30") },
+    });
+
+  for (const [tag, ccy] of [["BF", "XOF"], ["GH", "GHS"], ["NG", "NGN"], ["FR", "EUR"]] as const) {
+    const d = countryDefaults(tag)!;
+    const ctx = await mk(`C${tag}`, [], { country: tag, currency: ccy, locale: d.locale, timezone: d.timezone });
+    const year = await mkYear(ctx);
+    // Tarif de frais → devise de l'établissement.
+    const fc = await prisma.feeCategory.create({ data: { schoolId: ctx.schoolId, code: `SCO-${tag}`, label: "Scolarité" } });
+    const t = await createFeeTariff(ctx, { academicYearId: year.id, categoryId: fc.id, amount: 120000 });
+    check(`tarif ${tag} créé`, t.ok);
+    const tariff = t.ok ? await prisma.feeTariff.findUnique({ where: { id: t.result.id }, select: { currency: true } }) : null;
+    check(`tarif ${tag} → ${ccy}`, tariff?.currency === ccy);
+    // Dépense → devise de l'établissement.
+    const ec = await createExpenseCategory(ctx, { code: "OPS", label: "Fonctionnement" });
+    check(`cat. dépense ${tag} créée`, ec.ok);
+    const exp = ec.ok ? await createExpense(ctx, { categoryId: ec.result.id, label: "Fournitures", amount: 10000, beneficiary: "Fournisseur" }) : { ok: false as const };
+    check(`dépense ${tag} créée`, exp.ok);
+    const expense = exp.ok ? await prisma.expense.findUnique({ where: { id: exp.result.id }, select: { currency: true } }) : null;
+    check(`dépense ${tag} → ${ccy}`, expense?.currency === ccy);
+  }
+
+  // Chaîne complète GH : charge → échéance → postPaymentTx → Payment + reçu en GHS.
+  const dGH = countryDefaults("GH")!;
+  const ctxGHp = await mk("PGH", [], { country: "GH", currency: "GHS", locale: dGH.locale, timezone: dGH.timezone });
+  const yearGHp = await mkYear(ctxGHp);
+  const fcGH = await prisma.feeCategory.create({ data: { schoolId: ctxGHp.schoolId, code: "SCO-P", label: "Scolarité" } });
+  const stuGH = await prisma.student.create({ data: { schoolId: ctxGHp.schoolId, matricule: `PGH${ts}`, firstName: "Ama", lastName: "Mensah" } });
+  const chargeGH = await prisma.studentFeeCharge.create({
+    data: { schoolId: ctxGHp.schoolId, studentId: stuGH.id, academicYearId: yearGHp.id, categoryId: fcGH.id, amount: 50000, currency: "GHS" },
+  });
+  await prisma.feeInstallment.create({
+    data: { schoolId: ctxGHp.schoolId, chargeId: chargeGH.id, studentId: stuGH.id, academicYearId: yearGHp.id, dueDate: new Date("2026-10-01"), amount: 50000, currency: "GHS" },
+  });
+  const payRes = await prisma.$transaction(async (tx) => postPaymentTx(tx, {
+    ctx: ctxGHp, studentId: stuGH.id, academicYearId: yearGHp.id,
+    amount: 50000, paidAt: new Date("2026-10-02"), method: "CASH",
+    student: { matricule: stuGH.matricule, firstName: stuGH.firstName, lastName: stuGH.lastName, enrollments: [] },
+    yearName: yearGHp.name,
+    school: { name: "GH School", logoUrl: null, address: null, city: null, phone: null, currency: "GHS" },
+    agent: null,
+  }));
+  const payGH = await prisma.payment.findUnique({ where: { id: payRes.id }, select: { currency: true, receiptSnapshot: true } });
+  check("paiement GH → GHS", payGH?.currency === "GHS");
+  check("reçu GH snapshot → GHS", (payGH?.receiptSnapshot as { currency?: string } | null)?.currency === "GHS");
+  check("formatAmount reçu GHS", formatAmount(50000, "GHS") === fmtMoney(50000, { currency: "GHS" }));
+  check("formatAmount reçu XOF inchangé", formatAmount(50000, "XOF") === oldFmt(50000));
+
+  // ========== C8 : validation structurelle/sémantique des mappings ==========
+  console.log("== C8 : validation mapping stricte ==");
+  const deep = (o: unknown) => JSON.parse(JSON.stringify(o));
+  const probe = { country: "GH", settings: {} as Record<string, unknown> };
+  const resolve = (m: unknown) =>
+    statementMappingFor({ ...probe, settings: { statementMapping: m } });
+  check("mapping OHADA valide → utilisé", resolve(OHADA_STATEMENT_MAPPING).ok);
+  type LooseSec = { [k: string]: unknown };
+  type LooseMapping = {
+    framework?: unknown;
+    incomeStatement: { charges: LooseSec[]; produits: LooseSec[] };
+    balanceSheet: { actif: LooseSec[]; passif: LooseSec[] };
+  };
+  const bad: [string, (m: LooseMapping) => void][] = [
+    ["side invalide", (m) => { m.balanceSheet.actif[0].side = "left"; }],
+    ["sign invalide", (m) => { m.balanceSheet.actif[2].sign = "both"; }],
+    ["classes vide", (m) => { m.incomeStatement.charges[0].classes = []; }],
+    ["classe non-entier", (m) => { m.incomeStatement.charges[0].classes = [6.5]; }],
+    ["classe hors plage", (m) => { m.incomeStatement.charges[0].classes = [0]; }],
+    ["classes dupliquées", (m) => { m.incomeStatement.charges[0].classes = [6, 6]; }],
+    ["key vide", (m) => { m.balanceSheet.actif[0].key = "  "; }],
+    ["label manquant", (m) => { delete m.balanceSheet.actif[0].label; }],
+    ["section vide", (m) => { m.balanceSheet.actif = []; }],
+    ["clés dupliquées", (m) => { m.balanceSheet.actif[1].key = m.balanceSheet.actif[0].key; }],
+    ["framework manquant", (m) => { delete m.framework; }],
+    ["section non-objet", (m) => { (m.balanceSheet.passif as unknown[])[0] = "x"; }],
+  ];
+  for (const [label, mutate] of bad) {
+    const m = deep(OHADA_STATEMENT_MAPPING);
+    mutate(m);
+    const r = resolve(m);
+    check(`mapping ${label} → INVALID`, !r.ok && r.error === "STATEMENT_MAPPING_INVALID");
+  }
+  // Sur une école OHADA, un mapping invalide retombe sur le défaut OHADA (pas INVALID).
+  const rBfFallback = statementMappingFor({ country: "BF", settings: { statementMapping: { bogus: true } } });
+  check("école OHADA + mapping invalide → repli OHADA", rBfFallback.ok);
 
   console.log(`\n${pass} PASS, ${fail} FAIL`);
   if (fail > 0) process.exit(1);

@@ -194,9 +194,13 @@ export async function createExpense(
   }
 
   try {
+    const school = await prisma.school.findUnique({
+      where: { id: ctx.schoolId }, select: { currency: true },
+    });
     const e = await prisma.expense.create({
       data: {
         schoolId: ctx.schoolId,
+        currency: school?.currency ?? "XOF",
         categoryId: input.categoryId,
         academicYearId: input.academicYearId ?? null,
         label: input.label.trim(),

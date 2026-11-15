@@ -74,7 +74,7 @@ export default async function CandidatureSchoolPage(props: {
               ) : null}
               {c.applicationFee ? (
                 <p className="mt-2 text-xs text-zinc-600">
-                  Frais de candidature : {fmtMoney(c.applicationFee)} — à régler auprès de l&apos;établissement.
+                  Frais de candidature : {fmtMoney(c.applicationFee, { currency: school.currency, locale: school.locale })} — à régler auprès de l&apos;établissement.
                 </p>
               ) : null}
               {c.accepting ? (

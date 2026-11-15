@@ -4109,6 +4109,7 @@ model LeaveRule {
   updatedAt DateTime @updatedAt
 
   @@unique([schoolId, type])
+  @@index([schoolId])
 }
 
 /** Solde de congés par employé, année et type (en jours). */
