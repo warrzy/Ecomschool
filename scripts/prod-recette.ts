@@ -10,7 +10,7 @@ import {
 const TAG = "[RECETTE]";
 let pass = 0, fail = 0;
 const ok = (c: boolean, l: string) => { c ? (pass++, console.log("PASS", l)) : (fail++, console.log("FAIL", l)); };
-const err = (r: any) => (r && r.ok === false ? r.error : null);
+const err = (r: { ok: boolean; error?: string } | null | undefined) => (r && r.ok === false ? r.error : null);
 const ids: string[] = [];
 
 async function main() {
@@ -28,9 +28,9 @@ async function main() {
   ok(adm.ok, "admin école A créé");
 
   const student = await prisma.student.create({ data: {
-    schoolId: schoolA.id, firstName: "Etu", lastName: "Recette", matricule: "REC-001" } as any });
+    schoolId: schoolA.id, firstName: "Etu", lastName: "Recette", matricule: "REC-001" } });
   const teacher = await prisma.teacher.create({ data: {
-    schoolId: schoolA.id, firstName: "Prof", lastName: "Recette" } as any });
+    schoolId: schoolA.id, firstName: "Prof", lastName: "Recette" } });
   ok(!!student.id && !!teacher.id, "élève + enseignant créés");
 
   const cross = await prisma.student.count({ where: { schoolId: schoolB.id } });
@@ -48,13 +48,13 @@ async function main() {
   const accA = await listAccounts(ctxAdm);
   ok(accA.ok && accA.result.length >= 10, `${accA.ok ? accA.result.length : 0} comptes`);
 
-  const ex = await openExercise(ctxAdm, { name: "Exercice recette", startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") } as any);
+  const ex = await openExercise(ctxAdm, { name: "Exercice recette", startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") });
   ok(err(ex) == null, "exercice ouvert");
   const exId = ex.ok ? ex.result.id : "";
   const jr = await listJournals(ctxAdm);
-  const od = jr.ok ? jr.result.find((j: any) => j.code === "OD") : null;
+  const od = jr.ok ? jr.result.find((j) => j.code === "OD") : null;
   const accs = accA.ok ? accA.result : [];
-  const a571 = accs.find((a: any) => a.code === "571"), a706 = accs.find((a: any) => a.code === "706");
+  const a571 = accs.find((a) => a.code === "571"), a706 = accs.find((a) => a.code === "706");
   const entry = await createManualEntry(ctxAdm, {
     journalId: od!.id, exerciseId: exId, date: new Date("2026-06-01"),
     description: `${TAG} écriture test`,
@@ -65,8 +65,8 @@ async function main() {
   ok(ent.ok && ent.result.length >= 1 && ent.result[0].reference.startsWith("EC-"), "écriture EC- visible");
 
   await prisma.accountingEntryLine.deleteMany({ where: { entry: { schoolId: schoolA.id } } });
-  for (const m of ["accountingEntry","accountingMapping","accountingExercise","accountingJournal","accountingAccount"] as const)
-    await (prisma as any)[m].deleteMany({ where: { schoolId: schoolA.id } });
+  for (const m of ["accountingEntry","accountingAccountMap","accountingExercise","accountingJournal","accountingAccount"] as const)
+    await (prisma[m] as unknown as { deleteMany: (a: { where: { schoolId: string } }) => Promise<unknown> }).deleteMany({ where: { schoolId: schoolA.id } });
   await prisma.user.deleteMany({ where: { email: { contains: "rec-a@test" } } });
   await prisma.student.deleteMany({ where: { schoolId: { in: ids } } });
   await prisma.teacher.deleteMany({ where: { schoolId: { in: ids } } });
