@@ -10,6 +10,19 @@ jobs:
   check:
     name: Typecheck, lint, build
     runs-on: ubuntu-latest
+    services:
+      # Requis par le build : les pages publiques (accueil, /tarifs) sont
+      # prerendues et interrogent la base (listPublicPlans).
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,8 +38,14 @@ jobs:
         env:
           # Requis par prisma.config.ts (env("DATABASE_URL")) — la valeur n'est pas utilisée par generate.
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      - name: Types Next.js generes (requis par tsc — LayoutProps/RouteContext)
+        run: npx next typegen
       - run: npm run typecheck
       - run: npm run lint
+      - name: Schema de la base du build (pages prerendues)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       - name: Build
         run: npm run build
         env:
